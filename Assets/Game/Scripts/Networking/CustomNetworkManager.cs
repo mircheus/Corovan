@@ -1,58 +1,53 @@
 using UnityEngine;
+using Mirror;
 
 namespace FPSGame.Networking
 {
-    /// <summary>
-    /// Placeholder for custom network manager.
-    /// Will extend Mirror's NetworkManager in Phase 2.
-    /// </summary>
-    public class CustomNetworkManager : MonoBehaviour
+    public class CustomNetworkManager : NetworkManager
     {
-        [Header("Player Settings")]
-        [SerializeField] private GameObject playerPrefab;
+        [Header("Spawn Settings")]
         [SerializeField] private Transform[] spawnPoints;
-
-        [Header("Network Settings")]
-        [SerializeField] private int maxPlayers = 16;
-        [SerializeField] private string networkAddress = "localhost";
-        [SerializeField] private ushort networkPort = 7777;
 
         private int currentSpawnIndex;
 
-        public int MaxPlayers => maxPlayers;
-        public string NetworkAddress => networkAddress;
-        public ushort NetworkPort => networkPort;
-
-        /// <summary>
-        /// Will be called by Mirror when hosting a game.
-        /// </summary>
-        public void StartHost()
+        public override void OnStartServer()
         {
-            Debug.Log("StartHost called - Mirror not yet integrated");
-            // Placeholder - will call base.StartHost() in Phase 2
+            base.OnStartServer();
+            Debug.Log("Server started");
         }
 
-        /// <summary>
-        /// Will be called by Mirror when joining a game.
-        /// </summary>
-        public void StartClient()
+        public override void OnStopServer()
         {
-            Debug.Log($"StartClient called - connecting to {networkAddress}:{networkPort}");
-            // Placeholder - will call base.StartClient() in Phase 2
+            base.OnStopServer();
+            Debug.Log("Server stopped");
         }
 
-        /// <summary>
-        /// Will be called by Mirror when stopping.
-        /// </summary>
-        public void StopHost()
+        public override void OnClientConnect()
         {
-            Debug.Log("StopHost called");
-            // Placeholder - will call base.StopHost() in Phase 2
+            base.OnClientConnect();
+            Debug.Log("Connected to server");
         }
 
-        /// <summary>
-        /// Gets the next spawn point using round-robin selection.
-        /// </summary>
+        public override void OnClientDisconnect()
+        {
+            base.OnClientDisconnect();
+            Debug.Log("Disconnected from server");
+        }
+
+        public override void OnServerAddPlayer(NetworkConnectionToClient conn)
+        {
+            Transform spawnPoint = GetNextSpawnPoint();
+            GameObject player = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+            NetworkServer.AddPlayerForConnection(conn, player);
+            Debug.Log($"Player spawned at: {spawnPoint.position}");
+        }
+
+        public override void OnServerDisconnect(NetworkConnectionToClient conn)
+        {
+            base.OnServerDisconnect(conn);
+            Debug.Log("Player disconnected from server");
+        }
+
         public Transform GetNextSpawnPoint()
         {
             if (spawnPoints == null || spawnPoints.Length == 0)
@@ -65,23 +60,9 @@ namespace FPSGame.Networking
             return spawnPoint;
         }
 
-        /// <summary>
-        /// Will be overridden from NetworkManager.OnServerAddPlayer
-        /// </summary>
-        public void OnServerAddPlayer(/* NetworkConnectionToClient conn */)
+        public void ResetSpawnIndex()
         {
-            Transform spawnPoint = GetNextSpawnPoint();
-            // Placeholder - will instantiate and spawn player with Mirror
-            Debug.Log($"Player would spawn at: {spawnPoint.position}");
-        }
-
-        /// <summary>
-        /// Will be overridden from NetworkManager.OnServerDisconnect
-        /// </summary>
-        public void OnServerDisconnect(/* NetworkConnectionToClient conn */)
-        {
-            Debug.Log("Player disconnected from server");
-            // Placeholder - will handle cleanup in Phase 2
+            currentSpawnIndex = 0;
         }
     }
 }

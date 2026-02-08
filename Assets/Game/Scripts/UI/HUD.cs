@@ -46,7 +46,7 @@ namespace FPSGame.UI
 
             if (playerShooting != null)
             {
-                playerShooting.OnAmmoChanged += UpdateAmmoUI;
+                playerShooting.OnAmmoChangedEvent += UpdateAmmoUI;
                 playerShooting.OnReloadStarted += ShowReloading;
                 playerShooting.OnReloadFinished += HideReloading;
             }
@@ -158,7 +158,7 @@ namespace FPSGame.UI
 
             if (playerShooting != null)
             {
-                playerShooting.OnAmmoChanged += UpdateAmmoUI;
+                playerShooting.OnAmmoChangedEvent += UpdateAmmoUI;
                 playerShooting.OnReloadStarted += ShowReloading;
                 playerShooting.OnReloadFinished += HideReloading;
             }
@@ -173,7 +173,7 @@ namespace FPSGame.UI
 
             if (playerShooting != null)
             {
-                playerShooting.OnAmmoChanged -= UpdateAmmoUI;
+                playerShooting.OnAmmoChangedEvent -= UpdateAmmoUI;
                 playerShooting.OnReloadStarted -= ShowReloading;
                 playerShooting.OnReloadFinished -= HideReloading;
             }

@@ -2,8 +2,10 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.InputSystem;
+using Mirror;
 using FPSGame.Player;
 using FPSGame.Weapons;
+using kcp2k;
 
 namespace FPSGame.Editor
 {
@@ -16,6 +18,13 @@ namespace FPSGame.Editor
             GameObject player = new GameObject("Player");
             player.layer = LayerMask.NameToLayer("Player");
             player.tag = "Player";
+
+            // Add NetworkIdentity first (required for Mirror)
+            NetworkIdentity networkIdentity = player.AddComponent<NetworkIdentity>();
+
+            // Add NetworkTransform for position/rotation sync
+            NetworkTransformUnreliable networkTransform = player.AddComponent<NetworkTransformUnreliable>();
+            networkTransform.syncDirection = SyncDirection.ClientToServer;
 
             // Add CharacterController
             CharacterController cc = player.AddComponent<CharacterController>();
@@ -34,14 +43,15 @@ namespace FPSGame.Editor
             GameObject cameraGO = new GameObject("PlayerCamera");
             cameraGO.transform.SetParent(cameraHolder.transform);
             cameraGO.transform.localPosition = Vector3.zero;
-            cameraGO.tag = "MainCamera";
 
             Camera cam = cameraGO.AddComponent<Camera>();
             cam.fieldOfView = 90;
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 1000f;
+            cam.enabled = false; // Disabled by default, enabled for local player
 
-            cameraGO.AddComponent<AudioListener>();
+            AudioListener audioListener = cameraGO.AddComponent<AudioListener>();
+            audioListener.enabled = false; // Disabled by default, enabled for local player
 
             // Create weapon holder
             GameObject weaponHolder = new GameObject("WeaponHolder");
@@ -55,6 +65,7 @@ namespace FPSGame.Editor
             SerializedObject pcSO = new SerializedObject(playerCamera);
             pcSO.FindProperty("playerBody").objectReferenceValue = player.transform;
             pcSO.FindProperty("playerCamera").objectReferenceValue = cam;
+            pcSO.FindProperty("audioListener").objectReferenceValue = audioListener;
             pcSO.ApplyModifiedProperties();
 
             player.AddComponent<PlayerHealth>();
@@ -69,6 +80,7 @@ namespace FPSGame.Editor
 
             // Add PlayerInput component
             PlayerInput playerInput = player.AddComponent<PlayerInput>();
+            playerInput.enabled = false; // Disabled by default, enabled for local player
 
             // Try to find and assign the input actions asset
             string[] guids = AssetDatabase.FindAssets("InputSystem_Actions t:InputActionAsset");
@@ -84,8 +96,8 @@ namespace FPSGame.Editor
             }
 
             // Save as prefab
-            string prefabPath = "Assets/Prefabs/Player/Player.prefab";
-            EnsureDirectoryExists("Assets/Prefabs/Player");
+            string prefabPath = "Assets/Game/Prefabs/Player/Player.prefab";
+            EnsureDirectoryExists("Assets/Game/Prefabs/Player");
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(player, prefabPath);
             Object.DestroyImmediate(player);
@@ -126,8 +138,8 @@ namespace FPSGame.Editor
 
             so.ApplyModifiedProperties();
 
-            string assetPath = "Assets/ScriptableObjects/Pistol.asset";
-            EnsureDirectoryExists("Assets/ScriptableObjects");
+            string assetPath = "Assets/Game/ScriptableObjects/Pistol.asset";
+            EnsureDirectoryExists("Assets/Game/ScriptableObjects");
 
             AssetDatabase.CreateAsset(pistol, assetPath);
             AssetDatabase.SaveAssets();
@@ -178,50 +190,93 @@ namespace FPSGame.Editor
             light.intensity = 1f;
             lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
 
-            // Try to spawn player prefab
-            string prefabPath = "Assets/Prefabs/Player/Player.prefab";
+            // Create spawn points
+            for (int i = 0; i < 4; i++)
+            {
+                GameObject spawnPoint = new GameObject($"SpawnPoint_{i}");
+                float angle = i * 90f * Mathf.Deg2Rad;
+                spawnPoint.transform.position = new Vector3(Mathf.Cos(angle) * 15f, 1f, Mathf.Sin(angle) * 15f);
+                spawnPoint.transform.LookAt(Vector3.zero);
+            }
+
+            Debug.Log("Test scene objects created!");
+            Debug.Log("To test multiplayer: Add CustomNetworkManager to an empty GameObject and assign the Player prefab.");
+        }
+
+        [MenuItem("FPS Game/Setup/Create Network Manager")]
+        public static void CreateNetworkManager()
+        {
+            // Check if NetworkManager already exists
+            if (Object.FindObjectOfType<NetworkManager>() != null)
+            {
+                Debug.LogWarning("NetworkManager already exists in the scene!");
+                return;
+            }
+
+            GameObject networkManagerGO = new GameObject("NetworkManager");
+            FPSGame.Networking.CustomNetworkManager networkManager = networkManagerGO.AddComponent<FPSGame.Networking.CustomNetworkManager>();
+
+            // Add KCP Transport
+            kcp2k.KcpTransport transport = networkManagerGO.AddComponent<kcp2k.KcpTransport>();
+
+            // Add NetworkManagerHUD for Host/Join buttons
+            networkManagerGO.AddComponent<NetworkManagerHUD>();
+
+            // Configure NetworkManager
+            SerializedObject so = new SerializedObject(networkManager);
+            so.FindProperty("transport").objectReferenceValue = transport;
+
+            // Try to find and assign player prefab
+            string prefabPath = "Assets/Game/Prefabs/Player/Player.prefab";
             GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             if (playerPrefab != null)
             {
-                GameObject player = PrefabUtility.InstantiatePrefab(playerPrefab) as GameObject;
-                player.transform.position = new Vector3(0, 1, 0);
-
-                // Try to assign weapon data
-                PlayerShooting shooting = player.GetComponent<PlayerShooting>();
-                if (shooting != null)
-                {
-                    string weaponPath = "Assets/ScriptableObjects/Pistol.asset";
-                    WeaponData pistol = AssetDatabase.LoadAssetAtPath<WeaponData>(weaponPath);
-                    if (pistol != null)
-                    {
-                        SerializedObject so = new SerializedObject(shooting);
-                        so.FindProperty("startingWeapon").objectReferenceValue = pistol;
-                        so.ApplyModifiedProperties();
-                    }
-                }
-
-                Debug.Log("Player spawned in test scene");
+                so.FindProperty("playerPrefab").objectReferenceValue = playerPrefab;
             }
             else
             {
-                Debug.LogWarning("Player prefab not found. Run 'FPS Game/Setup/Create Player Prefab' first.");
+                Debug.LogWarning("Player prefab not found. Please assign it manually in the NetworkManager.");
             }
 
-            // Create target dummy
-            GameObject target = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            target.name = "TargetDummy";
-            target.transform.position = new Vector3(5, 1, 5);
-            target.AddComponent<PlayerHealth>();
+            // Find spawn points
+            GameObject[] spawnPointObjects = GameObject.FindGameObjectsWithTag("Respawn");
+            if (spawnPointObjects.Length == 0)
+            {
+                // Try to find by name
+                Transform[] allTransforms = Object.FindObjectsOfType<Transform>();
+                System.Collections.Generic.List<Transform> spawnPoints = new System.Collections.Generic.List<Transform>();
+                foreach (Transform t in allTransforms)
+                {
+                    if (t.name.StartsWith("SpawnPoint"))
+                    {
+                        spawnPoints.Add(t);
+                    }
+                }
 
-            Debug.Log("Test scene objects created!");
+                if (spawnPoints.Count > 0)
+                {
+                    SerializedProperty spawnPointsProp = so.FindProperty("spawnPoints");
+                    spawnPointsProp.arraySize = spawnPoints.Count;
+                    for (int i = 0; i < spawnPoints.Count; i++)
+                    {
+                        spawnPointsProp.GetArrayElementAtIndex(i).objectReferenceValue = spawnPoints[i];
+                    }
+                }
+            }
+
+            so.ApplyModifiedProperties();
+
+            Selection.activeObject = networkManagerGO;
+            Debug.Log("NetworkManager created! Assign spawn points if needed.");
         }
 
-        [MenuItem("FPS Game/Setup/Setup All (Player + Weapon + Scene)")]
+        [MenuItem("FPS Game/Setup/Setup All (Player + Weapon + Scene + Network)")]
         public static void SetupAll()
         {
             CreatePistolWeaponData();
             CreatePlayerPrefab();
             CreateTestScene();
+            CreateNetworkManager();
             Debug.Log("Full FPS Game setup complete!");
         }
 

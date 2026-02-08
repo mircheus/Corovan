@@ -1,13 +1,19 @@
 using System;
 using UnityEngine;
+using Mirror;
 
 namespace FPSGame.Player
 {
-    public class PlayerHealth : MonoBehaviour
+    public class PlayerHealth : NetworkBehaviour
     {
         [Header("Health Settings")]
         [SerializeField] private float maxHealth = 100f;
-        [SerializeField] private float currentHealth;
+
+        [SyncVar(hook = nameof(OnHealthChangedHook))]
+        private float currentHealth;
+
+        [SyncVar]
+        private bool isDead;
 
         [Header("Regeneration")]
         [SerializeField] private bool enableRegeneration = false;
@@ -15,7 +21,6 @@ namespace FPSGame.Player
         [SerializeField] private float regenerationDelay = 5f;
 
         private float lastDamageTime;
-        private bool isDead;
 
         public float MaxHealth => maxHealth;
         public float CurrentHealth => currentHealth;
@@ -26,13 +31,24 @@ namespace FPSGame.Player
         public event Action OnDeath;
         public event Action OnRespawn;
 
-        private void Awake()
+        public override void OnStartServer()
         {
+            base.OnStartServer();
             currentHealth = maxHealth;
+            isDead = false;
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            OnHealthChanged?.Invoke(currentHealth, currentHealth);
         }
 
         private void Update()
         {
+            if (!isServer)
+                return;
+
             if (enableRegeneration && !isDead)
             {
                 HandleRegeneration();
@@ -43,20 +59,28 @@ namespace FPSGame.Player
         {
             if (currentHealth < maxHealth && Time.time - lastDamageTime >= regenerationDelay)
             {
-                Heal(regenerationRate * Time.deltaTime);
+                currentHealth = Mathf.Min(maxHealth, currentHealth + regenerationRate * Time.deltaTime);
             }
         }
 
+        private void OnHealthChangedHook(float oldHealth, float newHealth)
+        {
+            OnHealthChanged?.Invoke(oldHealth, newHealth);
+
+            if (newHealth <= 0 && oldHealth > 0)
+            {
+                OnDeath?.Invoke();
+            }
+        }
+
+        [Server]
         public void TakeDamage(float damage)
         {
             if (isDead || damage <= 0)
                 return;
 
             lastDamageTime = Time.time;
-            float previousHealth = currentHealth;
             currentHealth = Mathf.Max(0, currentHealth - damage);
-
-            OnHealthChanged?.Invoke(previousHealth, currentHealth);
 
             if (currentHealth <= 0)
             {
@@ -64,31 +88,25 @@ namespace FPSGame.Player
             }
         }
 
+        [Server]
         public void TakeDamage(float damage, Vector3 hitPoint, Vector3 hitDirection)
         {
             TakeDamage(damage);
         }
 
+        [Server]
         public void Heal(float amount)
         {
             if (isDead || amount <= 0)
                 return;
 
-            float previousHealth = currentHealth;
             currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
-
-            if (currentHealth != previousHealth)
-            {
-                OnHealthChanged?.Invoke(previousHealth, currentHealth);
-            }
         }
 
+        [Server]
         public void SetHealth(float health)
         {
-            float previousHealth = currentHealth;
             currentHealth = Mathf.Clamp(health, 0, maxHealth);
-
-            OnHealthChanged?.Invoke(previousHealth, currentHealth);
 
             if (currentHealth <= 0 && !isDead)
             {
@@ -96,31 +114,48 @@ namespace FPSGame.Player
             }
         }
 
+        [Server]
         private void Die()
         {
             if (isDead)
                 return;
 
             isDead = true;
-            OnDeath?.Invoke();
-
+            RpcOnDeath();
             Debug.Log($"{gameObject.name} has died.");
         }
 
+        [ClientRpc]
+        private void RpcOnDeath()
+        {
+            OnDeath?.Invoke();
+        }
+
+        [Server]
         public void Respawn()
         {
             isDead = false;
             currentHealth = maxHealth;
+            RpcOnRespawn();
+        }
 
-            OnHealthChanged?.Invoke(0, currentHealth);
+        [ClientRpc]
+        private void RpcOnRespawn()
+        {
             OnRespawn?.Invoke();
         }
 
+        [Server]
         public void ResetHealth()
         {
             currentHealth = maxHealth;
             isDead = false;
-            OnHealthChanged?.Invoke(0, currentHealth);
+        }
+
+        [Command]
+        public void CmdTakeDamage(float damage)
+        {
+            TakeDamage(damage);
         }
     }
 }

@@ -1,9 +1,10 @@
 using UnityEngine;
+using Mirror;
 using FPSGame.Weapons;
 
 namespace FPSGame.Player
 {
-    public class PlayerShooting : MonoBehaviour
+    public class PlayerShooting : NetworkBehaviour
     {
         [Header("References")]
         [SerializeField] private PlayerCamera playerCamera;
@@ -16,9 +17,16 @@ namespace FPSGame.Player
         [SerializeField] private bool showDebugRays = false;
 
         private WeaponData currentWeapon;
+
+        [SyncVar(hook = nameof(OnAmmoChanged))]
         private int currentAmmo;
+
+        [SyncVar]
         private int reserveAmmo;
+
+        [SyncVar]
         private bool isReloading;
+
         private float lastFireTime;
         private int shotsFired;
         private bool fireHeld;
@@ -31,7 +39,7 @@ namespace FPSGame.Player
         public bool IsReloading => isReloading;
         public bool IsAiming => isAiming;
 
-        public event System.Action<int, int> OnAmmoChanged;
+        public event System.Action<int, int> OnAmmoChangedEvent;
         public event System.Action OnWeaponFired;
         public event System.Action OnReloadStarted;
         public event System.Action OnReloadFinished;
@@ -45,30 +53,48 @@ namespace FPSGame.Player
                 playerController = GetComponent<PlayerController>();
         }
 
-        private void Start()
+        public override void OnStartLocalPlayer()
         {
+            base.OnStartLocalPlayer();
             if (startingWeapon != null)
             {
-                EquipWeapon(startingWeapon);
+                currentWeapon = startingWeapon;
             }
+        }
+
+        public override void OnStartServer()
+        {
+            base.OnStartServer();
+            if (startingWeapon != null)
+            {
+                currentWeapon = startingWeapon;
+                currentAmmo = startingWeapon.MagazineSize;
+                reserveAmmo = startingWeapon.MaxReserveAmmo;
+            }
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            if (startingWeapon != null)
+            {
+                currentWeapon = startingWeapon;
+            }
+            OnAmmoChangedEvent?.Invoke(currentAmmo, reserveAmmo);
         }
 
         private void Update()
         {
+            if (!isOwned)
+                return;
+
             HandleReloading();
             HandleFiring();
         }
 
-        public void EquipWeapon(WeaponData weapon)
+        private void OnAmmoChanged(int oldAmmo, int newAmmo)
         {
-            currentWeapon = weapon;
-            currentAmmo = weapon.MagazineSize;
-            reserveAmmo = weapon.MaxReserveAmmo;
-            isReloading = false;
-            shotsFired = 0;
-            lastFireTime = 0;
-
-            OnAmmoChanged?.Invoke(currentAmmo, reserveAmmo);
+            OnAmmoChangedEvent?.Invoke(newAmmo, reserveAmmo);
         }
 
         private void HandleFiring()
@@ -98,7 +124,7 @@ namespace FPSGame.Player
             {
                 if (reserveAmmo > 0)
                 {
-                    StartReload();
+                    CmdStartReload();
                 }
                 return;
             }
@@ -109,20 +135,20 @@ namespace FPSGame.Player
         private void Fire()
         {
             lastFireTime = Time.time;
-            currentAmmo--;
 
             Ray aimRay = playerCamera.GetAimRay();
             Vector3 direction = ApplySpread(aimRay.direction);
 
-            PerformHitscan(aimRay.origin, direction);
+            // Send shot to server
+            CmdFire(aimRay.origin, direction);
 
+            // Apply recoil locally for responsive feel
             Vector2 recoil = GetCurrentRecoil();
             playerCamera.AddRecoil(recoil);
 
             shotsFired++;
 
             OnWeaponFired?.Invoke();
-            OnAmmoChanged?.Invoke(currentAmmo, reserveAmmo);
 
             if (showDebugRays)
             {
@@ -130,31 +156,49 @@ namespace FPSGame.Player
             }
         }
 
-        private void PerformHitscan(Vector3 origin, Vector3 direction)
+        [Command]
+        private void CmdFire(Vector3 origin, Vector3 direction)
         {
+            if (currentWeapon == null || currentAmmo <= 0 || isReloading)
+                return;
+
+            currentAmmo--;
+
+            // Server performs hit detection
             if (Physics.Raycast(origin, direction, out RaycastHit hit, currentWeapon.Range, hitMask, QueryTriggerInteraction.Ignore))
             {
-                ProcessHit(hit);
+                PlayerHealth targetHealth = hit.collider.GetComponentInParent<PlayerHealth>();
 
-                if (showDebugRays)
+                if (targetHealth != null && targetHealth.gameObject != gameObject)
                 {
-                    Debug.DrawLine(origin, hit.point, Color.green, 0.5f);
+                    targetHealth.TakeDamage(currentWeapon.Damage, hit.point, -hit.normal);
                 }
+
+                // Notify all clients of hit effect
+                RpcOnHit(hit.point, hit.normal);
+            }
+
+            // Notify all clients of shot fired
+            RpcOnFire();
+        }
+
+        [ClientRpc]
+        private void RpcOnFire()
+        {
+            // Play muzzle flash, sound effects for all clients
+            if (!isOwned)
+            {
+                OnWeaponFired?.Invoke();
             }
         }
 
-        private void ProcessHit(RaycastHit hit)
+        [ClientRpc]
+        private void RpcOnHit(Vector3 hitPoint, Vector3 hitNormal)
         {
-            PlayerHealth targetHealth = hit.collider.GetComponentInParent<PlayerHealth>();
-
-            if (targetHealth != null && targetHealth.gameObject != gameObject)
+            // Spawn impact effect at hit point
+            if (currentWeapon != null && currentWeapon.ImpactEffectPrefab != null)
             {
-                targetHealth.TakeDamage(currentWeapon.Damage, hit.point, -hit.normal);
-                Debug.Log($"Hit {hit.collider.gameObject.name} for {currentWeapon.Damage} damage");
-            }
-            else
-            {
-                Debug.Log($"Hit {hit.collider.gameObject.name} at {hit.point}");
+                Instantiate(currentWeapon.ImpactEffectPrefab, hitPoint, Quaternion.LookRotation(hitNormal));
             }
         }
 
@@ -194,23 +238,33 @@ namespace FPSGame.Player
 
             if (reloadTimer <= 0)
             {
-                FinishReload();
+                reloadTimer = 0;
             }
         }
 
         public void StartReload()
         {
+            if (!isOwned)
+                return;
+
+            CmdStartReload();
+        }
+
+        [Command]
+        private void CmdStartReload()
+        {
             if (isReloading || currentAmmo >= currentWeapon.MagazineSize || reserveAmmo <= 0)
                 return;
 
             isReloading = true;
-            reloadTimer = currentWeapon.ReloadTime;
-            shotsFired = 0;
+            RpcOnReloadStarted();
 
-            OnReloadStarted?.Invoke();
+            // Use Invoke to finish reload after delay
+            Invoke(nameof(ServerFinishReload), currentWeapon.ReloadTime);
         }
 
-        private void FinishReload()
+        [Server]
+        private void ServerFinishReload()
         {
             int ammoNeeded = currentWeapon.MagazineSize - currentAmmo;
             int ammoToReload = Mathf.Min(ammoNeeded, reserveAmmo);
@@ -219,12 +273,28 @@ namespace FPSGame.Player
             reserveAmmo -= ammoToReload;
             isReloading = false;
 
+            RpcOnReloadFinished();
+        }
+
+        [ClientRpc]
+        private void RpcOnReloadStarted()
+        {
+            reloadTimer = currentWeapon.ReloadTime;
+            OnReloadStarted?.Invoke();
+        }
+
+        [ClientRpc]
+        private void RpcOnReloadFinished()
+        {
             OnReloadFinished?.Invoke();
-            OnAmmoChanged?.Invoke(currentAmmo, reserveAmmo);
+            OnAmmoChangedEvent?.Invoke(currentAmmo, reserveAmmo);
         }
 
         public void SetFiring(bool firing)
         {
+            if (!isOwned)
+                return;
+
             fireHeld = firing;
             if (!firing && currentWeapon != null && !currentWeapon.IsAutomatic)
             {
@@ -234,8 +304,17 @@ namespace FPSGame.Player
 
         public void SetAiming(bool aiming)
         {
+            if (!isOwned)
+                return;
+
             isAiming = aiming;
             playerCamera?.SetAiming(aiming);
+        }
+
+        [Server]
+        public void AddAmmo(int amount)
+        {
+            reserveAmmo = Mathf.Min(reserveAmmo + amount, currentWeapon.MaxReserveAmmo);
         }
     }
 }

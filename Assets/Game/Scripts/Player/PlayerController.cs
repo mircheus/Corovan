@@ -1,9 +1,10 @@
 using UnityEngine;
+using Mirror;
 
 namespace FPSGame.Player
 {
     [RequireComponent(typeof(CharacterController))]
-    public class PlayerController : MonoBehaviour
+    public class PlayerController : NetworkBehaviour
     {
         [Header("Movement Settings")]
         [SerializeField] private float walkSpeed = 5.0f;
@@ -51,8 +52,29 @@ namespace FPSGame.Player
             targetHeight = standingHeight;
         }
 
+        public override void OnStartLocalPlayer()
+        {
+            base.OnStartLocalPlayer();
+            // Enable CharacterController for local player
+            characterController.enabled = true;
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            // Disable CharacterController for remote players (NetworkTransform handles sync)
+            if (!isOwned)
+            {
+                characterController.enabled = false;
+            }
+        }
+
         private void Update()
         {
+            // Only process movement for local player
+            if (!isOwned)
+                return;
+
             CheckGround();
             HandleCrouch();
             HandleMovement();
@@ -159,11 +181,15 @@ namespace FPSGame.Player
 
         public void SetMoveInput(Vector2 input)
         {
+            if (!isOwned)
+                return;
             moveInput = input;
         }
 
         public void Jump()
         {
+            if (!isOwned)
+                return;
             if (isGrounded)
             {
                 jumpRequested = true;
@@ -172,11 +198,15 @@ namespace FPSGame.Player
 
         public void SetSprinting(bool sprinting)
         {
+            if (!isOwned)
+                return;
             isSprinting = sprinting;
         }
 
         public void ToggleCrouch()
         {
+            if (!isOwned)
+                return;
             if (!isCrouching)
             {
                 isCrouching = true;

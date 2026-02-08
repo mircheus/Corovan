@@ -1,12 +1,14 @@
 using UnityEngine;
+using Mirror;
 
 namespace FPSGame.Player
 {
-    public class PlayerCamera : MonoBehaviour
+    public class PlayerCamera : NetworkBehaviour
     {
         [Header("References")]
         [SerializeField] private Transform playerBody;
         [SerializeField] private Camera playerCamera;
+        [SerializeField] private AudioListener audioListener;
 
         [Header("Sensitivity")]
         [SerializeField] private float sensitivityX = 2.0f;
@@ -43,35 +45,86 @@ namespace FPSGame.Player
         private Vector3 currentRecoil;
         private Vector3 targetRecoil;
         private bool isAiming;
+        private bool isInitialized;
 
         private PlayerController playerController;
 
         public bool IsAiming => isAiming;
+        public Camera Camera => playerCamera;
 
         private void Awake()
         {
             if (playerCamera == null)
                 playerCamera = GetComponentInChildren<Camera>();
 
+            if (audioListener == null && playerCamera != null)
+                audioListener = playerCamera.GetComponent<AudioListener>();
+
             if (playerBody == null)
-                playerBody = transform;
+                playerBody = transform.parent;
 
             playerController = GetComponentInParent<PlayerController>();
 
-            originalCameraPosition = playerCamera.transform.localPosition;
+            if (playerCamera != null)
+            {
+                originalCameraPosition = playerCamera.transform.localPosition;
+            }
             targetFOV = baseFOV;
             currentFOV = baseFOV;
+        }
+
+        public override void OnStartLocalPlayer()
+        {
+            base.OnStartLocalPlayer();
+
+            // Enable camera and audio for local player
+            if (playerCamera != null)
+            {
+                playerCamera.enabled = true;
+                playerCamera.tag = "MainCamera";
+            }
+
+            if (audioListener != null)
+            {
+                audioListener.enabled = true;
+            }
 
             LockCursor();
+            isInitialized = true;
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+
+            // Disable camera and audio for remote players
+            if (!isOwned)
+            {
+                if (playerCamera != null)
+                {
+                    playerCamera.enabled = false;
+                }
+
+                if (audioListener != null)
+                {
+                    audioListener.enabled = false;
+                }
+            }
         }
 
         private void Start()
         {
-            yaw = playerBody.eulerAngles.y;
+            if (playerBody != null)
+            {
+                yaw = playerBody.eulerAngles.y;
+            }
         }
 
         private void Update()
         {
+            if (!isOwned || !isInitialized)
+                return;
+
             HandleLook();
             HandleFOV();
             HandleHeadBob();
@@ -89,11 +142,18 @@ namespace FPSGame.Player
 
             Vector3 finalRotation = new Vector3(pitch, 0, 0) + currentRecoil;
             transform.localRotation = Quaternion.Euler(finalRotation.x, 0, finalRotation.z);
-            playerBody.rotation = Quaternion.Euler(0, yaw + currentRecoil.y, 0);
+
+            if (playerBody != null)
+            {
+                playerBody.rotation = Quaternion.Euler(0, yaw + currentRecoil.y, 0);
+            }
         }
 
         private void HandleFOV()
         {
+            if (playerCamera == null)
+                return;
+
             if (isAiming)
             {
                 targetFOV = adsFOV;
@@ -113,7 +173,7 @@ namespace FPSGame.Player
 
         private void HandleHeadBob()
         {
-            if (!enableHeadBob || playerController == null)
+            if (!enableHeadBob || playerController == null || playerCamera == null)
                 return;
 
             if (playerController.IsGrounded && playerController.Velocity.sqrMagnitude > 0.1f)
@@ -146,16 +206,22 @@ namespace FPSGame.Player
 
         public void AddRecoil(Vector2 recoilAmount)
         {
+            if (!isOwned)
+                return;
             targetRecoil += new Vector3(-recoilAmount.y, recoilAmount.x, 0);
         }
 
         public void SetLookInput(Vector2 input)
         {
+            if (!isOwned)
+                return;
             lookInput = input;
         }
 
         public void SetAiming(bool aiming)
         {
+            if (!isOwned)
+                return;
             isAiming = aiming;
         }
 
@@ -173,7 +239,11 @@ namespace FPSGame.Player
 
         public Ray GetAimRay()
         {
-            return new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+            if (playerCamera != null)
+            {
+                return new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+            }
+            return new Ray(transform.position, transform.forward);
         }
 
         public void SetSensitivity(float x, float y)
