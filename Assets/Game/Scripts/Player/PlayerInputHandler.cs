@@ -164,7 +164,9 @@ namespace FPSGame.Player
             {
                 var car = hit.GetComponentInParent<CarController>();
                 if (car == null)
+                {
                     continue;
+                }
 
                 float dist = Vector3.Distance(transform.position, car.transform.position);
                 if (dist < car.InteractDistance && dist < closestDist)

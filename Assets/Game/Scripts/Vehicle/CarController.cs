@@ -21,6 +21,7 @@ namespace FPSGame.Vehicle
 
         private Rigidbody rb;
         private Vector2 moveInput;
+        private Vector3 currentVelocity;
 
         public bool HasDriver => driverNetId != 0;
         public Transform DriverSeat => driverSeat;
@@ -41,13 +42,14 @@ namespace FPSGame.Vehicle
             Vector3 targetVelocity = transform.forward * (moveInput.y * moveSpeed)
                                    + transform.right * (moveInput.x * strafeSpeed);
 
-            Vector3 currentHorizontal = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-            float rate = targetVelocity.sqrMagnitude > currentHorizontal.sqrMagnitude
+            float rate = targetVelocity.sqrMagnitude > currentVelocity.sqrMagnitude
                 ? acceleration
                 : deceleration;
 
-            Vector3 newHorizontal = Vector3.MoveTowards(currentHorizontal, targetVelocity, rate * Time.fixedDeltaTime);
-            rb.linearVelocity = new Vector3(newHorizontal.x, rb.linearVelocity.y, newHorizontal.z);
+            currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
+
+            if (currentVelocity.sqrMagnitude > 0.001f)
+                rb.MovePosition(rb.position + currentVelocity * Time.fixedDeltaTime);
         }
 
         public void SetMoveInput(Vector2 input)
@@ -59,7 +61,9 @@ namespace FPSGame.Vehicle
         public void ServerEnter(NetworkConnectionToClient conn, NetworkIdentity player)
         {
             if (HasDriver)
+            {
                 return;
+            }
 
             netIdentity.AssignClientAuthority(conn);
             driverNetId = player.netId;
@@ -74,7 +78,7 @@ namespace FPSGame.Vehicle
             uint oldDriverId = driverNetId;
             driverNetId = 0;
             moveInput = Vector2.zero;
-            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            currentVelocity = Vector3.zero;
             netIdentity.RemoveClientAuthority();
         }
 
