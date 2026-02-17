@@ -1,11 +1,15 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Mirror;
+using FPSGame.Vehicle;
 
 namespace FPSGame.Player
 {
     public class PlayerInputHandler : NetworkBehaviour
     {
+        [SerializeField] private float vehicleSearchRadius = 5f;
+        [SerializeField] private LayerMask vehicleLayerMask = ~0;
+
         private PlayerController playerController;
         private PlayerCamera playerCamera;
         private PlayerShooting playerShooting;
@@ -13,7 +17,12 @@ namespace FPSGame.Player
         private InputAction aimAction;
         private InputAction attackAction;
         private InputAction sprintAction;
+        private InputAction interactAction;
         private bool isInitialized;
+
+        private CarController currentVehicle;
+
+        public bool IsInVehicle => currentVehicle != null;
 
         private void Awake()
         {
@@ -27,7 +36,6 @@ namespace FPSGame.Player
         {
             base.OnStartLocalPlayer();
 
-            // Enable PlayerInput only for local player
             if (playerInput != null)
             {
                 playerInput.enabled = true;
@@ -35,6 +43,7 @@ namespace FPSGame.Player
                 aimAction = playerInput.actions["Aim"];
                 attackAction = playerInput.actions["Attack"];
                 sprintAction = playerInput.actions["Sprint"];
+                interactAction = playerInput.actions["Interact"];
             }
 
             isInitialized = true;
@@ -44,7 +53,6 @@ namespace FPSGame.Player
         {
             base.OnStartClient();
 
-            // Disable PlayerInput for remote players
             if (!isOwned && playerInput != null)
             {
                 playerInput.enabled = false;
@@ -56,7 +64,12 @@ namespace FPSGame.Player
             if (!isOwned || !isInitialized)
                 return;
 
-            // Read hold-type inputs every frame
+            if (currentVehicle != null)
+            {
+                // In vehicle: skip shooting/sprint inputs
+                return;
+            }
+
             if (aimAction != null)
                 playerShooting?.SetAiming(aimAction.IsPressed());
 
@@ -71,7 +84,16 @@ namespace FPSGame.Player
         {
             if (!isOwned)
                 return;
-            playerController?.SetMoveInput(value.Get<Vector2>());
+
+            Vector2 input = value.Get<Vector2>();
+
+            if (currentVehicle != null)
+            {
+                currentVehicle.SetMoveInput(input);
+                return;
+            }
+
+            playerController?.SetMoveInput(input);
         }
 
         public void OnLook(InputValue value)
@@ -83,7 +105,7 @@ namespace FPSGame.Player
 
         public void OnJump(InputValue value)
         {
-            if (!isOwned)
+            if (!isOwned || currentVehicle != null)
                 return;
             if (value.isPressed)
             {
@@ -93,7 +115,7 @@ namespace FPSGame.Player
 
         public void OnCrouch(InputValue value)
         {
-            if (!isOwned)
+            if (!isOwned || currentVehicle != null)
                 return;
             if (value.isPressed)
             {
@@ -103,12 +125,111 @@ namespace FPSGame.Player
 
         public void OnReload(InputValue value)
         {
-            if (!isOwned)
+            if (!isOwned || currentVehicle != null)
                 return;
             if (value.isPressed)
             {
                 playerShooting?.StartReload();
             }
+        }
+
+        public void OnInteract(InputValue value)
+        {
+            if (!isOwned || !value.isPressed)
+                return;
+
+            if (currentVehicle != null)
+            {
+                CmdExitVehicle(currentVehicle.netIdentity);
+                ExitVehicle();
+            }
+            else
+            {
+                CarController car = FindNearbyCar();
+                if (car != null && !car.HasDriver)
+                {
+                    CmdEnterVehicle(car.netIdentity);
+                    EnterVehicle(car);
+                }
+            }
+        }
+
+        private CarController FindNearbyCar()
+        {
+            Collider[] hits = Physics.OverlapSphere(transform.position, vehicleSearchRadius, vehicleLayerMask);
+            CarController closest = null;
+            float closestDist = float.MaxValue;
+
+            foreach (var hit in hits)
+            {
+                var car = hit.GetComponentInParent<CarController>();
+                if (car == null)
+                    continue;
+
+                float dist = Vector3.Distance(transform.position, car.transform.position);
+                if (dist < car.InteractDistance && dist < closestDist)
+                {
+                    closest = car;
+                    closestDist = dist;
+                }
+            }
+
+            return closest;
+        }
+
+        [Command]
+        private void CmdEnterVehicle(NetworkIdentity carNetId)
+        {
+            if (carNetId == null)
+                return;
+
+            var car = carNetId.GetComponent<CarController>();
+            if (car == null || car.HasDriver)
+                return;
+
+            float dist = Vector3.Distance(transform.position, car.transform.position);
+            if (dist > car.InteractDistance + 1f)
+                return;
+
+            car.ServerEnter(connectionToClient, netIdentity);
+        }
+
+        [Command]
+        private void CmdExitVehicle(NetworkIdentity carNetId)
+        {
+            if (carNetId == null)
+                return;
+
+            var car = carNetId.GetComponent<CarController>();
+            if (car == null || !car.HasDriver)
+                return;
+
+            // Validate that the requesting player actually has authority over this car
+            if (car.netIdentity.connectionToClient != connectionToClient)
+                return;
+
+            car.ServerExit();
+        }
+
+        private void EnterVehicle(CarController car)
+        {
+            currentVehicle = car;
+            playerController?.SetVehicleMode(true);
+
+            // Clear shooting states
+            playerShooting?.SetAiming(false);
+            playerShooting?.SetFiring(false);
+            playerController?.SetSprinting(false);
+        }
+
+        private void ExitVehicle()
+        {
+            if (currentVehicle != null)
+            {
+                currentVehicle.SetMoveInput(Vector2.zero);
+            }
+            currentVehicle = null;
+            playerController?.SetVehicleMode(false);
         }
     }
 }

@@ -1,67 +1,133 @@
 using UnityEngine;
+using Mirror;
 
 namespace FPSGame.Vehicle
 {
-    /// <summary>
-    /// Placeholder for arcade car controller.
-    /// Will be implemented in Phase 4.
-    /// </summary>
-    public class CarController : MonoBehaviour
+    public class CarController : NetworkBehaviour
     {
-        [Header("Vehicle Settings")]
-        [SerializeField] private float maxSpeed = 30f;
-        [SerializeField] private float acceleration = 10f;
-        [SerializeField] private float brakeForce = 15f;
-        [SerializeField] private float turnSpeed = 100f;
-
-        [Header("Wheel References")]
-        [SerializeField] private Transform[] wheelMeshes;
-        [SerializeField] private WheelCollider[] wheelColliders;
+        [Header("Movement Settings")]
+        [SerializeField] private float moveSpeed = 15f;
+        [SerializeField] private float strafeSpeed = 10f;
+        [SerializeField] private float acceleration = 8f;
+        [SerializeField] private float deceleration = 12f;
 
         [Header("Driver")]
         [SerializeField] private Transform driverSeat;
-        [SerializeField] private bool hasDriver;
+        [SerializeField] private Transform exitPoint;
+        [SerializeField] private float interactDistance = 4f;
+
+        [SyncVar(hook = nameof(OnDriverChanged))]
+        private uint driverNetId;
 
         private Rigidbody rb;
-        private float currentSpeed;
-        private float steerInput;
-        private float throttleInput;
+        private Vector2 moveInput;
 
-        public bool HasDriver => hasDriver;
+        public bool HasDriver => driverNetId != 0;
         public Transform DriverSeat => driverSeat;
-        public float CurrentSpeed => currentSpeed;
+        public Transform ExitPoint => exitPoint;
+        public float InteractDistance => interactDistance;
 
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
+            rb.freezeRotation = true;
         }
 
         private void FixedUpdate()
         {
-            if (!hasDriver)
+            if (!HasDriver || !isOwned)
                 return;
 
-            // Placeholder - will implement arcade physics
+            Vector3 targetVelocity = transform.forward * (moveInput.y * moveSpeed)
+                                   + transform.right * (moveInput.x * strafeSpeed);
+
+            Vector3 currentHorizontal = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            float rate = targetVelocity.sqrMagnitude > currentHorizontal.sqrMagnitude
+                ? acceleration
+                : deceleration;
+
+            Vector3 newHorizontal = Vector3.MoveTowards(currentHorizontal, targetVelocity, rate * Time.fixedDeltaTime);
+            rb.linearVelocity = new Vector3(newHorizontal.x, rb.linearVelocity.y, newHorizontal.z);
         }
 
-        public void SetInput(float throttle, float steer)
+        public void SetMoveInput(Vector2 input)
         {
-            throttleInput = throttle;
-            steerInput = steer;
+            moveInput = input;
         }
 
-        public void EnterVehicle(GameObject driver)
+        [Server]
+        public void ServerEnter(NetworkConnectionToClient conn, NetworkIdentity player)
         {
-            hasDriver = true;
-            // Placeholder - will disable driver character controller and parent to seat
-            Debug.Log($"{driver.name} entered vehicle");
+            if (HasDriver)
+                return;
+
+            netIdentity.AssignClientAuthority(conn);
+            driverNetId = player.netId;
         }
 
-        public void ExitVehicle()
+        [Server]
+        public void ServerExit()
         {
-            hasDriver = false;
-            // Placeholder - will re-enable driver and position them outside
-            Debug.Log("Driver exited vehicle");
+            if (!HasDriver)
+                return;
+
+            uint oldDriverId = driverNetId;
+            driverNetId = 0;
+            moveInput = Vector2.zero;
+            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            netIdentity.RemoveClientAuthority();
+        }
+
+        private void OnDriverChanged(uint oldId, uint newId)
+        {
+            if (newId != 0)
+            {
+                // Driver entered
+                if (NetworkClient.spawned.TryGetValue(newId, out NetworkIdentity driverIdentity))
+                {
+                    SetDriverVisible(driverIdentity.gameObject, false);
+                }
+            }
+            else if (oldId != 0)
+            {
+                // Driver exited
+                if (NetworkClient.spawned.TryGetValue(oldId, out NetworkIdentity driverIdentity))
+                {
+                    SetDriverVisible(driverIdentity.gameObject, true);
+                    if (exitPoint != null)
+                    {
+                        driverIdentity.transform.position = exitPoint.position;
+                        driverIdentity.transform.rotation = exitPoint.rotation;
+                    }
+                    else
+                    {
+                        driverIdentity.transform.position = transform.position + transform.right * 2.5f;
+                    }
+                }
+            }
+        }
+
+        private void SetDriverVisible(GameObject driver, bool visible)
+        {
+            var characterController = driver.GetComponent<CharacterController>();
+            if (characterController != null)
+                characterController.enabled = visible;
+
+            var playerController = driver.GetComponent<FPSGame.Player.PlayerController>();
+            if (playerController != null)
+                playerController.SetVehicleMode(!visible);
+
+            if (!visible && driverSeat != null)
+            {
+                driver.transform.position = driverSeat.position;
+                driver.transform.rotation = driverSeat.rotation;
+            }
+
+            // Hide/show renderers on driver
+            foreach (var renderer in driver.GetComponentsInChildren<Renderer>())
+            {
+                renderer.enabled = visible;
+            }
         }
     }
 }

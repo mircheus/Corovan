@@ -44,6 +44,7 @@ namespace FPSGame.Player
         public bool IsSprinting => isSprinting && !isCrouching && moveInput.y > 0;
         public bool IsCrouching => isCrouching;
         public Vector3 Velocity => velocity;
+        public bool InVehicle { get; private set; }
 
         private void Awake()
         {
@@ -71,8 +72,7 @@ namespace FPSGame.Player
 
         private void Update()
         {
-            // Only process movement for local player
-            if (!isOwned)
+            if (!isOwned || InVehicle)
                 return;
 
             CheckGround();
@@ -227,6 +227,19 @@ namespace FPSGame.Player
                 groundMask,
                 QueryTriggerInteraction.Ignore
             );
+        }
+
+        public void SetVehicleMode(bool inVehicle)
+        {
+            InVehicle = inVehicle;
+            characterController.enabled = !inVehicle;
+            if (inVehicle)
+            {
+                moveInput = Vector2.zero;
+                velocity = Vector3.zero;
+                isSprinting = false;
+                isCrouching = false;
+            }
         }
     }
 }
