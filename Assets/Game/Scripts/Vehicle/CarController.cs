@@ -121,15 +121,28 @@ namespace FPSGame.Vehicle
             if (playerController != null)
                 playerController.SetVehicleMode(!visible);
 
-            if (!visible && driverSeat != null)
+            if (!visible)
             {
-                driver.transform.position = driverSeat.position;
-                driver.transform.rotation = driverSeat.rotation;
+                // Parent driver to car so they move with it
+                driver.transform.SetParent(driverSeat != null ? driverSeat : transform);
+                driver.transform.localPosition = Vector3.zero;
+                driver.transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                // Unparent driver from car
+                driver.transform.SetParent(null);
             }
 
-            // Hide/show renderers on driver
+            // Hide/show renderers on driver, but keep weapon visible
+            var shooting = driver.GetComponent<FPSGame.Player.PlayerShooting>();
+            Transform weaponHolder = shooting != null ? shooting.WeaponHolder : null;
+
             foreach (var renderer in driver.GetComponentsInChildren<Renderer>())
             {
+                if (!visible && weaponHolder != null && renderer.transform.IsChildOf(weaponHolder))
+                    continue;
+
                 renderer.enabled = visible;
             }
         }

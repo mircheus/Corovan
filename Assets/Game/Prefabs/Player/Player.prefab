@@ -28,11 +28,11 @@ Transform:
   m_GameObject: {fileID: 1882806084750067031}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.425, y: -0.30000007, z: 0.789}
+  m_LocalPosition: {x: 0.22500001, y: -0.10000007, z: 0.28899997}
   m_LocalScale: {x: 0.2, y: 0.2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 7338265512333064454}
+  m_Father: {fileID: 3155472105227155606}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &3251260141745267030
 MeshFilter:
@@ -276,7 +276,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2399532353136111186}
   - {fileID: 8031254911518507930}
   m_Father: {fileID: 4026733685344099577}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -451,7 +450,8 @@ Transform:
   m_LocalPosition: {x: 0.2, y: -0.2, z: 0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 2399532353136111186}
   m_Father: {fileID: 8031254911518507930}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4863821715201914006
@@ -659,6 +659,10 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+  vehicleSearchRadius: 5
+  vehicleLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!114 &8119119459039292421
 MonoBehaviour:
   m_ObjectHideFlags: 0

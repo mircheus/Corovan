@@ -33,6 +33,7 @@ namespace FPSGame.Player
         private bool isAiming;
         private float reloadTimer;
 
+        public Transform WeaponHolder => weaponHolder;
         public WeaponData CurrentWeapon => currentWeapon;
         public int CurrentAmmo => currentAmmo;
         public int ReserveAmmo => reserveAmmo;

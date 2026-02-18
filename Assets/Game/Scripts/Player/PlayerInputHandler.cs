@@ -64,19 +64,13 @@ namespace FPSGame.Player
             if (!isOwned || !isInitialized)
                 return;
 
-            if (currentVehicle != null)
-            {
-                // In vehicle: skip shooting/sprint inputs
-                return;
-            }
-
             if (aimAction != null)
                 playerShooting?.SetAiming(aimAction.IsPressed());
 
             if (attackAction != null)
                 playerShooting?.SetFiring(attackAction.IsPressed());
 
-            if (sprintAction != null)
+            if (currentVehicle == null && sprintAction != null)
                 playerController?.SetSprinting(sprintAction.IsPressed());
         }
 
