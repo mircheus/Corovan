@@ -83,25 +83,23 @@ namespace FPSGame.Player
 
         private void CheckGround()
         {
-            Vector3 spherePosition = transform.position + Vector3.down * (characterController.height / 2 - groundCheckRadius + groundCheckOffset);
-            isGrounded = Physics.SphereCast(
-                transform.position,
-                groundCheckRadius,
-                Vector3.down,
-                out RaycastHit hit,
-                characterController.height / 2 - groundCheckRadius + groundCheckOffset + 0.1f,
-                groundMask,
-                QueryTriggerInteraction.Ignore
-            );
+            // Place the sphere just above the CC bottom so it doesn't start overlapping the ground surface.
+            // Using (height/2 - radius - offset) moves the origin upward from the bottom, keeping the
+            // sphere's lowest point at offset-height above the ground when standing.
+            // Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
+            // isGrounded = Physics.SphereCast(
+            //     sphereOrigin,
+            //     groundCheckRadius,
+            //     Vector3.down,
+            //     out RaycastHit hit,
+            //     groundCheckOffset * 2 + 0.1f,
+            //     groundMask
+            // );
+            
+            Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
+            isGrounded = Physics.CheckSphere(sphereOrigin, groundCheckRadius, groundMask);
 
-            if (isGrounded)
-            {
-                groundNormal = hit.normal;
-            }
-            else
-            {
-                groundNormal = Vector3.up;
-            }
+            // groundNormal = isGrounded ? hit.normal : Vector3.up;
         }
 
         private void HandleMovement()
@@ -240,6 +238,30 @@ namespace FPSGame.Player
                 isSprinting = false;
                 isCrouching = false;
             }
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            CharacterController cc = characterController != null ? characterController : GetComponent<CharacterController>();
+            if (cc == null)
+                return;
+
+            // Ground SphereCast
+            // float castDistance = groundCheckOffset * 2 + 0.1f;
+            Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
+            // Vector3 castEnd = sphereOrigin + Vector3.down * castDistance;
+
+            Gizmos.color = isGrounded ? Color.green : Color.red;
+            Gizmos.DrawWireSphere(sphereOrigin, groundCheckRadius);
+            // Gizmos.color = Color.yellow;
+            // Gizmos.DrawWireSphere(castEnd, groundCheckRadius);
+            // Gizmos.color = Color.white;
+            // Gizmos.DrawLine(sphereOrigin + Vector3.down * groundCheckRadius, castEnd + Vector3.down * groundCheckRadius);
+
+            // CanStand raycast
+            float standCheckDistance = standingHeight - crouchHeight + 0.1f;
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawRay(transform.position, Vector3.up * standCheckDistance);
         }
     }
 }
