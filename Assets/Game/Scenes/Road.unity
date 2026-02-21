@@ -14,19 +14,19 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 0
-  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_Fog: 1
+  m_FogColor: {r: 0.7372549, g: 0.6509804, b: 0.41960788, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.01
+  m_FogDensity: 0.017
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
+  m_AmbientSkyColor: {r: 0.5028866, g: 0.3813261, b: 0.1470273, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 0
+  m_AmbientMode: 3
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 0}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -331,8 +331,8 @@ Transform:
   m_GameObject: {fileID: 109101390}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -7.7128725, y: 8.001301, z: 2.5432367}
-  m_LocalScale: {x: 10, y: 1, z: 10}
+  m_LocalPosition: {x: 0.0293, y: 8.001301, z: 2.5432}
+  m_LocalScale: {x: 9.901647, y: 1, z: 25.903}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -370,7 +370,7 @@ MonoBehaviour:
   - {fileID: 1748217415}
   - {fileID: 61525237}
   - {fileID: 636825000}
-  scrollSpeed: 20
+  scrollSpeed: 40
   tileLength: 99
 --- !u!4 &223477904
 Transform:
@@ -567,7 +567,7 @@ Transform:
   m_GameObject: {fileID: 435013613}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 5.92, y: 11.03, z: 0.31}
+  m_LocalPosition: {x: -23.99, y: 19.46, z: -63.99}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -727,7 +727,7 @@ GameObject:
   - component: {fileID: 532750971}
   - component: {fileID: 532750976}
   m_Layer: 0
-  m_Name: Cube (1)
+  m_Name: Wagon
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -829,7 +829,7 @@ Transform:
   m_GameObject: {fileID: 532750970}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 7.73, y: 14.2, z: 12.8}
+  m_LocalPosition: {x: 0, y: 14.2, z: 0}
   m_LocalScale: {x: 15, y: 0.5, z: 30}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -875,6 +875,8 @@ GameObject:
   - component: {fileID: 605807022}
   - component: {fileID: 605807024}
   - component: {fileID: 605807023}
+  - component: {fileID: 605807026}
+  - component: {fileID: 605807025}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rl_02 (1)
   m_TagString: Untagged
@@ -950,6 +952,42 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 605807021}
   m_Mesh: {fileID: 4300024, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &605807025
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 605807021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 605807026}
+--- !u!95 &605807026
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 605807021}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &636824999
 GameObject:
   m_ObjectHideFlags: 0
@@ -1070,6 +1108,8 @@ GameObject:
   - component: {fileID: 712034674}
   - component: {fileID: 712034676}
   - component: {fileID: 712034675}
+  - component: {fileID: 712034678}
+  - component: {fileID: 712034677}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rl_01 (1)
   m_TagString: Untagged
@@ -1145,6 +1185,42 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 712034673}
   m_Mesh: {fileID: 4300008, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &712034677
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 712034673}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 712034678}
+--- !u!95 &712034678
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 712034673}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &818058029
 GameObject:
   m_ObjectHideFlags: 0
@@ -1351,7 +1427,7 @@ Transform:
   m_GameObject: {fileID: 818058029}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -24.02, y: 9.1, z: 9.245767}
+  m_LocalPosition: {x: -24.02, y: 9.1, z: -63}
   m_LocalScale: {x: 4.39, y: 1, z: 7.03}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1552,6 +1628,8 @@ GameObject:
   - component: {fileID: 1284928905}
   - component: {fileID: 1284928907}
   - component: {fileID: 1284928906}
+  - component: {fileID: 1284928909}
+  - component: {fileID: 1284928908}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rl_02 (2)
   m_TagString: Untagged
@@ -1627,6 +1705,42 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1284928904}
   m_Mesh: {fileID: 4300024, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &1284928908
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1284928904}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 1284928909}
+--- !u!95 &1284928909
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1284928904}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &1357320287
 GameObject:
   m_ObjectHideFlags: 0
@@ -1638,6 +1752,8 @@ GameObject:
   - component: {fileID: 1357320288}
   - component: {fileID: 1357320290}
   - component: {fileID: 1357320289}
+  - component: {fileID: 1357320292}
+  - component: {fileID: 1357320291}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rr_02 (1)
   m_TagString: Untagged
@@ -1713,6 +1829,42 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1357320287}
   m_Mesh: {fileID: 4300022, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &1357320291
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1357320287}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 1357320292}
+--- !u!95 &1357320292
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1357320287}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &1543334686
 GameObject:
   m_ObjectHideFlags: 0
@@ -1724,6 +1876,8 @@ GameObject:
   - component: {fileID: 1543334687}
   - component: {fileID: 1543334689}
   - component: {fileID: 1543334688}
+  - component: {fileID: 1543334691}
+  - component: {fileID: 1543334690}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rl_01 (2)
   m_TagString: Untagged
@@ -1799,6 +1953,42 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1543334686}
   m_Mesh: {fileID: 4300008, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &1543334690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1543334686}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 1543334691}
+--- !u!95 &1543334691
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1543334686}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &1720909253
 GameObject:
   m_ObjectHideFlags: 0
@@ -1810,6 +2000,8 @@ GameObject:
   - component: {fileID: 1720909254}
   - component: {fileID: 1720909256}
   - component: {fileID: 1720909255}
+  - component: {fileID: 1720909258}
+  - component: {fileID: 1720909257}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rr_01 (1)
   m_TagString: Untagged
@@ -1885,6 +2077,42 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1720909253}
   m_Mesh: {fileID: 4300014, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &1720909257
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1720909253}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 1720909258}
+--- !u!95 &1720909258
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1720909253}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &1748217411
 GameObject:
   m_ObjectHideFlags: 0
@@ -2078,6 +2306,10 @@ PrefabInstance:
       value: NetworkManager
       objectReference: {fileID: 0}
     - target: {fileID: 5651524541239546090, guid: 818128c313c8111428c3d18777c00343, type: 3}
+      propertyPath: spawnPrefabs.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5651524541239546090, guid: 818128c313c8111428c3d18777c00343, type: 3}
       propertyPath: 'spawnPoints.Array.data[0]'
       value: 
       objectReference: {fileID: 435013614}
@@ -2085,6 +2317,14 @@ PrefabInstance:
       propertyPath: 'spawnPoints.Array.data[1]'
       value: 
       objectReference: {fileID: 1797857094}
+    - target: {fileID: 5651524541239546090, guid: 818128c313c8111428c3d18777c00343, type: 3}
+      propertyPath: 'spawnPrefabs.Array.data[0]'
+      value: 
+      objectReference: {fileID: 4863821715201914006, guid: 3ae7e26577070d043ac0975910a49242, type: 3}
+    - target: {fileID: 5651524541239546090, guid: 818128c313c8111428c3d18777c00343, type: 3}
+      propertyPath: 'spawnPrefabs.Array.data[1]'
+      value: 
+      objectReference: {fileID: 6405423090123228718, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2196,7 +2436,7 @@ Transform:
   m_GameObject: {fileID: 1910116315}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -37.379963, y: 9.1, z: 9.245767}
+  m_LocalPosition: {x: -37.379963, y: 9.1, z: -63.000004}
   m_LocalScale: {x: 4.39, y: 1, z: 7.03}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2315,6 +2555,8 @@ GameObject:
   - component: {fileID: 1992000182}
   - component: {fileID: 1992000184}
   - component: {fileID: 1992000183}
+  - component: {fileID: 1992000186}
+  - component: {fileID: 1992000185}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rr_02 (2)
   m_TagString: Untagged
@@ -2390,6 +2632,42 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992000181}
   m_Mesh: {fileID: 4300022, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &1992000185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1992000181}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 1992000186}
+--- !u!95 &1992000186
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1992000181}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &2042123046
 GameObject:
   m_ObjectHideFlags: 0
@@ -2461,6 +2739,8 @@ GameObject:
   - component: {fileID: 2128621352}
   - component: {fileID: 2128621354}
   - component: {fileID: 2128621353}
+  - component: {fileID: 2128621356}
+  - component: {fileID: 2128621355}
   m_Layer: 0
   m_Name: SM_Veh_BigRig_Wheel_rr_01 (2)
   m_TagString: Untagged
@@ -2536,6 +2816,103 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2128621351}
   m_Mesh: {fileID: 4300014, guid: 99f1fe09c5e5ae2429258be96f0c64dc, type: 3}
+--- !u!114 &2128621355
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2128621351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dc9116cb585ac842a73d1bf308753d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wheelSpeed: 4
+  animator: {fileID: 2128621356}
+--- !u!95 &2128621356
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2128621351}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 1618ee171fd043849a0a8c563a374996, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!1001 &6653118532341905717
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -7.19
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 16.468
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -12.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 90
+      objectReference: {fileID: 0}
+    - target: {fileID: 814268265249295329, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5278618744683327324, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: sceneId
+      value: 2197879377
+      objectReference: {fileID: 0}
+    - target: {fileID: 6405423090123228718, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
+      propertyPath: m_Name
+      value: Wall
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ed0c20086d5ef4944b8946b961d1cf91, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2548,4 +2925,5 @@ SceneRoots:
   - {fileID: 1848425089}
   - {fileID: 435013614}
   - {fileID: 1071891486}
+  - {fileID: 6653118532341905717}
   - {fileID: 532750975}

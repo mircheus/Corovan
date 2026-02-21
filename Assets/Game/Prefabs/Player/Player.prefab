@@ -638,7 +638,7 @@ MonoBehaviour:
   syncInterval: 0
   playerCamera: {fileID: 8250020369579678541}
   playerController: {fileID: 0}
-  startingWeapon: {fileID: 0}
+  startingWeapon: {fileID: 11400000, guid: 62dc278a46770be4fa3994ca0f322d93, type: 2}
   weaponHolder: {fileID: 3155472105227155606}
   hitMask:
     serializedVersion: 2
