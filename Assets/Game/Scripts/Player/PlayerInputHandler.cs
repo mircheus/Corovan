@@ -15,6 +15,7 @@ namespace FPSGame.Player
         private PlayerController playerController;
         private PlayerCamera playerCamera;
         private PlayerShooting playerShooting;
+        private PlayerCarry playerCarry;
         private PlayerInput playerInput;
         private InputAction aimAction;
         private InputAction attackAction;
@@ -39,6 +40,7 @@ namespace FPSGame.Player
             playerController = GetComponent<PlayerController>();
             playerCamera = GetComponentInChildren<PlayerCamera>();
             playerShooting = GetComponent<PlayerShooting>();
+            playerCarry = GetComponent<PlayerCarry>();
             playerInput = GetComponent<PlayerInput>();
         }
 
@@ -81,11 +83,24 @@ namespace FPSGame.Player
             if (!isOwned || !isInitialized)
                 return;
 
-            if (aimAction != null)
-                playerShooting?.SetAiming(aimAction.IsPressed());
+            bool isCarrying = playerCarry != null && playerCarry.IsCarrying;
 
-            if (attackAction != null)
-                playerShooting?.SetFiring(attackAction.IsPressed());
+            if (isCarrying)
+            {
+                // LMB drops, RMB throws — block normal firing/aiming while carrying.
+                if (attackAction != null && attackAction.triggered)
+                    playerCarry.TryDrop();
+                if (aimAction != null && aimAction.triggered)
+                    playerCarry.TryThrow();
+            }
+            else
+            {
+                if (aimAction != null)
+                    playerShooting?.SetAiming(aimAction.IsPressed());
+
+                if (attackAction != null)
+                    playerShooting?.SetFiring(attackAction.IsPressed());
+            }
 
             if (currentVehicle == null && sprintAction != null)
                 playerController?.SetSprinting(sprintAction.IsPressed());
@@ -111,9 +126,8 @@ namespace FPSGame.Player
                 }
             }
 
-            // Direct slot selection via number keys — handled here rather than via
-            // input actions so a variable number of slots is naturally supported.
-            if (currentVehicle == null && playerShooting != null)
+            // Direct slot selection via number keys — only when on foot and not carrying.
+            if (currentVehicle == null && !isCarrying && playerShooting != null)
             {
                 var kb = Keyboard.current;
                 if (kb != null)
@@ -215,6 +229,10 @@ namespace FPSGame.Player
                     return;
                 }
 
+                // Can't pick up or interact while already carrying.
+                if (playerCarry != null && playerCarry.IsCarrying)
+                    return;
+
                 // Vehicle enter next.
                 CarController car = FindNearbyCar();
                 if (car != null && !car.HasDriver)
@@ -222,6 +240,14 @@ namespace FPSGame.Player
                     CmdEnterVehicle(car.netIdentity);
                     EnterVehicle(car);
                     return;
+                }
+
+                // Try to pick up a carryable object.
+                if (playerCarry != null)
+                {
+                    playerCarry.TryPickup();
+                    if (playerCarry.IsCarrying)
+                        return;
                 }
 
                 // Start hold for interactive objects.

@@ -39,6 +39,7 @@ namespace FPSGame.Player
         private int shotsFired;
         private bool fireHeld;
         private bool isAiming;
+        private bool isCarrying;
         private float reloadTimer;
 
         public Transform WeaponHolder => weaponHolder;
@@ -119,7 +120,7 @@ namespace FPSGame.Player
 
         private void HandleFiring()
         {
-            if (currentWeapon == null || isReloading)
+            if (currentWeapon == null || isReloading || isCarrying)
                 return;
 
             bool canFire = Time.time >= lastFireTime + currentWeapon.FireRate;
@@ -352,6 +353,25 @@ namespace FPSGame.Player
 
             isAiming = aiming;
             playerCamera?.SetAiming(aiming);
+        }
+
+        public void SetCarryingMode(bool carrying)
+        {
+            if (!isOwned)
+                return;
+
+            isCarrying = carrying;
+            if (carrying)
+            {
+                fireHeld = false;
+                if (weaponModels != null)
+                    foreach (var model in weaponModels)
+                        if (model != null) model.SetActive(false);
+            }
+            else
+            {
+                ActivateWeaponModel(currentWeaponIndex);
+            }
         }
 
         [Server]
