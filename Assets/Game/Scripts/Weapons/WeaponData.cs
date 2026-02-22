@@ -10,10 +10,13 @@ namespace FPSGame.Weapons
         [SerializeField] private Sprite weaponIcon;
 
         [Header("Firing")]
+        [SerializeField] private bool isMelee = false;
         [SerializeField] private bool isAutomatic = false;
         [SerializeField] private float fireRate = 0.2f;
         [SerializeField] private float damage = 25f;
         [SerializeField] private float range = 100f;
+        [Tooltip("SphereCast radius used for melee hit detection. Ignored for ranged weapons.")]
+        [SerializeField] private float meleeRadius = 0.5f;
         [SerializeField] private float baseSpread = 0.02f;
         [SerializeField] private float adsSpreadMultiplier = 0.3f;
         [SerializeField] private float movementSpreadMultiplier = 1.5f;
@@ -51,10 +54,12 @@ namespace FPSGame.Weapons
 
         public string WeaponName => weaponName;
         public Sprite WeaponIcon => weaponIcon;
+        public bool IsMelee => isMelee;
         public bool IsAutomatic => isAutomatic;
         public float FireRate => fireRate;
         public float Damage => damage;
         public float Range => range;
+        public float MeleeRadius => meleeRadius;
         public float BaseSpread => baseSpread;
         public float AdsSpreadMultiplier => adsSpreadMultiplier;
         public float MovementSpreadMultiplier => movementSpreadMultiplier;

@@ -425,7 +425,12 @@ MonoBehaviour:
   syncInterval: 0
   playerCamera: {fileID: 8250020369579678541}
   playerController: {fileID: 0}
-  startingWeapon: {fileID: 11400000, guid: 62dc278a46770be4fa3994ca0f322d93, type: 2}
+  availableWeapons:
+  - {fileID: 11400000, guid: 62dc278a46770be4fa3994ca0f322d93, type: 2}
+  - {fileID: 11400000, guid: e200fa3b434ccee458551e530b62febc, type: 2}
+  weaponModels:
+  - {fileID: 5955828827635620259}
+  - {fileID: 5940216209869257070}
   weaponHolder: {fileID: 3155472105227155606}
   hitMask:
     serializedVersion: 2
@@ -457,7 +462,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4863821715201914006}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
   m_Name: 
@@ -490,7 +495,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6543652655361782238}
   m_Layer: 0
-  m_Name: Bat
+  m_Name: Axe
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -636,15 +641,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4747827261590480, guid: 30557939935d4ee48b28a5de57e9e605, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.214
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 4747827261590480, guid: 30557939935d4ee48b28a5de57e9e605, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.34899992
+      value: -0.3
       objectReference: {fileID: 0}
     - target: {fileID: 4747827261590480, guid: 30557939935d4ee48b28a5de57e9e605, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.21899998
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4747827261590480, guid: 30557939935d4ee48b28a5de57e9e605, type: 3}
       propertyPath: m_LocalRotation.w

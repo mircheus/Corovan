@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using Mirror;
 using FPSGame.Vehicle;
 
@@ -59,6 +60,13 @@ namespace FPSGame.Player
             }
         }
 
+        // Number row keys used for direct weapon slot selection (1 = slot 0, 2 = slot 1 …)
+        private static readonly Key[] slotKeys =
+        {
+            Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
+            Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
+        };
+
         private void Update()
         {
             if (!isOwned || !isInitialized)
@@ -72,6 +80,25 @@ namespace FPSGame.Player
 
             if (currentVehicle == null && sprintAction != null)
                 playerController?.SetSprinting(sprintAction.IsPressed());
+
+            // Direct slot selection via number keys — handled here rather than via
+            // input actions so a variable number of slots is naturally supported.
+            if (currentVehicle == null && playerShooting != null)
+            {
+                var kb = Keyboard.current;
+                if (kb != null)
+                {
+                    int count = Mathf.Min(playerShooting.WeaponCount, slotKeys.Length);
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (kb[slotKeys[i]].wasPressedThisFrame)
+                        {
+                            playerShooting.SelectWeaponSlot(i);
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         public void OnMove(InputValue value)
@@ -125,6 +152,22 @@ namespace FPSGame.Player
             {
                 playerShooting?.StartReload();
             }
+        }
+
+        public void OnPrevious(InputValue value)
+        {
+            if (!isOwned || currentVehicle != null)
+                return;
+            if (value.isPressed)
+                playerShooting?.SelectPreviousWeapon();
+        }
+
+        public void OnNext(InputValue value)
+        {
+            if (!isOwned || currentVehicle != null)
+                return;
+            if (value.isPressed)
+                playerShooting?.SelectNextWeapon();
         }
 
         public void OnInteract(InputValue value)
