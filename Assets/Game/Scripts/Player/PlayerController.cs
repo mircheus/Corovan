@@ -15,6 +15,7 @@ namespace FPSGame.Player
         [Header("Jump Settings")]
         [SerializeField] private float jumpForce = 7.0f;
         [SerializeField] private float gravity = -20.0f;
+        [SerializeField] private float fallTransitionTime = 0.15f;
 
         [Header("Ground Detection")]
         [SerializeField] private float groundCheckRadius = 0.3f;
@@ -39,6 +40,7 @@ namespace FPSGame.Player
         private bool jumpRequested;
         private float targetHeight;
         private Vector3 groundNormal = Vector3.up;
+        private float airTime;
 
         public bool IsGrounded => isGrounded;
         public bool IsSprinting => isSprinting && !isCrouching && moveInput.y > 0;
@@ -156,10 +158,17 @@ namespace FPSGame.Player
             if (isGrounded && velocity.y < 0)
             {
                 velocity.y = -2f;
+                airTime = 0f;
             }
             else
             {
-                velocity.y += gravity * Time.deltaTime;
+                airTime += Time.deltaTime;
+
+                // Jumping up: full gravity immediately so the arc stays snappy.
+                // Falling naturally (stepped off ledge): ramp gravity up over fallTransitionTime
+                // so the transition from walking to falling feels smooth instead of a sudden snap.
+                float gravityScale = velocity.y > 0f ? 1f : Mathf.Clamp01(airTime / fallTransitionTime);
+                velocity.y += gravity * gravityScale * Time.deltaTime;
             }
         }
 
