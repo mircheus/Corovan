@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using Mirror;
 using FPSGame.Vehicle;
+using FPSGame.Environment;
 
 namespace FPSGame.Player
 {
@@ -23,7 +24,15 @@ namespace FPSGame.Player
 
         private CarController currentVehicle;
 
+        private InteractableObject currentInteractTarget;
+        private float interactHoldTimer;
+        private bool isInteractHeld;
+
         public bool IsInVehicle => currentVehicle != null;
+
+        // Subscribe to these in HUD scripts for progress bar / cancel feedback.
+        public event System.Action<float> OnInteractProgress;  // 0–1
+        public event System.Action OnInteractCancelled;
 
         private void Awake()
         {
@@ -80,6 +89,27 @@ namespace FPSGame.Player
 
             if (currentVehicle == null && sprintAction != null)
                 playerController?.SetSprinting(sprintAction.IsPressed());
+
+            // Advance hold-interaction timer.
+            if (isInteractHeld)
+            {
+                bool outOfRange = currentInteractTarget == null ||
+                    Vector3.Distance(transform.position, currentInteractTarget.transform.position)
+                        > currentInteractTarget.InteractRange;
+
+                if (outOfRange)
+                {
+                    CancelInteraction();
+                }
+                else
+                {
+                    interactHoldTimer += Time.deltaTime;
+                    OnInteractProgress?.Invoke(interactHoldTimer / currentInteractTarget.HoldDuration);
+
+                    if (interactHoldTimer >= currentInteractTarget.HoldDuration)
+                        CompleteInteraction();
+                }
+            }
 
             // Direct slot selection via number keys — handled here rather than via
             // input actions so a variable number of slots is naturally supported.
@@ -172,22 +202,43 @@ namespace FPSGame.Player
 
         public void OnInteract(InputValue value)
         {
-            if (!isOwned || !value.isPressed)
+            if (!isOwned)
                 return;
 
-            if (currentVehicle != null)
+            if (value.isPressed)
             {
-                CmdExitVehicle(currentVehicle.netIdentity);
-                ExitVehicle();
-            }
-            else
-            {
+                // Vehicle exit takes priority.
+                if (currentVehicle != null)
+                {
+                    CmdExitVehicle(currentVehicle.netIdentity);
+                    ExitVehicle();
+                    return;
+                }
+
+                // Vehicle enter next.
                 CarController car = FindNearbyCar();
                 if (car != null && !car.HasDriver)
                 {
                     CmdEnterVehicle(car.netIdentity);
                     EnterVehicle(car);
+                    return;
                 }
+
+                // Start hold for interactive objects.
+                InteractableObject target = FindNearbyInteractable();
+                if (target != null)
+                {
+                    currentInteractTarget = target;
+                    interactHoldTimer = 0f;
+                    isInteractHeld = true;
+                    OnInteractProgress?.Invoke(0f);
+                }
+            }
+            else
+            {
+                // Key released before hold completed — cancel.
+                if (isInteractHeld)
+                    CancelInteraction();
             }
         }
 
@@ -252,6 +303,9 @@ namespace FPSGame.Player
 
         private void EnterVehicle(CarController car)
         {
+            if (isInteractHeld)
+                CancelInteraction();
+
             currentVehicle = car;
             playerController?.SetVehicleMode(true);
 
@@ -269,6 +323,66 @@ namespace FPSGame.Player
             }
             currentVehicle = null;
             playerController?.SetVehicleMode(false);
+        }
+
+        private InteractableObject FindNearbyInteractable()
+        {
+            // Broad-phase: grab everything in a generous radius, then filter
+            // by each object's own InteractRange for authoritative distance check.
+            Collider[] hits = Physics.OverlapSphere(transform.position, 10f);
+            InteractableObject closest = null;
+            float closestDist = float.MaxValue;
+
+            foreach (var hit in hits)
+            {
+                var interactable = hit.GetComponentInParent<InteractableObject>();
+                if (interactable == null)
+                    continue;
+
+                float dist = Vector3.Distance(transform.position, interactable.transform.position);
+                if (dist <= interactable.InteractRange && dist < closestDist)
+                {
+                    closest = interactable;
+                    closestDist = dist;
+                }
+            }
+
+            return closest;
+        }
+
+        private void CancelInteraction()
+        {
+            isInteractHeld = false;
+            interactHoldTimer = 0f;
+            currentInteractTarget = null;
+            OnInteractCancelled?.Invoke();
+        }
+
+        private void CompleteInteraction()
+        {
+            isInteractHeld = false;
+            interactHoldTimer = 0f;
+            var target = currentInteractTarget;
+            currentInteractTarget = null;
+            CmdInteract(target.netIdentity);
+        }
+
+        [Command]
+        private void CmdInteract(NetworkIdentity targetIdentity)
+        {
+            if (targetIdentity == null)
+                return;
+
+            var interactable = targetIdentity.GetComponent<InteractableObject>();
+            if (interactable == null)
+                return;
+
+            // Server-side range re-validation (+1 m tolerance for network latency).
+            float dist = Vector3.Distance(transform.position, interactable.transform.position);
+            if (dist > interactable.InteractRange + 1f)
+                return;
+
+            interactable.ServerInteract(gameObject);
         }
     }
 }
