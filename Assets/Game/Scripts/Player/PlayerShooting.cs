@@ -168,7 +168,6 @@ namespace FPSGame.Player
             // Server performs hit detection
             if (Physics.Raycast(origin, direction, out RaycastHit hit, currentWeapon.Range, hitMask, QueryTriggerInteraction.Ignore))
             {
-                Debug.Log("Fire");
                 PlayerHealth targetHealth = hit.collider.GetComponentInParent<PlayerHealth>();
 
                 if (targetHealth != null && targetHealth.gameObject != gameObject)
@@ -180,6 +179,12 @@ namespace FPSGame.Player
                 if (destroyable != null)
                 {
                     destroyable.TakeHit();
+                }
+
+                FPSGame.Environment.DestructionTarget destructionTarget = hit.collider.GetComponentInParent<FPSGame.Environment.DestructionTarget>();
+                if (destructionTarget != null)
+                {
+                    destructionTarget.TakeHit();
                 }
 
                 // Notify all clients of hit effect
