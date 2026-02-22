@@ -14,6 +14,7 @@ namespace FPSGame.Player
 
         [Header("Jump Settings")]
         [SerializeField] private float jumpForce = 7.0f;
+        [SerializeField] private float carJumpForce = 10f;
         [SerializeField] private float gravity = -20.0f;
         [SerializeField] private float fallTransitionTime = 0.15f;
 
@@ -21,6 +22,7 @@ namespace FPSGame.Player
         [SerializeField] private float groundCheckRadius = 0.3f;
         [SerializeField] private float groundCheckOffset = 0.1f;
         [SerializeField] private LayerMask groundMask = ~0;
+        [SerializeField] private LayerMask carMask = ~0;
 
         [Header("Slope Settings")]
         [SerializeField] private float maxSlopeAngle = 45.0f;
@@ -35,6 +37,7 @@ namespace FPSGame.Player
         private Vector3 velocity;
         private Vector2 moveInput;
         private bool isGrounded;
+        private bool isOnCar;
         private bool isSprinting;
         private bool isCrouching;
         private bool jumpRequested;
@@ -78,6 +81,7 @@ namespace FPSGame.Player
                 return;
 
             CheckGround();
+            CheckOnCar();
             HandleCrouch();
             HandleMovement();
             ApplyGravity();
@@ -102,6 +106,12 @@ namespace FPSGame.Player
             isGrounded = Physics.CheckSphere(sphereOrigin, groundCheckRadius, groundMask);
 
             // groundNormal = isGrounded ? hit.normal : Vector3.up;
+        }
+
+        private void CheckOnCar()
+        {
+            Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
+            isOnCar = Physics.CheckSphere(sphereOrigin, groundCheckRadius, carMask);
         }
 
         private void HandleMovement()
@@ -137,7 +147,7 @@ namespace FPSGame.Player
 
             if (jumpRequested && isGrounded)
             {
-                velocity.y = jumpForce;
+                velocity.y = isOnCar ? carJumpForce : jumpForce;
                 jumpRequested = false;
             }
 
