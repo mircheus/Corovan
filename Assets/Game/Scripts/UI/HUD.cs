@@ -10,6 +10,7 @@ namespace FPSGame.UI
         [Header("References")]
         [SerializeField] private PlayerHealth playerHealth;
         [SerializeField] private PlayerShooting playerShooting;
+        [SerializeField] private PlayerInputHandler playerInputHandler;
 
         [Header("Health UI")]
         [SerializeField] private Slider healthBar;
@@ -29,6 +30,10 @@ namespace FPSGame.UI
         [SerializeField] private Image[] crosshairLines;
         [SerializeField] private float crosshairBaseSize = 20f;
         [SerializeField] private float crosshairMaxSpread = 60f;
+
+        [Header("Interact Progress")]
+        [SerializeField] private GameObject interactProgressRoot;
+        [SerializeField] private Slider interactProgressBar;
 
         [Header("Hit Marker")]
         [SerializeField] private GameObject hitMarker;
@@ -51,15 +56,20 @@ namespace FPSGame.UI
                 playerShooting.OnReloadFinished += HideReloading;
             }
 
-            if (hitMarker != null)
+            if (playerInputHandler != null)
             {
-                hitMarker.SetActive(false);
+                playerInputHandler.OnInteractProgress += UpdateInteractProgress;
+                playerInputHandler.OnInteractCancelled += HideInteractProgress;
+                playerInputHandler.OnInteractFinished += HideInteractProgress;
             }
 
+            if (hitMarker != null)
+                hitMarker.SetActive(false);
+
             if (reloadingIndicator != null)
-            {
                 reloadingIndicator.SetActive(false);
-            }
+
+            HideInteractProgress();
         }
 
         private void Update()
@@ -99,6 +109,24 @@ namespace FPSGame.UI
             {
                 reserveAmmoText.text = reserveAmmo.ToString();
             }
+        }
+
+        private void UpdateInteractProgress(float t)
+        {
+            if (interactProgressRoot != null)
+                interactProgressRoot.SetActive(true);
+
+            if (interactProgressBar != null)
+                interactProgressBar.value = t;
+        }
+
+        private void HideInteractProgress()
+        {
+            if (interactProgressRoot != null)
+                interactProgressRoot.SetActive(false);
+
+            if (interactProgressBar != null)
+                interactProgressBar.value = 0f;
         }
 
         private void ShowReloading()
@@ -146,15 +174,13 @@ namespace FPSGame.UI
             }
         }
 
-        public void SetPlayerReferences(PlayerHealth health, PlayerShooting shooting)
+        public void SetPlayerReferences(PlayerHealth health, PlayerShooting shooting, PlayerInputHandler inputHandler = null)
         {
             playerHealth = health;
             playerShooting = shooting;
 
             if (playerHealth != null)
-            {
                 playerHealth.OnHealthChanged += UpdateHealthUI;
-            }
 
             if (playerShooting != null)
             {
@@ -162,20 +188,32 @@ namespace FPSGame.UI
                 playerShooting.OnReloadStarted += ShowReloading;
                 playerShooting.OnReloadFinished += HideReloading;
             }
+
+            if (inputHandler != null)
+            {
+                playerInputHandler = inputHandler;
+                playerInputHandler.OnInteractProgress += UpdateInteractProgress;
+                playerInputHandler.OnInteractCancelled += HideInteractProgress;
+            }
         }
 
         private void OnDestroy()
         {
             if (playerHealth != null)
-            {
                 playerHealth.OnHealthChanged -= UpdateHealthUI;
-            }
 
             if (playerShooting != null)
             {
                 playerShooting.OnAmmoChangedEvent -= UpdateAmmoUI;
                 playerShooting.OnReloadStarted -= ShowReloading;
                 playerShooting.OnReloadFinished -= HideReloading;
+            }
+
+            if (playerInputHandler != null)
+            {
+                playerInputHandler.OnInteractProgress -= UpdateInteractProgress;
+                playerInputHandler.OnInteractCancelled -= HideInteractProgress;
+                playerInputHandler.OnInteractFinished -= HideInteractProgress;
             }
         }
     }

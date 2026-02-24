@@ -15,6 +15,7 @@ namespace FPSGame.Environment
         private bool isCarried;
 
         private Rigidbody rb;
+        private BoxCollider[] colliders;
 
         public bool IsCarried => isCarried;
         public float PickupRange => pickupRange;
@@ -23,17 +24,26 @@ namespace FPSGame.Environment
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
+            colliders = GetComponentsInChildren<BoxCollider>();
         }
 
         private void OnCarriedChanged(bool oldValue, bool newValue)
         {
-            rb.isKinematic = newValue;
+            ApplyCarriedState(newValue);
         }
 
-        // Called every FixedUpdate by the authority client (the carrier) via PlayerCarry.
-        public void MoveToPosition(Vector3 targetPosition, float speed)
+        // Call on the local carrying client immediately for lag-free feedback.
+        // The SyncVar hook confirms the state on all other clients.
+        public void SetCarriedLocally(bool carried)
         {
-            rb.MovePosition(Vector3.Lerp(rb.position, targetPosition, speed * Time.fixedDeltaTime));
+            ApplyCarriedState(carried);
+        }
+
+        private void ApplyCarriedState(bool carried)
+        {
+            rb.isKinematic = carried;
+            foreach (var col in colliders)
+                col.enabled = !carried;
         }
 
         [Server]
@@ -43,7 +53,7 @@ namespace FPSGame.Environment
                 return;
 
             isCarried = true;
-            rb.isKinematic = true; // Apply immediately on server (hook fires on clients)
+            rb.isKinematic = true;
             netIdentity.AssignClientAuthority(conn);
         }
 

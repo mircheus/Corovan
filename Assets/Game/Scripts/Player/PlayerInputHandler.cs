@@ -34,6 +34,7 @@ namespace FPSGame.Player
         // Subscribe to these in HUD scripts for progress bar / cancel feedback.
         public event System.Action<float> OnInteractProgress;  // 0–1
         public event System.Action OnInteractCancelled;
+        public event System.Action OnInteractFinished;
 
         private void Awake()
         {
@@ -355,13 +356,14 @@ namespace FPSGame.Player
         {
             // Broad-phase: grab everything in a generous radius, then filter
             // by each object's own InteractRange for authoritative distance check.
-            Collider[] hits = Physics.OverlapSphere(transform.position, 10f);
+            Collider[] hits = new Collider[10];
+            var size = Physics.OverlapSphereNonAlloc(transform.position, 10f, hits);
             InteractableObject closest = null;
             float closestDist = float.MaxValue;
 
-            foreach (var hit in hits)
+            for (int i = 0; i < size; i++)
             {
-                var interactable = hit.GetComponentInParent<InteractableObject>();
+                var interactable = hits[i].GetComponentInParent<InteractableObject>();
                 if (interactable == null)
                     continue;
 
@@ -391,6 +393,7 @@ namespace FPSGame.Player
             var target = currentInteractTarget;
             currentInteractTarget = null;
             CmdInteract(target.netIdentity);
+            OnInteractFinished?.Invoke();
         }
 
         [Command]

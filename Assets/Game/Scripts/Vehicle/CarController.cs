@@ -5,6 +5,9 @@ namespace FPSGame.Vehicle
 {
     public class CarController : NetworkBehaviour
     {
+        [Header("References: ")]
+        [SerializeField] private Rigidbody rb;
+        
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 15f;
         [SerializeField] private float strafeSpeed = 10f;
@@ -19,7 +22,6 @@ namespace FPSGame.Vehicle
         [SyncVar(hook = nameof(OnDriverChanged))]
         private uint driverNetId;
 
-        private Rigidbody rb;
         private Vector2 moveInput;
         private Vector3 currentVelocity;
 
@@ -30,7 +32,7 @@ namespace FPSGame.Vehicle
 
         private void Awake()
         {
-            rb = GetComponent<Rigidbody>();
+            // rb = GetComponent<Rigidbody>();/**/
             rb.freezeRotation = true;
         }
 

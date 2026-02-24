@@ -6,8 +6,7 @@ namespace FPSGame.Player
 {
     public class PlayerCarry : NetworkBehaviour
     {
-        [SerializeField] private float carryDistance = 2f;
-        [SerializeField] private float carryLerpSpeed = 15f;
+        [SerializeField] private Transform carryPoint;
 
         private PlayerCamera playerCamera;
         private PlayerShooting playerShooting;
@@ -21,16 +20,6 @@ namespace FPSGame.Player
             playerShooting = GetComponent<PlayerShooting>();
         }
 
-        private void FixedUpdate()
-        {
-            if (!isOwned || carriedObject == null)
-                return;
-
-            Ray aimRay = playerCamera.GetAimRay();
-            Vector3 targetPos = aimRay.origin + aimRay.direction * carryDistance;
-            carriedObject.MoveToPosition(targetPos, carryLerpSpeed);
-        }
-
         // Called from PlayerInputHandler when E is pressed.
         public void TryPickup()
         {
@@ -42,6 +31,8 @@ namespace FPSGame.Player
                 return;
 
             carriedObject = target;
+            target.SetCarriedLocally(true);
+            AttachToCarryPoint();
             playerShooting?.SetCarryingMode(true);
             CmdPickup(target.netIdentity);
         }
@@ -52,6 +43,8 @@ namespace FPSGame.Player
             if (!isOwned || carriedObject == null)
                 return;
 
+            DetachFromCarryPoint();
+            carriedObject.SetCarriedLocally(false);
             CmdDrop(carriedObject.netIdentity);
             carriedObject = null;
             playerShooting?.SetCarryingMode(false);
@@ -65,9 +58,25 @@ namespace FPSGame.Player
 
             Ray aimRay = playerCamera.GetAimRay();
             Vector3 impulse = aimRay.direction * carriedObject.ThrowForce;
+            DetachFromCarryPoint();
+            carriedObject.SetCarriedLocally(false);
             CmdThrow(carriedObject.netIdentity, impulse);
             carriedObject = null;
             playerShooting?.SetCarryingMode(false);
+        }
+
+        private void AttachToCarryPoint()
+        {
+            Transform parent = carryPoint != null ? carryPoint : transform;
+            carriedObject.transform.SetParent(parent);
+            carriedObject.transform.localPosition = Vector3.zero;
+            carriedObject.transform.localRotation = Quaternion.identity;
+        }
+
+        private void DetachFromCarryPoint()
+        {
+            if (carriedObject != null)
+                carriedObject.transform.SetParent(null);
         }
 
         public CarryableObject FindNearbyCarryable()
