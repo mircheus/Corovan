@@ -12,6 +12,7 @@ namespace FPSGame.Environment
         [SerializeField] private Transform firePoint;
         [SerializeField] private float fireRate = 1f;
         [SerializeField] private float projectileDamage = 10f;
+        [SerializeField] private float rotationSpeed = 5f;
 
         [Header("Health")]
         [SerializeField] private float maxHealth = 100f;
@@ -30,6 +31,8 @@ namespace FPSGame.Environment
         private PlayerHealth currentTarget;
         private SphereCollider detectionCollider;
         private Renderer detectionRenderer;
+        private float initialRotX;
+        private float initialRotZ;
 
         public bool IsAlive => isAlive;
         public float Health => health;
@@ -41,6 +44,8 @@ namespace FPSGame.Environment
             detectionCollider.isTrigger = true;
             detectionRenderer = GetComponent<Renderer>();
             detectionRenderer.material = neutral;
+            initialRotX = transform.eulerAngles.x;
+            initialRotZ = transform.eulerAngles.z;
         }
 
         public override void OnStartServer()
@@ -62,12 +67,25 @@ namespace FPSGame.Environment
                 return;
             }
 
+            RotateTowardsTarget();
+
             fireCooldown -= Time.deltaTime;
             if (fireCooldown > 0f)
                 return;
 
             FireAt(currentTarget.transform.position + Vector3.up * 1f);
             fireCooldown = 1f / fireRate;
+        }
+
+        private void RotateTowardsTarget()
+        {
+            Vector3 dir = currentTarget.transform.position - transform.position;
+            if (dir.sqrMagnitude < 0.001f)
+                return;
+
+            float targetAngle = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+            float newY = Mathf.LerpAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Euler(initialRotX, newY, initialRotZ);
         }
 
         private void OnTriggerEnter(Collider other)
