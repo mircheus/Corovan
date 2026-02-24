@@ -10,6 +10,7 @@ namespace FPSGame.Environment
         [Header("Settings")]
         [SerializeField] private float scrollSpeed = 20f;
         [SerializeField] private float tileLength = 100f;
+        [SerializeField] private float recycleAtZ = -100f;
 
         private void Update()
         {
@@ -19,7 +20,7 @@ namespace FPSGame.Environment
             {
                 tiles[i].position -= new Vector3(0f, 0f, delta);
 
-                if (tiles[i].position.z <= -tileLength)
+                if (tiles[i].position.z <= recycleAtZ)
                 {
                     float furthestZ = float.MinValue;
                     for (int j = 0; j < tiles.Length; j++)
