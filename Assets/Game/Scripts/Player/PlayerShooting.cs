@@ -211,6 +211,10 @@ namespace FPSGame.Player
                 if (targetHealth != null && targetHealth.gameObject != gameObject)
                     targetHealth.TakeDamage(currentWeapon.Damage, hit.point, -hit.normal);
 
+                FPSGame.Environment.Enemy enemy = hit.collider.GetComponentInParent<FPSGame.Environment.Enemy>();
+                if (enemy != null)
+                    enemy.TakeDamage(currentWeapon.Damage);
+
                 FPSGame.Environment.DestroyableObject destroyable = hit.collider.GetComponentInParent<FPSGame.Environment.DestroyableObject>();
                 if (destroyable != null)
                     destroyable.TakeHit();
