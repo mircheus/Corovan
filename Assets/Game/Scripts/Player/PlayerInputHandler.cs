@@ -22,6 +22,7 @@ namespace FPSGame.Player
         private InputAction sprintAction;
         private InputAction interactAction;
         private bool isInitialized;
+        private bool aimBlockedAfterThrow;
 
         private CarController currentVehicle;
 
@@ -95,12 +96,21 @@ namespace FPSGame.Player
                 if (attackAction != null && attackAction.triggered)
                     playerCarry.TryDrop();
                 if (aimAction != null && aimAction.triggered)
+                {
+                    aimBlockedAfterThrow = true;
                     playerCarry.TryThrow();
+                }
             }
             else
             {
                 if (aimAction != null)
-                    playerShooting?.SetAiming(aimAction.IsPressed());
+                {
+                    // Clear the block only once RMB is fully released after a throw.
+                    if (aimBlockedAfterThrow && !aimAction.IsPressed())
+                        aimBlockedAfterThrow = false;
+
+                    playerShooting?.SetAiming(!aimBlockedAfterThrow && aimAction.IsPressed());
+                }
 
                 if (attackAction != null)
                     playerShooting?.SetFiring(attackAction.IsPressed());
