@@ -1,6 +1,7 @@
 using Mirror;
 using UnityEngine;
 using FPSGame.Player;
+using FPSGame.Vehicle;
 
 namespace FPSGame.Environment
 {
@@ -53,7 +54,15 @@ namespace FPSGame.Environment
             hasHit = true;
             var playerHealth = collision.collider.GetComponentInParent<PlayerHealth>();
             if (playerHealth != null)
+            {
                 playerHealth.TakeDamage(damage);
+            }
+            else
+            {
+                var car = collision.collider.GetComponentInParent<CarController>();
+                if (car != null)
+                    car.TakeDamage(damage);
+            }
 
             DestroyProjectile();
         }

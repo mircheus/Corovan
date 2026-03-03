@@ -1,6 +1,7 @@
 using Mirror;
 using UnityEngine;
 using FPSGame.Player;
+using FPSGame.Vehicle;
 
 namespace FPSGame.Environment
 {
@@ -13,6 +14,7 @@ namespace FPSGame.Environment
         [SerializeField] private float fireRate = 1f;
         [SerializeField] private float projectileDamage = 10f;
         [SerializeField] private float rotationSpeed = 5f;
+        [SerializeField] private bool keepAttackAfterTriggerExit;
 
         [Header("Health")]
         [SerializeField] private float maxHealth = 100f;
@@ -28,7 +30,8 @@ namespace FPSGame.Environment
         private float health;
 
         private float fireCooldown;
-        private PlayerHealth currentTarget;
+        private PlayerHealth currentPlayerTarget;
+        private CarController currentCarTarget;
         private SphereCollider detectionCollider;
         private Renderer detectionRenderer;
         private float initialRotX;
@@ -57,15 +60,23 @@ namespace FPSGame.Environment
 
         private void Update()
         {
-            if (!isServer || !isAlive || currentTarget == null)
+            if (!isServer || !isAlive)
                 return;
 
-            // Clear stale target if player died while inside the trigger.
-            if (currentTarget.IsDead)
+            // Validate and clear stale targets.
+            if (currentPlayerTarget != null && currentPlayerTarget.IsDead)
             {
-                currentTarget = null;
+                ClearTarget();
                 return;
             }
+            if (currentCarTarget != null && (!currentCarTarget.HasDriver || !currentCarTarget.VehicleIsAlive))
+            {
+                ClearTarget();
+                return;
+            }
+
+            if (currentPlayerTarget == null && currentCarTarget == null)
+                return;
 
             RotateTowardsTarget();
 
@@ -73,13 +84,27 @@ namespace FPSGame.Environment
             if (fireCooldown > 0f)
                 return;
 
-            FireAt(currentTarget.transform.position + Vector3.up * 1f);
+            FireAt(GetTargetPosition());
             fireCooldown = 1f / fireRate;
+        }
+
+        private Vector3 GetTargetPosition()
+        {
+            if (currentPlayerTarget != null)
+                return currentPlayerTarget.transform.position + Vector3.up;
+            return currentCarTarget.transform.position + Vector3.up;
+        }
+
+        private void ClearTarget()
+        {
+            currentPlayerTarget = null;
+            currentCarTarget = null;
+            detectionRenderer.material = neutral;
         }
 
         private void RotateTowardsTarget()
         {
-            Vector3 dir = currentTarget.transform.position - transform.position;
+            Vector3 dir = GetTargetPosition() - transform.position;
             if (dir.sqrMagnitude < 0.001f)
                 return;
 
@@ -90,16 +115,25 @@ namespace FPSGame.Environment
 
         private void OnTriggerEnter(Collider other)
         {
-            if (!isServer || !isAlive || currentTarget != null)
+            if (!isServer || !isAlive || currentPlayerTarget != null || currentCarTarget != null)
                 return;
 
             var ph = other.GetComponentInParent<PlayerHealth>();
-            if (ph == null || ph.IsDead)
+            if (ph != null && !ph.IsDead)
+            {
+                currentPlayerTarget = ph;
+                detectionRenderer.material = attacking;
+                Debug.Log($"[Enemy] {name}: player detected — {ph.name}");
                 return;
+            }
 
-            currentTarget = ph;
-            detectionRenderer.material = attacking;
-            Debug.Log($"[Enemy] {name}: player detected — {ph.name}");
+            var car = other.GetComponentInParent<CarController>();
+            if (car != null && car.HasDriver && car.VehicleIsAlive)
+            {
+                currentCarTarget = car;
+                detectionRenderer.material = attacking;
+                Debug.Log($"[Enemy] {name}: vehicle detected — {car.name}");
+            }
         }
 
         private void OnTriggerExit(Collider other)
@@ -107,11 +141,24 @@ namespace FPSGame.Environment
             if (!isServer)
                 return;
 
-            var ph = other.GetComponentInParent<PlayerHealth>();
-            if (ph != null && ph == currentTarget)
+            if (keepAttackAfterTriggerExit)
             {
-                currentTarget = null;
+                return;
+            }
+
+            var ph = other.GetComponentInParent<PlayerHealth>();
+            if (ph != null && ph == currentPlayerTarget)
+            {
+                ClearTarget();
                 Debug.Log($"[Enemy] {name}: player left range — {ph.name}");
+                return;
+            }
+
+            var car = other.GetComponentInParent<CarController>();
+            if (car != null && car == currentCarTarget)
+            {
+                ClearTarget();
+                Debug.Log($"[Enemy] {name}: vehicle left range — {car.name}");
             }
         }
 

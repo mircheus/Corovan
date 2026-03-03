@@ -7536,6 +7536,10 @@ PrefabInstance:
       propertyPath: playerLayerMask.m_Bits
       value: 128
       objectReference: {fileID: 0}
+    - target: {fileID: 5983316798164709999, guid: 18242e87e59ce7343b6e0e6ab2e0b277, type: 3}
+      propertyPath: m_IsTrigger
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

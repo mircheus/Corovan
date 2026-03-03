@@ -84,6 +84,9 @@ namespace FPSGame.Player
             if (!isOwned || !isInitialized)
                 return;
 
+            if (currentVehicle != null && currentVehicle.DriverSeat != null)
+                transform.position = currentVehicle.DriverSeat.position;
+
             bool isCarrying = playerCarry != null && playerCarry.IsCarrying;
 
             if (isCarrying)

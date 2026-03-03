@@ -19,8 +19,17 @@ namespace FPSGame.Vehicle
         [SerializeField] private Transform exitPoint;
         [SerializeField] private float interactDistance = 4f;
 
+        [Header("Vehicle Health")]
+        [SerializeField] private float maxVehicleHealth = 200f;
+
         [SyncVar(hook = nameof(OnDriverChanged))]
         private uint driverNetId;
+
+        [SyncVar]
+        private float vehicleHealth;
+
+        [SyncVar]
+        private bool vehicleIsAlive = true;
 
         private Vector2 moveInput;
         private Vector3 currentVelocity;
@@ -29,11 +38,32 @@ namespace FPSGame.Vehicle
         public Transform DriverSeat => driverSeat;
         public Transform ExitPoint => exitPoint;
         public float InteractDistance => interactDistance;
+        public float VehicleHealth => vehicleHealth;
+        public float MaxVehicleHealth => maxVehicleHealth;
+        public bool VehicleIsAlive => vehicleIsAlive;
 
         private void Awake()
         {
             // rb = GetComponent<Rigidbody>();/**/
             rb.freezeRotation = true;
+        }
+
+        public override void OnStartServer()
+        {
+            base.OnStartServer();
+            vehicleHealth = maxVehicleHealth;
+            vehicleIsAlive = true;
+        }
+
+        [Server]
+        public void TakeDamage(float damage)
+        {
+            if (!vehicleIsAlive || damage <= 0f)
+                return;
+
+            vehicleHealth = Mathf.Max(0f, vehicleHealth - damage);
+            if (vehicleHealth <= 0f)
+                vehicleIsAlive = false;
         }
 
         private void FixedUpdate()
@@ -122,19 +152,6 @@ namespace FPSGame.Vehicle
             var playerController = driver.GetComponent<FPSGame.Player.PlayerController>();
             if (playerController != null)
                 playerController.SetVehicleMode(!visible);
-
-            if (!visible)
-            {
-                // Parent driver to car so they move with it
-                driver.transform.SetParent(driverSeat != null ? driverSeat : transform);
-                driver.transform.localPosition = Vector3.zero;
-                driver.transform.localRotation = Quaternion.identity;
-            }
-            else
-            {
-                // Unparent driver from car
-                driver.transform.SetParent(null);
-            }
 
             // Hide/show renderers on driver, but keep weapon visible
             var shooting = driver.GetComponent<FPSGame.Player.PlayerShooting>();
