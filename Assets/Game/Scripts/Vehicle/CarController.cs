@@ -1,5 +1,7 @@
 using UnityEngine;
 using Mirror;
+using FPSGame.Environment;
+using FPSGame.Networking;
 
 namespace FPSGame.Vehicle
 {
@@ -53,6 +55,19 @@ namespace FPSGame.Vehicle
             base.OnStartServer();
             vehicleHealth = maxVehicleHealth;
             vehicleIsAlive = true;
+        }
+
+        [Server]
+        public void ServerDepositLoot(CarryableObject carryable)
+        {
+            if (carryable == null)
+                return;
+
+            int lootValue = carryable.Value;
+            NetworkServer.Destroy(carryable.gameObject);
+
+            if (ScoreManager.Instance != null)
+                ScoreManager.Instance.AddScore(lootValue);
         }
 
         [Server]

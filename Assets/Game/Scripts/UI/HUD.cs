@@ -1,3 +1,4 @@
+using FPSGame.Networking;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -38,11 +39,23 @@ namespace FPSGame.UI
         [Header("Hit Marker")]
         [SerializeField] private GameObject hitMarker;
         [SerializeField] private float hitMarkerDuration = 0.1f;
+        
+        [Header("Score")]
+        [SerializeField] TextMeshProUGUI scoreText;
 
         private float hitMarkerTimer;
+        private ScoreManager _scoreManager;
 
         private void Start()
         {
+            _scoreManager = ScoreManager.Instance;
+
+            if (_scoreManager != null)
+            {
+                _scoreManager.OnScoreChanged += OnScoreChanged;
+                scoreText.text = _scoreManager.TotalScore.ToString();
+            }
+            
             if (playerHealth != null)
             {
                 playerHealth.OnHealthChanged += UpdateHealthUI;
@@ -70,6 +83,11 @@ namespace FPSGame.UI
                 reloadingIndicator.SetActive(false);
 
             HideInteractProgress();
+        }
+
+        private void OnScoreChanged(int amount)
+        {
+            scoreText.text = _scoreManager.TotalScore.ToString();
         }
 
         private void Update()
@@ -199,6 +217,11 @@ namespace FPSGame.UI
 
         private void OnDestroy()
         {
+            if (_scoreManager != null)
+            {
+                _scoreManager.OnScoreChanged -= OnScoreChanged;
+            }
+            
             if (playerHealth != null)
                 playerHealth.OnHealthChanged -= UpdateHealthUI;
 

@@ -10,6 +10,7 @@ namespace FPSGame.Environment
     {
         [SerializeField] private float pickupRange = 2.5f;
         [SerializeField] private float throwForce = 10f;
+        [SerializeField] private int value = 1;
 
         [SyncVar(hook = nameof(OnCarriedChanged))]
         private bool isCarried;
@@ -20,6 +21,7 @@ namespace FPSGame.Environment
         public bool IsCarried => isCarried;
         public float PickupRange => pickupRange;
         public float ThrowForce => throwForce;
+        public int Value => value;
 
         private void Awake()
         {
