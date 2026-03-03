@@ -103,7 +103,7 @@ namespace FPSGame.Player
             // );
             
             Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
-            isGrounded = Physics.CheckSphere(sphereOrigin, groundCheckRadius, groundMask);
+            isGrounded = Physics.CheckSphere(sphereOrigin, groundCheckRadius, groundMask, QueryTriggerInteraction.Ignore);
 
             // groundNormal = isGrounded ? hit.normal : Vector3.up;
         }
@@ -111,7 +111,7 @@ namespace FPSGame.Player
         private void CheckOnCar()
         {
             Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
-            isOnCar = Physics.CheckSphere(sphereOrigin, groundCheckRadius, carMask);
+            isOnCar = Physics.CheckSphere(sphereOrigin, groundCheckRadius, carMask, QueryTriggerInteraction.Ignore);
         }
 
         private void HandleMovement()
