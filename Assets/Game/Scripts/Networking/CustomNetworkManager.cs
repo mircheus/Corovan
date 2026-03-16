@@ -1,6 +1,5 @@
 using UnityEngine;
 using Mirror;
-using FPSGame.Networking.Steam;
 
 namespace FPSGame.Networking
 {
@@ -8,9 +7,6 @@ namespace FPSGame.Networking
     {
         [Header("Spawn Settings")]
         [SerializeField] private Transform[] spawnPoints;
-
-        [Header("Steam")]
-        [SerializeField] private SteamLobbyManager steamLobbyManager;
 
         private int currentSpawnIndex;
 
@@ -36,7 +32,6 @@ namespace FPSGame.Networking
         {
             base.OnClientDisconnect();
             Debug.Log("Disconnected from server");
-            steamLobbyManager?.LeaveLobby();
         }
 
         public override void OnServerAddPlayer(NetworkConnectionToClient conn)
