@@ -16,6 +16,20 @@ namespace FPSGame.Networking
             Debug.Log("Server started");
         }
 
+        public override void OnServerSceneChanged(string sceneName)
+        {
+            base.OnServerSceneChanged(sceneName);
+            currentSpawnIndex = 0;
+
+            // CustomNetworkManager is DontDestroyOnLoad, so its serialized spawnPoints
+            // hold references to the previous scene's objects — they're destroyed after
+            // reload. Clear them first, then try to re-acquire from the new scene.
+            spawnPoints = null;
+            var spawnManager = FindObjectOfType<PlayerSpawnManager>();
+            if (spawnManager != null)
+                spawnPoints = spawnManager.SpawnPoints;
+        }
+
         public override void OnStopServer()
         {
             base.OnStopServer();
@@ -50,14 +64,26 @@ namespace FPSGame.Networking
 
         public Transform GetNextSpawnPoint()
         {
-            if (spawnPoints == null || spawnPoints.Length == 0)
+            // 1. Custom spawnPoints array — null-safe loop skips destroyed references.
+            if (spawnPoints != null)
             {
-                return transform;
+                for (int i = 0; i < spawnPoints.Length; i++)
+                {
+                    int idx = (currentSpawnIndex + i) % spawnPoints.Length;
+                    if (spawnPoints[idx] != null)
+                    {
+                        currentSpawnIndex = (idx + 1) % spawnPoints.Length;
+                        return spawnPoints[idx];
+                    }
+                }
             }
 
-            Transform spawnPoint = spawnPoints[currentSpawnIndex];
-            currentSpawnIndex = (currentSpawnIndex + 1) % spawnPoints.Length;
-            return spawnPoint;
+            // 2. Mirror's built-in NetworkStartPosition system — auto-populated by
+            //    NetworkStartPosition components on spawn point GameObjects in the scene.
+            if (startPositions != null && startPositions.Count > 0)
+                return GetStartPosition();
+
+            return transform;
         }
 
         public void ResetSpawnIndex()

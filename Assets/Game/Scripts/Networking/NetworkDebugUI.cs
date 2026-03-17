@@ -14,9 +14,13 @@ namespace Game.Scripts.Networking
         private void Start()
         {
             _manager = NetworkManager.singleton;
-        
+
             // По умолчанию ставим ZeroTier IP хоста
             addressInput.text = "10.195.66.21";
+
+            // Hide the panel if a network session is already running (e.g. after scene reload).
+            if (NetworkServer.active || NetworkClient.isConnected)
+                panel.SetActive(false);
         }
 
         public void OnHostButton()
