@@ -9870,6 +9870,71 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b6e94d34e420cd9439f60e3e601dd28b, type: 3}
+--- !u!1001 &2505226596168516853
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -12
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 12.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 9
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755280173521413654, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4456562508990297892, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: sceneId
+      value: 3242636731
+      objectReference: {fileID: 0}
+    - target: {fileID: 7014519454848179591, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_Icon
+      value: 
+      objectReference: {fileID: -964228994112308473, guid: 0000000000000000d000000000000000, type: 0}
+    - target: {fileID: 7014519454848179591, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
+      propertyPath: m_Name
+      value: BarrelSpawner
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2b1a0632d7240ab42a04130d65c64f85, type: 3}
 --- !u!1001 &3153566179333586263
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10154,3 +10219,4 @@ SceneRoots:
   - {fileID: 920643029}
   - {fileID: 1467054336}
   - {fileID: 1165173743}
+  - {fileID: 2505226596168516853}
