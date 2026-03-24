@@ -1,35 +1,56 @@
-# Corovan — Multiplayer FPS with Vehicles
+# Corovan — Multiplayer Convoy FPS
 
 ## Tech Stack
 - **Unity 6** (6000.0.60f1)
 - **Mirror** networking (Assets/Mirror/)
 - **New Input System** (Send Messages mode on PlayerInput component)
 - **ParrelSync** for local multiplayer testing
+- **ZeroTier** for peer-to-peer LAN networking
 
 ## Project Structure
 
 ```
 Assets/Game/
 ├── Input/
-│   └── InputSystem_Actions.inputactions    # Input actions: Move, Look, Jump, Crouch, Sprint, Aim, Attack, Reload, Interact
+│   └── InputSystem_Actions.inputactions
 ├── Prefabs/
-│   └── Player/Player.prefab                # Player prefab with NetworkIdentity + NetworkTransformUnreliable
+│   ├── Player/Player.prefab
+│   └── Network/NetworkDebugUI.prefab
 ├── Scripts/
 │   ├── Player/
-│   │   ├── PlayerInputHandler.cs           # Routes Input System callbacks to other components; handles vehicle enter/exit
-│   │   ├── PlayerController.cs             # CharacterController-based FPS movement, gravity, crouch, sprint
-│   │   ├── PlayerCamera.cs                 # First-person camera with mouse look
-│   │   ├── PlayerShooting.cs               # Weapon handling, aiming, firing (raycasts)
-│   │   └── PlayerHealth.cs                 # SyncVar-based health, death/respawn
+│   │   ├── PlayerInputHandler.cs    # Central input router; vehicle/carry/interact dispatch
+│   │   ├── PlayerController.cs      # CharacterController FPS movement, crouch, sprint, jump
+│   │   ├── PlayerCamera.cs          # First-person mouse look, ADS FOV, recoil
+│   │   ├── PlayerShooting.cs        # Multi-weapon system, ammo, reload, melee/ranged
+│   │   ├── PlayerHealth.cs          # SyncVar health, death/respawn, optional regen
+│   │   └── PlayerCarry.cs           # Pick up, drop, throw CarryableObjects
 │   ├── Vehicle/
-│   │   └── CarController.cs                # Arcade car: NetworkBehaviour, Rigidbody MovePosition, SyncVar driver tracking
+│   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
+│   │   └── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
+│   ├── Environment/
+│   │   ├── Enemy.cs                 # Turret enemy: detects players/cars, rotates, fires projectiles
+│   │   ├── EnemyProjectile.cs       # Server-spawned projectile
+│   │   ├── CarryableObject.cs       # Networked loot: pickup/drop/throw with client authority
+│   │   ├── InteractableObject.cs    # Hold-E interaction (doors etc.) via UnityEvent
+│   │   ├── DestroyableObject.cs     # Hit-count destruction (SyncVar)
+│   │   ├── DestructionTarget.cs     # Single destructible tracked by DestructionObjective
+│   │   ├── DestructionObjective.cs  # Tracks N targets; fires UnityEvent when complete
+│   │   ├── DoorOpener.cs
+│   │   └── InfiniteRoad.cs          # Client-side scrolling tile recycler (no networking)
+│   ├── Hazards/
+│   │   ├── Barrel.cs                # Pooled kinematic barrel; bounces on AnimationCurve, damages car/player
+│   │   └── BarrelSpawner.cs         # Server-side object pool + timed spawn loop
 │   ├── Networking/
-│   │   ├── CustomNetworkManager.cs         # Spawn point rotation
+│   │   ├── CustomNetworkManager.cs  # Spawn point rotation
 │   │   ├── PlayerSpawnManager.cs
-│   │   └── NetworkMessages.cs
+│   │   ├── NetworkMessages.cs
+│   │   ├── NetworkDebugUI.cs        # Runtime connection info overlay
+│   │   └── ScoreManager.cs          # Singleton NetworkBehaviour; SyncVar totalScore
 │   ├── Weapons/
-│   │   ├── WeaponData.cs                   # ScriptableObject weapon definitions
+│   │   ├── WeaponData.cs            # ScriptableObject: damage, spread, recoil, reload, melee flag
 │   │   └── WeaponBase.cs
+│   ├── Animations/
+│   │   └── WheelAnimation.cs
 │   ├── UI/
 │   │   ├── HUD.cs
 │   │   ├── ScoreboardUI.cs
@@ -37,45 +58,94 @@ Assets/Game/
 │   │   └── SettingsMenu.cs
 │   ├── Config/
 │   │   └── GameSettings.cs
+│   ├── Utility/
+│   │   ├── SceneReloader.cs         # F9 hot-reload
+│   │   ├── AutoTile.cs
+│   │   ├── AxisSpacer.cs
+│   │   └── TestEvent.cs
 │   └── Editor/
 │       └── FPSGameSetup.cs
+├── Scenes/
+│   ├── JoinMenu.unity
+│   ├── Road.unity                   # Main gameplay scene (infinite road + convoy)
+│   ├── SampleScene.unity
+│   ├── Test.unity                   # (untracked, WIP)
+│   └── WagonsConstruct.unity        # (untracked, WIP)
 ```
 
 ## Architecture
 
+### Namespace Convention
+All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `FPSGame.Environment`, `FPSGame.Hazards`, `FPSGame.Networking`, `FPSGame.Weapons`, `FPSGame.UI`, `FPSGame.Config`
+
 ### Networking Pattern
 - All networked scripts inherit `NetworkBehaviour` (Mirror)
-- Player has **client authority** — owns their PlayerInput, PlayerController, PlayerCamera
-- Position synced via `NetworkTransformUnreliable` on both player and car prefabs
-- State synced via `[SyncVar]` with hooks (health, vehicle driver)
-- Client-to-server calls via `[Command]`, server-to-client via `[ClientRpc]`
+- Client-to-server: `[Command]`, server-to-client: `[ClientRpc]`, server-only: `[Server]`
+- State synced via `[SyncVar]` with hooks
+- Position synced via `NetworkTransformUnreliable` on player and car prefabs
+- Server validates all game-state mutations; clients send intent via Commands
 
 ### Player System
-- `PlayerInputHandler` is the central input router — uses Input System **Send Messages** mode (`OnMove`, `OnJump`, `OnInteract`, etc.)
-- Only the local player (`isOwned`) processes input; remote players have `PlayerInput` disabled
-- `PlayerController` uses `CharacterController` for movement (not Rigidbody)
-- `PlayerController.SetVehicleMode(bool)` disables CharacterController and movement when in a vehicle
+- `PlayerInputHandler` is the sole input router (Input System **Send Messages** mode: `OnMove`, `OnLook`, `OnJump`, `OnCrouch`, `OnInteract`, `OnReload`, `OnPrevious`, `OnNext`)
+- Only local player (`isOwned`) processes input; remote players have `PlayerInput` disabled in `OnStartClient`
+- `PlayerController` uses `CharacterController` — disabled for remote players (NetworkTransform handles their position)
+- `PlayerController.SetVehicleMode(bool)` disables CharacterController + zeroes velocity when entering a vehicle
+- `PlayerCarry` manages loot carrying; while carrying, LMB=drop, RMB=throw; normal shooting blocked
+- `PlayerShooting` supports multiple `WeaponData` slots with per-slot saved ammo; optimistic local weapon switch + server SyncVar confirmation
 
 ### Vehicle System
 - `CarController` is a `NetworkBehaviour` on the car prefab
-- **Arcade movement**: no Y-axis rotation, moves in car-local forward/right via `rb.MovePosition()` in FixedUpdate
-- Velocity tracked internally (`currentVelocity` field) with smooth acceleration/deceleration — do NOT use `rb.linearVelocity` directly (network sync components overwrite it)
-- **Enter/exit flow**: Player presses Interact → `PlayerInputHandler` sends `[Command]` → server validates & calls `CarController.ServerEnter()` → server assigns client authority over car via `netIdentity.AssignClientAuthority()` → `[SyncVar] driverNetId` hook fires on all clients to hide/show driver
-- When driving, `PlayerInputHandler` routes Move input to `CarController.SetMoveInput()` instead of `PlayerController`
-- Car prefab requires: Rigidbody (freeze rotation), NetworkIdentity, NetworkTransformUnreliable, CarController, BoxCollider
+- **Arcade movement**: `rb.MovePosition()` in FixedUpdate; velocity tracked in `currentVelocity` (do NOT use `rb.linearVelocity` — network sync overwrites it)
+- **Enter/exit flow**: Interact key → `CmdEnterVehicle` → `car.ServerEnter()` → `netIdentity.AssignClientAuthority(conn)` → `[SyncVar] driverNetId` hook hides/shows driver on all clients
+- Vehicle has health (`vehicleHealth` SyncVar); enemies and barrels call `car.TakeDamage()`
+- `CargoTrigger` child (trigger collider, no Rigidbody) calls `car.ServerDepositLoot()` when a carried object enters — adds to `ScoreManager`
 
-### Input Actions
-Actions defined in `Assets/Game/Input/InputSystem_Actions.inputactions`:
-- Move (Vector2), Look (Vector2), Jump (Button), Crouch (Button)
-- Sprint (Button), Aim (Button), Attack (Button), Reload (Button)
-- Interact (Button) — E key / Gamepad North — used for vehicle enter/exit
+### Weapon System
+- `WeaponData` ScriptableObject: `Damage`, `Range`, `FireRate`, `MagazineSize`, `MaxReserveAmmo`, `ReloadTime`, `BaseSpread`, `AdsSpreadMultiplier`, `MovementSpreadMultiplier`, `IsAutomatic`, `IsMelee`, `MeleeRadius`, recoil pattern, `ImpactEffectPrefab`
+- Ranged: Raycast on server; `RpcOnHit` spawns impact effect on all clients
+- Melee: SphereCast for wide sweep; no ammo consumed
+- Weapon switch: optimistic local model swap → `CmdSwitchWeapon` → SyncVar hook confirms on all clients
+
+### Enemy System
+- `Enemy` (NetworkBehaviour): SphereCollider trigger for detection, server-only Update loop
+- Targets either `PlayerHealth` (on foot) or `CarController` (driven vehicle)
+- Fires `EnemyProjectile` via `NetworkServer.Spawn`; optional `keepAttackAfterTriggerExit` flag
+- `DestructionObjective` monitors an array of `DestructionTarget`s; fires a UnityEvent when enough are destroyed
+
+### Hazard System
+- `BarrelSpawner`: server-side object pool (`poolSize` pre-spawned barrels). Returns barrel to pool after despawn delay
+- `Barrel`: kinematic Rigidbody, moves via `rb.MovePosition()`; bounces using an `AnimationCurve`; damages car or player on trigger contact, then deactivates
+
+### Interaction System
+- `InteractableObject`: hold-E with configurable `HoldDuration`; progress tracked in `PlayerInputHandler`; on completion `CmdInteract` → `ServerInteract` → `RpcOnInteracted` → UnityEvent fires on all clients
+- `CarryableObject`: pickup assigns client authority; drop/throw removes it; `SetCarriedLocally` gives instant feedback; SyncVar confirms on other clients
+
+### Score / Objective
+- `ScoreManager`: singleton `NetworkBehaviour`; `[SyncVar] totalScore`; `AddScore(int)` called server-side when loot deposited via `CargoTrigger`
 
 ## Important Lessons
 
 ### Mirror + Rigidbody Sync
-- `NetworkRigidbodyUnreliable` overwrites `rb.linearVelocity` every frame even on the authority client — do NOT use it with manual velocity control
-- Use `NetworkTransformUnreliable` + `rb.MovePosition()` for physics objects that need manual movement control
-- Track velocity in a plain `Vector3` field instead of relying on `rb.linearVelocity`
+- `NetworkRigidbodyUnreliable` overwrites `rb.linearVelocity` every frame — do NOT use it with manual velocity control
+- Use `NetworkTransformUnreliable` + `rb.MovePosition()` for physics objects with manual movement
+- Track velocity in a plain `Vector3` field instead of `rb.linearVelocity`
 
-### Namespace
-- All game scripts use `FPSGame.*` namespaces: `FPSGame.Player`, `FPSGame.Vehicle`, `FPSGame.Networking`, `FPSGame.Weapons`, `FPSGame.UI`, `FPSGame.Config`
+### Client Authority Pattern
+- Car and CarryableObject both use `netIdentity.AssignClientAuthority(conn)` / `RemoveClientAuthority()`
+- Always validate on the server that the requesting connection actually holds authority before acting
+
+### Input System
+- `PlayerInput` in Send Messages mode — callback methods must be named `On<ActionName>(InputValue value)`
+- Disable `PlayerInput` on remote players in `OnStartClient` (not `OnStartAuthority`) to avoid double-processing
+
+## Current State (2026-03-24)
+- Core gameplay loop functional: join → drive convoy car → carry loot into cargo → score updates
+- Enemy turrets shoot at players and driven vehicles
+- Barrel hazard spawner active on Road scene
+- Destruction objective system in place (DestructionObjective / DestructionTarget)
+- ZeroTier used for remote peer connections; NetworkDebugUI shows connection info at runtime
+- F9 reloads the current scene (SceneReloader utility)
+- WIP scenes: Test.unity, WagonsConstruct.unity (untracked)
+- Zombie animations folder added (untracked) — zombie enemies not yet integrated
+- No respawn logic wired to scene yet (PlayerHealth.Respawn exists server-side but nothing calls it)
+- Vehicle health destruction has no visual/death state beyond `vehicleIsAlive` SyncVar

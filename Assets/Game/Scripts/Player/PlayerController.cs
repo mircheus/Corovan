@@ -50,6 +50,7 @@ namespace FPSGame.Player
         public bool IsCrouching => isCrouching;
         public Vector3 Velocity => velocity;
         public bool InVehicle { get; private set; }
+        public bool IsGrappling { get; set; }
 
         private void Awake()
         {
@@ -77,7 +78,7 @@ namespace FPSGame.Player
 
         private void Update()
         {
-            if (!isOwned || InVehicle)
+            if (!isOwned || InVehicle || IsGrappling)
                 return;
 
             CheckGround();
