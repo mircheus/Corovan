@@ -14,10 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   weaponName: Pistol
   weaponIcon: {fileID: 0}
+  isMelee: 0
   isAutomatic: 0
   fireRate: 0.2
   damage: 25
   range: 100
+  meleeRadius: 0.5
   baseSpread: 0.02
   adsSpreadMultiplier: 0.3
   movementSpreadMultiplier: 1.5
@@ -30,7 +32,7 @@ MonoBehaviour:
   - {x: -0.3, y: 1.4}
   - {x: 0.1, y: 1.2}
   - {x: -0.2, y: 1.5}
-  recoilMultiplier: 1
+  recoilMultiplier: 10
   adsRecoilMultiplier: 0.7
   adsTime: 0.2
   adsPosition: {x: 0, y: -0.1, z: 0.1}

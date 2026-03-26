@@ -11,6 +11,7 @@ namespace FPSGame.Player
         [SerializeField] private PlayerController playerController;
         [SerializeField] private WeaponData[] availableWeapons;
         [SerializeField] private GameObject[] weaponModels;
+        [SerializeField] private ParticleSystem[] muzzleFlashEffects;
         [SerializeField] private Transform weaponHolder;
         [SerializeField] private LayerMask hitMask = ~0;
 
@@ -164,10 +165,11 @@ namespace FPSGame.Player
             Vector3 direction = currentWeapon.IsMelee ? aimRay.direction : ApplySpread(aimRay.direction);
 
             CmdFire(aimRay.origin, direction);
-
+            
             if (!currentWeapon.IsMelee)
             {
                 playerCamera.AddRecoil(GetCurrentRecoil());
+                PlayMuzzleFlash(currentWeaponIndex);
             }
 
             shotsFired++;
@@ -232,11 +234,19 @@ namespace FPSGame.Player
         [ClientRpc]
         private void RpcOnFire()
         {
-            // Play muzzle flash, sound effects for all clients
             if (!isOwned)
             {
+                PlayMuzzleFlash(currentWeaponIndex);
                 OnWeaponFired?.Invoke();
             }
+        }
+
+        private void PlayMuzzleFlash(int index)
+        {
+            if (muzzleFlashEffects == null || index >= muzzleFlashEffects.Length)
+                return;
+            if (muzzleFlashEffects[index] != null)
+                muzzleFlashEffects[index].Play();
         }
 
         [ClientRpc]
