@@ -219,7 +219,10 @@ namespace FPSGame.Player
 
                 FPSGame.Environment.ZombieEnemy zombie = hit.collider.GetComponentInParent<FPSGame.Environment.ZombieEnemy>();
                 if (zombie != null)
+                {
                     zombie.TakeDamage(currentWeapon.Damage);
+                    zombie.ServerPlayHitEffect(hit.point, hit.normal);
+                }
 
                 FPSGame.Environment.DestroyableObject destroyable = hit.collider.GetComponentInParent<FPSGame.Environment.DestroyableObject>();
                 if (destroyable != null)

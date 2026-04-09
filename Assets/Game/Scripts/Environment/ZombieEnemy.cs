@@ -43,6 +43,9 @@ namespace FPSGame.Environment
         [SerializeField] private Animator animator;
         [SerializeField] private string stateParameterName = "State";
 
+        [Header("Hit Effects")]
+        [SerializeField] private ParticleSystem[] hitEffects;
+
         // ── Synced state ──────────────────────────────────────────────────
 
         [SyncVar(hook = nameof(OnStateChanged))]
@@ -239,6 +242,35 @@ namespace FPSGame.Environment
             health = Mathf.Max(0f, health - damage);
             if (health <= 0f)
                 Die();
+        }
+
+        [Server]
+        public void ServerPlayHitEffect(Vector3 point, Vector3 normal)
+        {
+            RpcPlayHitEffect(point, normal);
+        }
+
+        [ClientRpc]
+        private void RpcPlayHitEffect(Vector3 point, Vector3 normal)
+        {
+            ParticleSystem effect = GetAvailableHitEffect();
+            if (effect == null)
+                return;
+
+            effect.transform.SetPositionAndRotation(point, Quaternion.LookRotation(normal));
+            effect.Play();
+        }
+
+        private ParticleSystem GetAvailableHitEffect()
+        {
+            if (hitEffects == null || hitEffects.Length == 0)
+                return null;
+
+            foreach (var ps in hitEffects)
+                if (ps != null && !ps.isPlaying)
+                    return ps;
+
+            return null;
         }
 
         [Server]
