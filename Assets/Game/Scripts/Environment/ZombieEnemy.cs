@@ -19,7 +19,7 @@ namespace FPSGame.Environment
     [RequireComponent(typeof(NavMeshAgent))]
     public class ZombieEnemy : NetworkBehaviour
     {
-        private enum ZombieState { Idle = 0, Chasing = 1, Attacking = 2 }
+        private enum ZombieState { Idle = 0, Chasing = 1, Attacking = 2, Dead = 3 }
 
         [Header("Detection")]
         [SerializeField] private float detectionRadius = 15f;
@@ -229,8 +229,10 @@ namespace FPSGame.Environment
         }
 
         [Server]
-        public void TakeDamage(float damage)
+        public void TakeDamage(int damage)
         {
+            Debug.Log($"Damage: {damage}");
+            
             if (!isAlive || damage <= 0f)
                 return;
 
@@ -245,6 +247,7 @@ namespace FPSGame.Environment
             isAlive = false;
             CancelInvoke(nameof(DealDamage));
             agent.isStopped = true;
+            TransitionTo(ZombieState.Dead);
         }
 
         // ── SyncVar hooks — fire on all clients ───────────────────────────
@@ -263,10 +266,7 @@ namespace FPSGame.Environment
         private void OnAliveChanged(bool oldValue, bool newValue)
         {
             if (!newValue)
-            {
-                ApplyAnimatorState((int)ZombieState.Idle);
-                // Extend here: death animation, ragdoll, disable colliders, etc.
-            }
+                ApplyAnimatorState((int)ZombieState.Dead);
         }
 
         // ── Gizmos ────────────────────────────────────────────────────────

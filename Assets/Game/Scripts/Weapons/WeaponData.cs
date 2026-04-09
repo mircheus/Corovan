@@ -13,7 +13,7 @@ namespace FPSGame.Weapons
         [SerializeField] private bool isMelee = false;
         [SerializeField] private bool isAutomatic = false;
         [SerializeField] private float fireRate = 0.2f;
-        [SerializeField] private float damage = 25f;
+        [SerializeField] private int damage = 25;
         [SerializeField] private float range = 100f;
         [Tooltip("SphereCast radius used for melee hit detection. Ignored for ranged weapons.")]
         [SerializeField] private float meleeRadius = 0.5f;
@@ -57,7 +57,7 @@ namespace FPSGame.Weapons
         public bool IsMelee => isMelee;
         public bool IsAutomatic => isAutomatic;
         public float FireRate => fireRate;
-        public float Damage => damage;
+        public int Damage => damage;
         public float Range => range;
         public float MeleeRadius => meleeRadius;
         public float BaseSpread => baseSpread;
