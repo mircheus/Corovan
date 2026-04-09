@@ -217,6 +217,10 @@ namespace FPSGame.Player
                 if (enemy != null)
                     enemy.TakeDamage(currentWeapon.Damage);
 
+                FPSGame.Environment.ZombieEnemy zombie = hit.collider.GetComponentInParent<FPSGame.Environment.ZombieEnemy>();
+                if (zombie != null)
+                    zombie.TakeDamage(currentWeapon.Damage);
+
                 FPSGame.Environment.DestroyableObject destroyable = hit.collider.GetComponentInParent<FPSGame.Environment.DestroyableObject>();
                 if (destroyable != null)
                     destroyable.TakeHit();
