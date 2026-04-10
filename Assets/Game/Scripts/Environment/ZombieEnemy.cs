@@ -60,6 +60,7 @@ namespace FPSGame.Environment
         // ── Server-only fields ────────────────────────────────────────────
 
         private NavMeshAgent agent;
+        private CapsuleCollider capsuleCollider;
         private PlayerHealth currentTarget;
         private float attackTimer;
         private int stateParamHash;
@@ -75,6 +76,7 @@ namespace FPSGame.Environment
         private void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
+            capsuleCollider = GetComponent<CapsuleCollider>();
 
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
@@ -300,7 +302,11 @@ namespace FPSGame.Environment
         private void OnAliveChanged(bool oldValue, bool newValue)
         {
             if (!newValue)
+            {
                 ApplyAnimatorState((int)ZombieState.Dead);
+                if (capsuleCollider != null)
+                    capsuleCollider.enabled = false;
+            }
         }
 
         // ── Gizmos ────────────────────────────────────────────────────────
