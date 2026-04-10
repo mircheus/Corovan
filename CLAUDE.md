@@ -134,6 +134,10 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - Car and CarryableObject both use `netIdentity.AssignClientAuthority(conn)` / `RemoveClientAuthority()`
 - Always validate on the server that the requesting connection actually holds authority before acting
 
+### Animator + NavMeshAgent / Manual Movement
+- Always disable **Apply Root Motion** on any enemy Animator that uses NavMeshAgent or manual transform movement — root motion overrides `transform.position` and `transform.rotation` every frame, fighting both NavMeshAgent pathfinding and manual `FaceTarget` rotation
+- With root motion disabled, the Animator drives only visual bone poses; all locomotion is code-controlled
+
 ### Input System
 - `PlayerInput` in Send Messages mode — callback methods must be named `On<ActionName>(InputValue value)`
 - Disable `PlayerInput` on remote players in `OnStartClient` (not `OnStartAuthority`) to avoid double-processing

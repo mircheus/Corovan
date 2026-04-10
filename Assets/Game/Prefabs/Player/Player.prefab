@@ -1384,7 +1384,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  maxHealth: 100
+  maxHealth: 1000
   enableRegeneration: 0
   regenerationRate: 5
   regenerationDelay: 5

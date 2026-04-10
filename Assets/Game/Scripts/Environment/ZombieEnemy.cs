@@ -89,6 +89,7 @@ namespace FPSGame.Environment
             isAlive = true;
             agent.speed = moveSpeed;
             agent.stoppingDistance = attackRadius * 0.8f;
+            agent.updateRotation = false;
         }
 
         public override void OnStartClient()
@@ -206,8 +207,9 @@ namespace FPSGame.Environment
             if (dir.sqrMagnitude < 0.001f)
                 return;
 
-            Quaternion target = Quaternion.LookRotation(dir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, target, rotationSpeed * Time.deltaTime);
+            float targetAngle = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+            float newY = Mathf.LerpAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Euler(0f, newY, 0f);
         }
 
         private void TransitionTo(ZombieState newState)

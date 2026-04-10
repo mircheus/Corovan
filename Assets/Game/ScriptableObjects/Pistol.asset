@@ -17,7 +17,7 @@ MonoBehaviour:
   isMelee: 0
   isAutomatic: 0
   fireRate: 0.2
-  damage: 25
+  damage: 5
   range: 100
   meleeRadius: 0.5
   baseSpread: 0.02
