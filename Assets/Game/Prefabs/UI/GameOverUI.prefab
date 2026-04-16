@@ -12,8 +12,9 @@ GameObject:
   - component: {fileID: 1277908201676975349}
   - component: {fileID: 8785805577739063432}
   - component: {fileID: 6904104052440278277}
+  - component: {fileID: 2285246208640130492}
   m_Layer: 5
-  m_Name: GameOverCanvas
+  m_Name: GameOverUI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -102,6 +103,20 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &2285246208640130492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4075387981800145621}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f69c316a0e3430c8e2b128a80430e14, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerHealth: {fileID: 0}
+  gameOverUI: {fileID: 8136407280335327701}
 --- !u!1 &5358703952172041132
 GameObject:
   m_ObjectHideFlags: 0
@@ -235,12 +250,12 @@ GameObject:
   - component: {fileID: 5542671676499817079}
   - component: {fileID: 9028110846434382520}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: GameOverPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &4699379135665486018
 RectTransform:
   m_ObjectHideFlags: 0
