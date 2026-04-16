@@ -10,8 +10,12 @@ namespace FPSGame.Utility
 
         private void Update()
         {
-            if (!Input.GetKeyDown(reloadKey)) return;
+            if (Input.GetKeyDown(reloadKey))
+                Restart();
+        }
 
+        public void Restart()
+        {
             string sceneName = SceneManager.GetActiveScene().name;
 
             if (NetworkServer.active)

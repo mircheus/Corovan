@@ -60,7 +60,25 @@ namespace FPSGame.Player
                 interactAction = playerInput.actions["Interact"];
             }
 
+            var health = GetComponent<PlayerHealth>();
+            if (health != null)
+                health.OnDeath += OnPlayerDied;
+
             isInitialized = true;
+        }
+
+        private void OnPlayerDied()
+        {
+            isInitialized = false;
+            if (playerInput != null) playerInput.enabled = false;
+            playerShooting?.SetFiring(false);
+            playerShooting?.SetAiming(false);
+            playerController?.SetSprinting(false);
+            if (currentVehicle != null)
+            {
+                CmdExitVehicle(currentVehicle.netIdentity);
+                ExitVehicle();
+            }
         }
 
         public override void OnStartClient()

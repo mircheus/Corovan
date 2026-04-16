@@ -35,6 +35,10 @@ namespace FPSGame.Player
         [SerializeField] private float recoilReturnSpeed = 15.0f;
         [SerializeField] private float recoilSnapiness = 6.0f;
 
+        [Header("Death")]
+        [SerializeField] private float deadCameraHeight = -0.6f;
+        [SerializeField] private float deadCameraDropSpeed = 3f;
+
         private float pitch;
         private float yaw;
         private Vector2 lookInput;
@@ -46,6 +50,7 @@ namespace FPSGame.Player
         private Vector3 targetRecoil;
         private bool isAiming;
         private bool isInitialized;
+        private bool isDead;
 
         private PlayerController playerController;
 
@@ -77,7 +82,6 @@ namespace FPSGame.Player
         {
             base.OnStartLocalPlayer();
 
-            // Enable camera and audio for local player
             if (playerCamera != null)
             {
                 playerCamera.enabled = true;
@@ -85,12 +89,20 @@ namespace FPSGame.Player
             }
 
             if (audioListener != null)
-            {
                 audioListener.enabled = true;
-            }
+
+            var health = GetComponentInParent<FPSGame.Player.PlayerHealth>();
+            if (health != null)
+                health.OnDeath += OnPlayerDied;
 
             LockCursor();
             isInitialized = true;
+        }
+
+        private void OnPlayerDied()
+        {
+            isDead = true;
+            UnlockCursor();
         }
 
         public override void OnStartClient()
@@ -125,10 +137,27 @@ namespace FPSGame.Player
             if (!isOwned || !isInitialized)
                 return;
 
+            if (isDead)
+            {
+                HandleDeathDrop();
+                return;
+            }
+
             HandleLook();
             HandleFOV();
             HandleHeadBob();
             HandleRecoil();
+        }
+
+        private void HandleDeathDrop()
+        {
+            if (playerCamera == null)
+                return;
+
+            Vector3 pos = playerCamera.transform.localPosition;
+            float targetY = originalCameraPosition.y + deadCameraHeight;
+            pos.y = Mathf.MoveTowards(pos.y, targetY, deadCameraDropSpeed * Time.deltaTime);
+            playerCamera.transform.localPosition = pos;
         }
 
         private void HandleLook()

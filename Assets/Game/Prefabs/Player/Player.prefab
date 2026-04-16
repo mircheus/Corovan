@@ -829,6 +829,8 @@ MonoBehaviour:
   sprintBobMultiplier: 1.4
   recoilReturnSpeed: 15
   recoilSnapiness: 6
+  deadCameraHeight: -0.6
+  deadCameraDropSpeed: 3
 --- !u!1 &2593650042292531425
 GameObject:
   m_ObjectHideFlags: 0
@@ -1384,7 +1386,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  maxHealth: 1000
+  maxHealth: 100
   enableRegeneration: 0
   regenerationRate: 5
   regenerationDelay: 5
