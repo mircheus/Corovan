@@ -22,13 +22,21 @@ namespace FPSGame.Vehicle
         [SerializeField] private float interactDistance = 4f;
 
         [Header("Vehicle Health")]
-        [SerializeField] private float maxVehicleHealth = 200f;
+        [SerializeField] private int maxVehicleHealth = 200;
+
+        [Header("Collision Damage")]
+        [SerializeField] private LayerMask obstacleLayers;
+        [SerializeField] private float minImpactSpeed = 3f;
+        [SerializeField] private float damagePerImpactSpeed = 2f;
+        [SerializeField] private float collisionDamageCooldown = 0.5f;
+
+        private float lastCollisionDamageTime;
 
         [SyncVar(hook = nameof(OnDriverChanged))]
         private uint driverNetId;
 
         [SyncVar]
-        private float vehicleHealth;
+        private int vehicleHealth;
 
         [SyncVar]
         private bool vehicleIsAlive = true;
@@ -40,8 +48,8 @@ namespace FPSGame.Vehicle
         public Transform DriverSeat => driverSeat;
         public Transform ExitPoint => exitPoint;
         public float InteractDistance => interactDistance;
-        public float VehicleHealth => vehicleHealth;
-        public float MaxVehicleHealth => maxVehicleHealth;
+        public int VehicleHealth => vehicleHealth;
+        public int MaxVehicleHealth => maxVehicleHealth;
         public bool VehicleIsAlive => vehicleIsAlive;
 
         private void Awake()
@@ -71,14 +79,46 @@ namespace FPSGame.Vehicle
         }
 
         [Server]
-        public void TakeDamage(float damage)
+        public void TakeDamage(int damage)
         {
-            if (!vehicleIsAlive || damage <= 0f)
+            Debug.Log($"[CAR] TakeDamage: {damage}");
+            if (!vehicleIsAlive || damage <= 0)
                 return;
 
-            vehicleHealth = Mathf.Max(0f, vehicleHealth - damage);
-            if (vehicleHealth <= 0f)
+            vehicleHealth = Mathf.Max(0, vehicleHealth - damage);
+            Debug.Log($"[CAR] Health: {vehicleHealth}");
+            if (vehicleHealth <= 0)
                 vehicleIsAlive = false;
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (!isOwned || !HasDriver)
+                return;
+
+            if ((obstacleLayers.value & (1 << collision.gameObject.layer)) == 0)
+                return;
+            
+            float impactSpeed = currentVelocity.magnitude;
+            Debug.Log($"impactSpeed: {impactSpeed}");
+            if (impactSpeed < minImpactSpeed)
+                return;
+
+            CmdReportCollision(impactSpeed);
+        }
+
+        [Command]
+        private void CmdReportCollision(float impactSpeed)
+        {
+            if (Time.time - lastCollisionDamageTime < collisionDamageCooldown)
+                return;
+
+            if (impactSpeed < minImpactSpeed)
+                return;
+
+            lastCollisionDamageTime = Time.time;
+            int damage = Mathf.FloorToInt((impactSpeed - minImpactSpeed) * damagePerImpactSpeed);
+            TakeDamage(damage);
         }
 
         private void FixedUpdate()

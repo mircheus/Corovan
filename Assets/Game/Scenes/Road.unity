@@ -12122,7 +12122,7 @@ GameObject:
   - component: {fileID: 896200361}
   - component: {fileID: 896200360}
   - component: {fileID: 896200359}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Floor (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -23779,6 +23779,10 @@ PrefabInstance:
     - target: {fileID: 7861741268124012600, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8881416774754931581, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
+      propertyPath: obstacleLayers.m_Bits
+      value: 256
       objectReference: {fileID: 0}
     - target: {fileID: 9209097664477337625, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
       propertyPath: sceneId

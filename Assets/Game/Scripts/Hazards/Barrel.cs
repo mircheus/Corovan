@@ -97,7 +97,7 @@ namespace FPSGame.Hazards
             var car = other.GetComponent<CarController>();
             if (car != null)
             {
-                car.TakeDamage(carDamage);
+                car.TakeDamage(Mathf.FloorToInt(carDamage));
                 ServerDeactivate();
                 return;
             }

@@ -61,7 +61,7 @@ namespace FPSGame.Environment
             {
                 var car = collision.collider.GetComponentInParent<CarController>();
                 if (car != null)
-                    car.TakeDamage(damage);
+                    car.TakeDamage(Mathf.FloorToInt(damage));
             }
 
             DestroyProjectile();
