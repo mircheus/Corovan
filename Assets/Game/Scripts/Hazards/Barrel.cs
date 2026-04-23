@@ -30,6 +30,10 @@ namespace FPSGame.Hazards
         [SerializeField] private float playerDamage = 15f;
         [SerializeField] private bool damagePlayersOnFoot = true;
 
+        [Header("FX")]
+        [SerializeField] private GameObject explosionEffect;
+        [SerializeField] private float explosionDuration = 2f;
+
         [SyncVar(hook = nameof(OnActiveStateChanged))]
         private bool isActive;
 
@@ -98,6 +102,7 @@ namespace FPSGame.Hazards
             if (car != null)
             {
                 car.TakeDamage(Mathf.FloorToInt(carDamage));
+                RpcPlayExplosion();
                 ServerDeactivate();
                 return;
             }
@@ -111,6 +116,21 @@ namespace FPSGame.Hazards
                     ServerDeactivate();
                 }
             }
+        }
+
+        [ClientRpc]
+        private void RpcPlayExplosion()
+        {
+            if (explosionEffect == null) return;
+            explosionEffect.SetActive(true);
+            CancelInvoke(nameof(HideExplosion));
+            Invoke(nameof(HideExplosion), explosionDuration);
+        }
+
+        private void HideExplosion()
+        {
+            if (explosionEffect != null)
+                explosionEffect.SetActive(false);
         }
 
         private void OnActiveStateChanged(bool old, bool newVal) => ApplyActiveState(newVal);
