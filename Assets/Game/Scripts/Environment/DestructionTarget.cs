@@ -33,7 +33,9 @@ namespace FPSGame.Environment
             if (isDestroyed) return;
             currentHits++;
             if (currentHits >= hitsToDestroy)
+            {
                 isDestroyed = true;
+            }
         }
 
         private void OnDestroyedChanged(bool oldValue, bool newValue)
