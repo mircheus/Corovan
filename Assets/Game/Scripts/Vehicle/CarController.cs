@@ -24,6 +24,12 @@ namespace FPSGame.Vehicle
         [Header("Vehicle Health")]
         [SerializeField] private int maxVehicleHealth = 200;
 
+        [Header("Destruction FX")]
+        [SerializeField] private GameObject fireEffect;
+        [SerializeField] private GameObject explosionEffect;
+        [SerializeField] private float explosionDelay = 2f;
+        [SerializeField] private float explosionDuration = 2f;
+
         [Header("Collision Damage")]
         [SerializeField] private LayerMask obstacleLayers;
         [SerializeField] private float minImpactSpeed = 3f;
@@ -43,6 +49,7 @@ namespace FPSGame.Vehicle
 
         private Vector2 moveInput;
         private Vector3 currentVelocity;
+        private bool isExploded;
 
         public bool HasDriver => driverNetId != 0;
         public Transform DriverSeat => driverSeat;
@@ -88,7 +95,63 @@ namespace FPSGame.Vehicle
             vehicleHealth = Mathf.Max(0, vehicleHealth - damage);
             Debug.Log($"[CAR] Health: {vehicleHealth}");
             if (vehicleHealth <= 0)
-                vehicleIsAlive = false;
+                StartDestruction();
+        }
+
+        [Server]
+        private void StartDestruction()
+        {
+            if (!vehicleIsAlive) return;
+            vehicleIsAlive = false;
+            RpcStartFire();
+            Invoke(nameof(ServerExplode), explosionDelay);
+        }
+
+        [Server]
+        private void ServerExplode()
+        {
+            if (driverNetId != 0 &&
+                NetworkServer.spawned.TryGetValue(driverNetId, out NetworkIdentity driverIdentity))
+            {
+                var health = driverIdentity.GetComponent<FPSGame.Player.PlayerHealth>();
+                if (health != null)
+                    health.SetHealth(0);
+            }
+
+            RpcPlayExplosion();
+        }
+
+        [ClientRpc]
+        private void RpcStartFire()
+        {
+            if (fireEffect != null)
+                fireEffect.SetActive(true);
+        }
+
+        [ClientRpc]
+        private void RpcPlayExplosion()
+        {
+            if (fireEffect != null)
+                fireEffect.SetActive(false);
+
+            isExploded = true;
+            currentVelocity = Vector3.zero;
+
+            foreach (var r in GetComponentsInChildren<Renderer>())
+                r.enabled = false;
+            foreach (var c in GetComponentsInChildren<Collider>())
+                c.enabled = false;
+
+            if (explosionEffect == null) return;
+            explosionEffect.SetActive(true);
+            CancelInvoke(nameof(HideExplosion));
+            Invoke(nameof(HideExplosion), explosionDuration);
+        }
+
+        private void HideExplosion()
+        {
+            if (explosionEffect != null)
+                explosionEffect.SetActive(false);
         }
 
         private void OnCollisionEnter(Collision collision)
@@ -123,7 +186,7 @@ namespace FPSGame.Vehicle
 
         private void FixedUpdate()
         {
-            if (!HasDriver || !isOwned)
+            if (!HasDriver || !isOwned || isExploded)
                 return;
 
             Vector3 targetVelocity = transform.forward * (moveInput.y * moveSpeed)
