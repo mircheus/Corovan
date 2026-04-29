@@ -1548,7 +1548,7 @@ MonoBehaviour:
   bodyRoots:
   - {fileID: 6200786075374612134}
   hiddenLayerName: LocalPlayerBody
-  keepShadows: 0
+  keepShadows: 1
 --- !u!1 &5430647513219006457
 GameObject:
   m_ObjectHideFlags: 0
