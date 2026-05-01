@@ -11,6 +11,8 @@ namespace FPSGame.Player
         [SerializeField] private PlayerController playerController;
         [SerializeField] private WeaponData[] availableWeapons;
         [SerializeField] private GameObject[] weaponModels;
+        [Tooltip("Optional per-slot tool component (e.g. FloorCutter). When the active slot has a tool, normal fire/reload is suppressed and the tool component is enabled only on the local owner.")]
+        [SerializeField] private Behaviour[] weaponTools;
         [SerializeField] private ParticleSystem[] muzzleFlashEffects;
         [SerializeField] private Transform weaponHolder;
         [SerializeField] private LayerMask hitMask = ~0;
@@ -119,9 +121,19 @@ namespace FPSGame.Player
             OnAmmoChangedEvent?.Invoke(newAmmo, reserveAmmo);
         }
 
+        private bool IsToolSlot(int index)
+        {
+            return weaponTools != null
+                && index >= 0 && index < weaponTools.Length
+                && weaponTools[index] != null;
+        }
+
         private void HandleFiring()
         {
             if (currentWeapon == null || isReloading || isCarrying)
+                return;
+
+            if (IsToolSlot(currentWeaponIndex))
                 return;
 
             bool canFire = Time.time >= lastFireTime + currentWeapon.FireRate;
@@ -388,6 +400,9 @@ namespace FPSGame.Player
                 if (weaponModels != null)
                     foreach (var model in weaponModels)
                         if (model != null) model.SetActive(false);
+                if (weaponTools != null)
+                    foreach (var tool in weaponTools)
+                        if (tool != null) tool.enabled = false;
             }
             else
             {
@@ -471,11 +486,26 @@ namespace FPSGame.Player
 
         private void ActivateWeaponModel(int index)
         {
-            if (weaponModels == null) return;
-            for (int i = 0; i < weaponModels.Length; i++)
+            if (weaponModels != null)
             {
-                if (weaponModels[i] != null)
-                    weaponModels[i].SetActive(i == index);
+                for (int i = 0; i < weaponModels.Length; i++)
+                {
+                    if (weaponModels[i] != null)
+                        weaponModels[i].SetActive(i == index);
+                }
+            }
+
+            ActivateWeaponTool(index);
+        }
+
+        private void ActivateWeaponTool(int index)
+        {
+            if (weaponTools == null) return;
+            for (int i = 0; i < weaponTools.Length; i++)
+            {
+                if (weaponTools[i] == null) continue;
+                // Tools are local-input driven (mouse, camera) — only enable on the owning client.
+                weaponTools[i].enabled = isOwned && (i == index);
             }
         }
     }
