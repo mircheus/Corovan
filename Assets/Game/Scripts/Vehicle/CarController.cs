@@ -16,6 +16,10 @@ namespace FPSGame.Vehicle
         [SerializeField] private float acceleration = 8f;
         [SerializeField] private float deceleration = 12f;
 
+        [Header("Driverless Drift")]
+        [Tooltip("Speed at which the car slowly rolls backward (local -Z) once a driver has gotten out.")]
+        [SerializeField] private float driverlessReverseSpeed = 2f;
+
         [Header("Driver")]
         [SerializeField] private Transform driverSeat;
         [SerializeField] private Transform exitPoint;
@@ -50,6 +54,7 @@ namespace FPSGame.Vehicle
         private Vector2 moveInput;
         private Vector3 currentVelocity;
         private bool isExploded;
+        private bool hasBeenDriven; // server-side: true once any player has entered at least once
 
         public bool HasDriver => driverNetId != 0;
         public Transform DriverSeat => driverSeat;
@@ -186,20 +191,32 @@ namespace FPSGame.Vehicle
 
         private void FixedUpdate()
         {
-            if (!HasDriver || !isOwned || isExploded)
+            if (isExploded)
                 return;
 
-            Vector3 targetVelocity = transform.forward * (moveInput.y * moveSpeed)
-                                   + transform.right * (moveInput.x * strafeSpeed);
+            if (HasDriver)
+            {
+                if (!isOwned) return;
 
-            float rate = targetVelocity.sqrMagnitude > currentVelocity.sqrMagnitude
-                ? acceleration
-                : deceleration;
+                Vector3 targetVelocity = transform.forward * (moveInput.y * moveSpeed)
+                                       + transform.right * (moveInput.x * strafeSpeed);
 
-            currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
+                float rate = targetVelocity.sqrMagnitude > currentVelocity.sqrMagnitude
+                    ? acceleration
+                    : deceleration;
 
-            if (currentVelocity.sqrMagnitude > 0.001f)
-                rb.MovePosition(rb.position + currentVelocity * Time.fixedDeltaTime);
+                currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
+
+                if (currentVelocity.sqrMagnitude > 0.001f)
+                    rb.MovePosition(rb.position + currentVelocity * Time.fixedDeltaTime);
+            }
+            else if (isServer && hasBeenDriven && vehicleIsAlive && driverlessReverseSpeed > 0f)
+            {
+                // After a driver has left, the car slowly rolls backward (its local -Z) on the server.
+                // Pre-driven cars stay still; new driver entering halts the drift via HasDriver branch.
+                Vector3 step = -transform.forward * (driverlessReverseSpeed * Time.fixedDeltaTime);
+                rb.MovePosition(rb.position + step);
+            }
         }
 
         public void SetMoveInput(Vector2 input)
@@ -217,6 +234,7 @@ namespace FPSGame.Vehicle
 
             netIdentity.AssignClientAuthority(conn);
             driverNetId = player.netId;
+            hasBeenDriven = true;
         }
 
         [Server]
