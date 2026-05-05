@@ -35,6 +35,7 @@ namespace FPSGame.Player
 
         private CharacterController characterController;
         private Vector3 velocity;
+        private Vector3 externalVelocity;
         private Vector2 moveInput;
         private bool isGrounded;
         private bool isOnCar;
@@ -152,7 +153,15 @@ namespace FPSGame.Player
                 jumpRequested = false;
             }
 
-            characterController.Move(velocity * Time.deltaTime);
+            characterController.Move((velocity + externalVelocity) * Time.deltaTime);
+            externalVelocity = Vector3.zero;
+        }
+
+        public void AddExternalVelocity(Vector3 worldVelocity)
+        {
+            if (!isOwned || InVehicle)
+                return;
+            externalVelocity += worldVelocity;
         }
 
         private float GetCurrentSpeed()
