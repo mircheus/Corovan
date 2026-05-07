@@ -137,6 +137,13 @@ namespace FPSGame.Player
             if (currentVehicle == null && sprintAction != null)
                 playerController?.SetSprinting(sprintAction.IsPressed());
 
+            if (currentVehicle != null)
+            {
+                var kb = Keyboard.current;
+                if (kb != null && kb[Key.G].wasPressedThisFrame)
+                    CmdDetachSafe(currentVehicle.netIdentity);
+            }
+
             // Advance hold-interaction timer.
             if (isInteractHeld)
             {
@@ -425,6 +432,16 @@ namespace FPSGame.Player
             currentInteractTarget = null;
             CmdInteract(target.netIdentity);
             OnInteractFinished?.Invoke();
+        }
+
+        [Command]
+        private void CmdDetachSafe(NetworkIdentity carNetId)
+        {
+            if (carNetId == null) return;
+            var car = carNetId.GetComponent<CarController>();
+            if (car == null) return;
+            if (car.netIdentity.connectionToClient != connectionToClient) return;
+            car.ServerDetachSafe();
         }
 
         [Command]

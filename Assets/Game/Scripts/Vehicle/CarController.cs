@@ -25,6 +25,9 @@ namespace FPSGame.Vehicle
         [SerializeField] private Transform exitPoint;
         [SerializeField] private float interactDistance = 4f;
 
+        [Header("Safe")]
+        [SerializeField] private SafeMount safeMount;
+
         [Header("Vehicle Health")]
         [SerializeField] private int maxVehicleHealth = 200;
 
@@ -75,6 +78,13 @@ namespace FPSGame.Vehicle
             base.OnStartServer();
             vehicleHealth = maxVehicleHealth;
             vehicleIsAlive = true;
+        }
+
+        [Server]
+        public void ServerDetachSafe()
+        {
+            if (safeMount != null)
+                safeMount.ServerDetach();
         }
 
         [Server]
