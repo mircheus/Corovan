@@ -43,6 +43,10 @@ namespace FPSGame.Vehicle
         [SerializeField] private float damagePerImpactSpeed = 2f;
         [SerializeField] private float collisionDamageCooldown = 0.5f;
 
+        [Header("Autopilot")]
+        [SerializeField] private float autopilotSpeed = 8f;
+        [SerializeField] private float autopilotArriveThreshold = 0.3f;
+
         private float lastCollisionDamageTime;
 
         [SyncVar(hook = nameof(OnDriverChanged))]
@@ -53,6 +57,16 @@ namespace FPSGame.Vehicle
 
         [SyncVar]
         private bool vehicleIsAlive = true;
+
+        [SyncVar]
+        private bool autopilotActive;
+
+        [SyncVar]
+        private Vector3 autopilotTarget;
+
+        // 0 = align on world X, 1 = align on world Z, 2 = arrived/idle
+        [SyncVar]
+        private int autopilotPhase;
 
         private Vector2 moveInput;
         private Vector3 currentVelocity;
@@ -109,6 +123,7 @@ namespace FPSGame.Vehicle
 
             vehicleHealth = Mathf.Max(0, vehicleHealth - damage);
             Debug.Log($"[CAR] Health: {vehicleHealth}");
+            ServerStopAutopilot();
             if (vehicleHealth <= 0)
                 StartDestruction();
         }
@@ -118,6 +133,7 @@ namespace FPSGame.Vehicle
         {
             if (!vehicleIsAlive) return;
             vehicleIsAlive = false;
+            ServerStopAutopilot();
             RpcStartFire();
             Invoke(nameof(ServerExplode), explosionDelay);
         }
@@ -220,6 +236,10 @@ namespace FPSGame.Vehicle
                 if (currentVelocity.sqrMagnitude > 0.001f)
                     rb.MovePosition(rb.position + currentVelocity * Time.fixedDeltaTime);
             }
+            else if (isServer && autopilotActive && vehicleIsAlive)
+            {
+                ServerTickAutopilot();
+            }
             else if (isServer && hasBeenDriven && vehicleIsAlive && driverlessReverseSpeed > 0f)
             {
                 // After a driver has left, the car slowly rolls backward (its local -Z) on the server.
@@ -227,6 +247,61 @@ namespace FPSGame.Vehicle
                 Vector3 step = -transform.forward * (driverlessReverseSpeed * Time.fixedDeltaTime);
                 rb.MovePosition(rb.position + step);
             }
+        }
+
+        [Server]
+        private void ServerTickAutopilot()
+        {
+            Vector3 pos = rb.position;
+            Vector3 step;
+
+            if (autopilotPhase == 0)
+            {
+                float dx = autopilotTarget.x - pos.x;
+                if (Mathf.Abs(dx) <= autopilotArriveThreshold)
+                {
+                    autopilotPhase = 1;
+                    currentVelocity = Vector3.zero;
+                    return;
+                }
+                step = new Vector3(Mathf.Sign(dx), 0f, 0f) * (autopilotSpeed * Time.fixedDeltaTime);
+            }
+            else
+            {
+                float dz = autopilotTarget.z - pos.z;
+                float dx = autopilotTarget.x - pos.x;
+                if (new Vector2(dx, dz).sqrMagnitude <= autopilotArriveThreshold * autopilotArriveThreshold)
+                {
+                    autopilotActive = false;
+                    autopilotPhase = 2;
+                    currentVelocity = Vector3.zero;
+                    return;
+                }
+                step = new Vector3(0f, 0f, Mathf.Sign(dz)) * (autopilotSpeed * Time.fixedDeltaTime);
+            }
+
+            currentVelocity = step / Time.fixedDeltaTime;
+            rb.MovePosition(pos + step);
+        }
+
+        [Server]
+        public void ServerStartAutopilot(Vector3 worldPoint)
+        {
+            if (HasDriver) return;
+            if (!vehicleIsAlive) return;
+
+            autopilotTarget = worldPoint;
+            autopilotPhase = 0;
+            autopilotActive = true;
+        }
+
+        [Server]
+        public void ServerStopAutopilot()
+        {
+            if (!autopilotActive) return;
+            autopilotActive = false;
+            autopilotPhase = 2;
+            currentVelocity = Vector3.zero;
         }
 
         public void SetMoveInput(Vector2 input)
@@ -242,6 +317,7 @@ namespace FPSGame.Vehicle
                 return;
             }
 
+            ServerStopAutopilot();
             netIdentity.AssignClientAuthority(conn);
             driverNetId = player.netId;
             hasBeenDriven = true;
