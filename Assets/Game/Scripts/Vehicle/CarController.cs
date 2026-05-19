@@ -330,6 +330,10 @@ namespace FPSGame.Vehicle
             netIdentity.AssignClientAuthority(conn);
             driverNetId = player.netId;
             hasBeenDriven = true;
+
+            var tool = player.GetComponent<FPSGame.Player.RemoteVehicleControlTool>();
+            if (tool != null)
+                tool.ServerSetBoundCar(netId);
         }
 
         [Server]

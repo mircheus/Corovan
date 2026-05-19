@@ -6,9 +6,10 @@ using FPSGame.Vehicle;
 namespace FPSGame.Player
 {
     // Player-side tool that remotely commands a CarController to drive to a chosen world point.
-    // First fire on a car: binds that car. Subsequent fires: command the bound car to autopilot to the
-    // hit point along an L-shaped path (X-axis first, then Z-axis). Cooldown gates all fires.
-    // Component is enabled only when this slot is active in PlayerShooting.weaponTools and isOwned.
+    // The bound car is auto-assigned: whichever vehicle this player most recently drove becomes
+    // the target. LMB commands the bound car along an L-shaped path (world X first, then Z).
+    // Cooldown gates fires. Component is enabled only when this slot is active in
+    // PlayerShooting.weaponTools and isOwned.
     public class RemoteVehicleControlTool : NetworkBehaviour
     {
         [Header("References")]
@@ -23,7 +24,8 @@ namespace FPSGame.Player
         [Header("Behavior")]
         [SerializeField] private float cooldownSeconds = 0.5f;
 
-        private CarController boundCar;
+        [SyncVar] private uint boundCarNetId;
+
         private float cooldownRemaining;
         private LineRenderer activePathLine;
 
@@ -35,6 +37,20 @@ namespace FPSGame.Player
         private void OnDisable()
         {
             DestroyPathLine();
+        }
+
+        // Called by CarController.ServerEnter when this player takes a driver seat.
+        [Server]
+        public void ServerSetBoundCar(uint netId)
+        {
+            boundCarNetId = netId;
+        }
+
+        private CarController GetBoundCar()
+        {
+            if (boundCarNetId == 0) return null;
+            if (!NetworkClient.spawned.TryGetValue(boundCarNetId, out NetworkIdentity ni)) return null;
+            return ni != null ? ni.GetComponent<CarController>() : null;
         }
 
         private void Update()
@@ -55,37 +71,26 @@ namespace FPSGame.Player
         {
             if (cooldownRemaining > 0f) return;
 
-            if (!RaycastAim(out RaycastHit hit)) return;
-
-            CarController hitCar = hit.collider.GetComponentInParent<CarController>();
-            if (hitCar != null)
+            CarController boundCar = GetBoundCar();
+            if (boundCar == null)
             {
-                if (hitCar.HasDriver || !hitCar.VehicleIsAlive)
-                {
-                    Debug.Log("[RemoteVehicleTool] Bind refused: car has driver or is destroyed.");
-                    return;
-                }
-
-                boundCar = hitCar;
-                cooldownRemaining = cooldownSeconds;
-                Debug.Log($"[RemoteVehicleTool] Bound to car netId={hitCar.netId}.");
+                Debug.Log("[RemoteVehicleTool] No bound car — drive a vehicle first.");
                 return;
             }
 
-            if (boundCar == null) return;
-
             if (!boundCar.VehicleIsAlive)
             {
-                Debug.Log("[RemoteVehicleTool] Bound car is destroyed; clearing binding.");
-                boundCar = null;
+                Debug.Log("[RemoteVehicleTool] Bound car is destroyed.");
                 return;
             }
 
             if (boundCar.HasDriver)
             {
-                Debug.Log("[RemoteVehicleTool] Bound car now has a driver; command refused.");
+                Debug.Log("[RemoteVehicleTool] Bound car has a driver; command refused.");
                 return;
             }
+
+            if (!RaycastAim(out RaycastHit hit)) return;
 
             CmdCommandAutopilot(boundCar.netId, hit.point);
             cooldownRemaining = cooldownSeconds;
@@ -94,6 +99,7 @@ namespace FPSGame.Player
         [Command]
         private void CmdCommandAutopilot(uint carNetId, Vector3 worldPoint)
         {
+            if (carNetId != boundCarNetId) return;
             if (!NetworkServer.spawned.TryGetValue(carNetId, out NetworkIdentity identity))
                 return;
 
@@ -113,6 +119,7 @@ namespace FPSGame.Player
 
         private void UpdatePathPreview()
         {
+            CarController boundCar = GetBoundCar();
             if (boundCar == null || pathLineTemplate == null)
             {
                 DestroyPathLine();
@@ -120,13 +127,6 @@ namespace FPSGame.Player
             }
 
             if (!RaycastAim(out RaycastHit hit))
-            {
-                DestroyPathLine();
-                return;
-            }
-
-            // Suppress preview when the cursor is on the car itself (bind-style aim).
-            if (hit.collider.GetComponentInParent<CarController>() != null)
             {
                 DestroyPathLine();
                 return;
