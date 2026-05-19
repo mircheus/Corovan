@@ -304,6 +304,15 @@ namespace FPSGame.Vehicle
             currentVelocity = Vector3.zero;
         }
 
+        [Server]
+        public void ServerHalt()
+        {
+            ServerStopAutopilot();
+            hasBeenDriven = false;
+            currentVelocity = Vector3.zero;
+            moveInput = Vector2.zero;
+        }
+
         public void SetMoveInput(Vector2 input)
         {
             moveInput = input;

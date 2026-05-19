@@ -142,14 +142,38 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - `PlayerInput` in Send Messages mode — callback methods must be named `On<ActionName>(InputValue value)`
 - Disable `PlayerInput` on remote players in `OnStartClient` (not `OnStartAuthority`) to avoid double-processing
 
-## Current State (2026-03-24)
-- Core gameplay loop functional: join → drive convoy car → carry loot into cargo → score updates
-- Enemy turrets shoot at players and driven vehicles
-- Barrel hazard spawner active on Road scene
-- Destruction objective system in place (DestructionObjective / DestructionTarget)
-- ZeroTier used for remote peer connections; NetworkDebugUI shows connection info at runtime
-- F9 reloads the current scene (SceneReloader utility)
-- WIP scenes: Test.unity, WagonsConstruct.unity (untracked)
-- Zombie animations folder added (untracked) — zombie enemies not yet integrated
-- No respawn logic wired to scene yet (PlayerHealth.Respawn exists server-side but nothing calls it)
-- Vehicle health destruction has no visual/death state beyond `vehicleIsAlive` SyncVar
+## Current State (2026-05-12)
+
+See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
+
+### Working
+- Core gameplay loop: join → drive convoy car → carry loot into cargo (`CargoTrigger`) → `ScoreManager` updates
+- FPS player: movement/crouch/sprint/jump, camera (ADS FOV, recoil, head bob), multi-weapon shooting (ranged + melee, per-slot ammo, reload, optimistic switch), health/damage/regen/death
+- Carry/throw loot props (client-authority pickup)
+- Vehicle: arcade driving, authority transfer on enter/exit, vehicle health → destruction (fire + explosion FX, kills driver), collision damage, driverless backward drift
+- Enemy turrets shoot at players and driven vehicles; barrel hazard spawner (server pool) on Road scene
+- Destruction objective system (`DestructionObjective` / `DestructionTarget`)
+- Hold-E interactables, `WindZone` push, `KillVolume` instant-kill
+- Floor-cutting tool: runtime mesh hole (`FloorMeshModifier`) + `Safe` falling through (`SafeFallTrigger`, `SafeMount` car attach)
+- `LocalPlayerBodyHider` (hide own body from FP camera)
+- ZeroTier for remote peers; `NetworkDebugUI` connection overlay; F9 scene hot-reload (`SceneReloader`)
+
+### In progress
+- **Vehicle remote control** (`RemoteVehicleControlTool` + `CarController` autopilot: `ServerStartAutopilot`/`ServerStopAutopilot`, `autopilot*` SyncVars, L-path `ServerTickAutopilot`). Code complete; not yet wired into `Player.prefab` / `PlayerShooting.weaponTools[]`. See PROJECT_STATE.md §4.
+
+### Exists in code but NOT integrated
+- `ZombieEnemy` — full NavMesh state machine, not spawned in any scene
+- Grappling hook (`GrapplingHookController` / `GrapplingHookInput`) — **local-only prototype, no networking**: only the owner's resulting position syncs (via NetworkTransform); grapple state, target, rope visual, and server validation are absent
+- `NetworkMessages.cs` structs — declared, never sent/handled
+- `WeaponBase` abstract class — unused; `PlayerShooting` does firing inline
+
+### Known gaps
+- No respawn flow (`PlayerHealth.Respawn` exists server-side, no caller)
+- No match win/lose conditions (`MatchStateMessage` unused)
+- Vehicle destruction has no wreck/persistent state beyond explosion FX + `vehicleIsAlive`
+- `Enemy.OnAliveChanged` hook empty (no turret death visuals)
+- `Safe` has no loot drop / visual change on destruction
+- UI stubs: `PauseMenu.OpenSettings`/`Disconnect`, `GameOverUI.OnRestartButtonClick`
+- `GameSettings` not networked / not persisted per client
+- `PlayerSpawnManager.FurthestFromPlayers` ignores `minSpawnDistance`
+- WIP scenes (untracked): `Test.unity`, `WagonsConstruct.unity`, `Wall Laser.unity`, `GrapplingHook_Test.unity`
