@@ -7,10 +7,10 @@ namespace FPSGame.Player
     public class PlayerHealth : NetworkBehaviour
     {
         [Header("Health Settings")]
-        [SerializeField] private float maxHealth = 100f;
+        [SerializeField] private int maxHealth = 100;
 
         [SyncVar(hook = nameof(OnHealthChangedHook))]
-        private float currentHealth;
+        private int currentHealth;
 
         [SyncVar]
         private bool isDead;
@@ -21,13 +21,14 @@ namespace FPSGame.Player
         [SerializeField] private float regenerationDelay = 5f;
 
         private float lastDamageTime;
+        private float regenBuffer;
 
-        public float MaxHealth => maxHealth;
-        public float CurrentHealth => currentHealth;
-        public float HealthPercentage => currentHealth / maxHealth;
+        public int MaxHealth => maxHealth;
+        public int CurrentHealth => currentHealth;
+        public float HealthPercentage => (float)currentHealth / maxHealth;
         public bool IsDead => isDead;
 
-        public event Action<float, float> OnHealthChanged;
+        public event Action<int, int> OnHealthChanged;
         public event Action OnDeath;
         public event Action OnRespawn;
 
@@ -59,11 +60,22 @@ namespace FPSGame.Player
         {
             if (currentHealth < maxHealth && Time.time - lastDamageTime >= regenerationDelay)
             {
-                currentHealth = Mathf.Min(maxHealth, currentHealth + regenerationRate * Time.deltaTime);
+                // Health is int; accumulate fractional regen and apply whole points.
+                regenBuffer += regenerationRate * Time.deltaTime;
+                int wholePoints = Mathf.FloorToInt(regenBuffer);
+                if (wholePoints > 0)
+                {
+                    regenBuffer -= wholePoints;
+                    currentHealth = Mathf.Min(maxHealth, currentHealth + wholePoints);
+                }
+            }
+            else
+            {
+                regenBuffer = 0f;
             }
         }
 
-        private void OnHealthChangedHook(float oldHealth, float newHealth)
+        private void OnHealthChangedHook(int oldHealth, int newHealth)
         {
             OnHealthChanged?.Invoke(oldHealth, newHealth);
 
@@ -74,7 +86,7 @@ namespace FPSGame.Player
         }
 
         [Server]
-        public void TakeDamage(float damage)
+        public void TakeDamage(int damage)
         {
             if (isDead || damage <= 0)
                 return;
@@ -89,13 +101,13 @@ namespace FPSGame.Player
         }
 
         [Server]
-        public void TakeDamage(float damage, Vector3 hitPoint, Vector3 hitDirection)
+        public void TakeDamage(int damage, Vector3 hitPoint, Vector3 hitDirection)
         {
             TakeDamage(damage);
         }
 
         [Server]
-        public void Heal(float amount)
+        public void Heal(int amount)
         {
             if (isDead || amount <= 0)
                 return;
@@ -104,7 +116,7 @@ namespace FPSGame.Player
         }
 
         [Server]
-        public void SetHealth(float health)
+        public void SetHealth(int health)
         {
             currentHealth = Mathf.Clamp(health, 0, maxHealth);
 
@@ -153,7 +165,7 @@ namespace FPSGame.Player
         }
 
         [Command]
-        public void CmdTakeDamage(float damage)
+        public void CmdTakeDamage(int damage)
         {
             TakeDamage(damage);
         }

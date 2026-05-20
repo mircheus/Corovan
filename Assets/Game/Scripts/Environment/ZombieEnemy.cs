@@ -31,13 +31,13 @@ namespace FPSGame.Environment
         [SerializeField] private float rotationSpeed = 10f;
 
         [Header("Combat")]
-        [SerializeField] private float attackDamage = 15f;
+        [SerializeField] private int attackDamage = 15;
         [SerializeField] private float attackCooldown = 1.5f;
         [Tooltip("Seconds after the attack animation starts before damage is applied.")]
         [SerializeField] private float attackDamageDelay = 0.5f;
 
         [Header("Health")]
-        [SerializeField] private float maxHealth = 80f;
+        [SerializeField] private int maxHealth = 80;
 
         [Header("Animator")]
         [SerializeField] private Animator animator;
@@ -55,7 +55,7 @@ namespace FPSGame.Environment
         private bool isAlive;
 
         [SyncVar]
-        private float health;
+        private int health;
 
         // ── Server-only fields ────────────────────────────────────────────
 
@@ -68,8 +68,8 @@ namespace FPSGame.Environment
         // ── Public accessors ──────────────────────────────────────────────
 
         public bool IsAlive => isAlive;
-        public float Health => health;
-        public float MaxHealth => maxHealth;
+        public int Health => health;
+        public int MaxHealth => maxHealth;
 
         // ── Unity / Mirror lifecycle ──────────────────────────────────────
 
@@ -240,11 +240,11 @@ namespace FPSGame.Environment
         {
             Debug.Log($"Damage: {damage}");
             
-            if (!isAlive || damage <= 0f)
+            if (!isAlive || damage <= 0)
                 return;
 
-            health = Mathf.Max(0f, health - damage);
-            if (health <= 0f)
+            health = Mathf.Max(0, health - damage);
+            if (health <= 0)
                 Die();
         }
 

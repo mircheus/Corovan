@@ -78,6 +78,10 @@ Assets/Game/
 ### Namespace Convention
 All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `FPSGame.Environment`, `FPSGame.Hazards`, `FPSGame.Networking`, `FPSGame.Weapons`, `FPSGame.UI`, `FPSGame.Config`
 
+### Damage & Health Values
+- All damage and health values are `int` — damage fields, `health`/`maxHealth` fields, `TakeDamage(int)` parameters, projectile/weapon damage. Never use `float` for a damage or health value.
+- `PlayerHealth` regen accumulates fractional HP in a private `float regenBuffer` and applies whole `int` points; `regenerationRate` stays `float` (a per-second rate). `HealthPercentage` casts to `float` for the division.
+
 ### Networking Pattern
 - All networked scripts inherit `NetworkBehaviour` (Mirror)
 - Client-to-server: `[Command]`, server-to-client: `[ClientRpc]`, server-only: `[Server]`

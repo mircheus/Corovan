@@ -12,7 +12,7 @@ namespace FPSGame.Environment
         [SerializeField] private float lifetime = 5f;
 
         private Vector3 direction;
-        private float damage;
+        private int damage;
         private bool hasHit;
         private Rigidbody rb;
 
@@ -25,7 +25,7 @@ namespace FPSGame.Environment
         }
 
         // Called by Enemy before NetworkServer.Spawn.
-        public void Initialize(Vector3 dir, float dmg)
+        public void Initialize(Vector3 dir, int dmg)
         {
             direction = dir;
             damage = dmg;
@@ -61,7 +61,7 @@ namespace FPSGame.Environment
             {
                 var car = collision.collider.GetComponentInParent<CarController>();
                 if (car != null)
-                    car.TakeDamage(Mathf.FloorToInt(damage));
+                    car.TakeDamage(damage);
             }
 
             DestroyProjectile();

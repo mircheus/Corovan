@@ -96,7 +96,7 @@ namespace FPSGame.UI
             UpdateCrosshair();
         }
 
-        private void UpdateHealthUI(float previousHealth, float currentHealth)
+        private void UpdateHealthUI(int previousHealth, int currentHealth)
         {
             if (healthBar != null)
             {
@@ -105,7 +105,7 @@ namespace FPSGame.UI
 
             if (healthText != null)
             {
-                healthText.text = $"{Mathf.CeilToInt(currentHealth)}";
+                healthText.text = $"{currentHealth}";
             }
 
             if (healthFill != null)

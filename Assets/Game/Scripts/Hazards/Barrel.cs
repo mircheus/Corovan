@@ -26,9 +26,19 @@ namespace FPSGame.Hazards
             new Keyframe(1f,    0f));
 
         [Header("Damage")]
-        [SerializeField] private float carDamage = 25f;
-        [SerializeField] private float playerDamage = 15f;
+        [SerializeField] private int carDamage = 25;
+        [SerializeField] private int playerDamage = 15;
         [SerializeField] private bool damagePlayersOnFoot = true;
+
+        [Header("Health")]
+        [Tooltip("Once the total damage taken reaches this threshold, the barrel explodes.")]
+        [SerializeField] private int explosionDamageThreshold = 5;
+        [Tooltip("Non-trigger collider used purely as a raycast hitbox so weapons can hit the barrel. Keep it on a layer that physically collides with nothing.")]
+        [SerializeField] private Collider hitboxCollider;
+
+        [Header("Visuals")]
+        [Tooltip("Barrel body mesh — hidden when the barrel deactivates (explosion or despawn), restored on pool reuse. Must NOT contain the explosion effect as a child.")]
+        [SerializeField] private GameObject meshObject;
 
         [Header("FX")]
         [SerializeField] private GameObject explosionEffect;
@@ -43,6 +53,7 @@ namespace FPSGame.Hazards
 
         private Vector3 spawnPosition;
         private float activeTime;
+        private int accumulatedDamage;
 
         // Assigned by BarrelSpawner; fires on server when barrel should return to pool
         public Action<Barrel> OnReturnToPool;
@@ -68,6 +79,7 @@ namespace FPSGame.Hazards
             spawnPosition = position;
             rb.position = position;
             activeTime = 0f;
+            accumulatedDamage = 0;
             isActive = true;
         }
 
@@ -77,6 +89,29 @@ namespace FPSGame.Hazards
             if (!isActive) return;
             isActive = false;
             OnReturnToPool?.Invoke(this);
+        }
+
+        /// <summary>
+        /// Server-authoritative damage entry point. Accumulates incoming damage and
+        /// detonates the barrel once the total reaches <see cref="explosionDamageThreshold"/>.
+        /// A single hit at or above the threshold triggers it immediately.
+        /// </summary>
+        [Server]
+        public void TakeDamage(int damage)
+        {
+            if (!isActive || damage <= 0) return;
+
+            accumulatedDamage += damage;
+            if (accumulatedDamage >= explosionDamageThreshold)
+                ServerExplode();
+        }
+
+        [Server]
+        private void ServerExplode()
+        {
+            if (!isActive) return;
+            RpcPlayExplosion();
+            ServerDeactivate();
         }
 
         private void FixedUpdate()
@@ -101,9 +136,8 @@ namespace FPSGame.Hazards
             var car = other.GetComponent<CarController>();
             if (car != null)
             {
-                car.TakeDamage(Mathf.FloorToInt(carDamage));
-                RpcPlayExplosion();
-                ServerDeactivate();
+                car.TakeDamage(carDamage);
+                ServerExplode();
                 return;
             }
 
@@ -139,6 +173,8 @@ namespace FPSGame.Hazards
         {
             if (barrelRenderer != null) barrelRenderer.enabled = active;
             if (barrelCollider != null) barrelCollider.enabled = active;
+            if (hitboxCollider != null) hitboxCollider.enabled = active;
+            if (meshObject != null) meshObject.SetActive(active);
         }
     }
 }

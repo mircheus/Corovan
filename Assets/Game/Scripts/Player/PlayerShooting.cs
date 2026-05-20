@@ -244,6 +244,10 @@ namespace FPSGame.Player
                 if (destructionTarget != null)
                     destructionTarget.TakeHit();
 
+                FPSGame.Hazards.Barrel barrel = hit.collider.GetComponentInParent<FPSGame.Hazards.Barrel>();
+                if (barrel != null)
+                    barrel.TakeDamage(currentWeapon.Damage);
+
                 RpcOnHit(hit.point, hit.normal);
             }
 

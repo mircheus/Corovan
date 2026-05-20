@@ -28,7 +28,7 @@ namespace FPSGame.Networking
     {
         public uint targetId;
         public uint attackerId;
-        public float damage;
+        public int damage;
         public Vector3 hitPoint;
         public Vector3 hitNormal;
     }

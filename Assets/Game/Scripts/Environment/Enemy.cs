@@ -12,12 +12,12 @@ namespace FPSGame.Environment
         [SerializeField] private GameObject projectilePrefab;
         [SerializeField] private Transform firePoint;
         [SerializeField] private float fireRate = 1f;
-        [SerializeField] private float projectileDamage = 10f;
+        [SerializeField] private int projectileDamage = 10;
         [SerializeField] private float rotationSpeed = 5f;
         [SerializeField] private bool keepAttackAfterTriggerExit;
 
         [Header("Health")]
-        [SerializeField] private float maxHealth = 100f;
+        [SerializeField] private int maxHealth = 100;
         
         [Header("Materials")]
         [SerializeField] private Material attacking;
@@ -41,7 +41,7 @@ namespace FPSGame.Environment
         private bool isAlive;
 
         [SyncVar]
-        private float health;
+        private int health;
 
         private float fireCooldown;
         private PlayerHealth currentPlayerTarget;
@@ -54,8 +54,8 @@ namespace FPSGame.Environment
         private int _shot = Animator.StringToHash("Shot");
 
         public bool IsAlive => isAlive;
-        public float Health => health;
-        public float MaxHealth => maxHealth;
+        public int Health => health;
+        public int MaxHealth => maxHealth;
 
         private void Awake()
         {
@@ -220,13 +220,13 @@ namespace FPSGame.Environment
         }
 
         [Server]
-        public void TakeDamage(float damage)
+        public void TakeDamage(int damage)
         {
-            if (!isAlive || damage <= 0f)
+            if (!isAlive || damage <= 0)
                 return;
 
-            health = Mathf.Max(0f, health - damage);
-            if (health <= 0f)
+            health = Mathf.Max(0, health - damage);
+            if (health <= 0)
                 isAlive = false;
         }
 

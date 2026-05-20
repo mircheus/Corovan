@@ -115,7 +115,7 @@ namespace FPSGame.Editor
             so.FindProperty("weaponName").stringValue = "Pistol";
             so.FindProperty("isAutomatic").boolValue = false;
             so.FindProperty("fireRate").floatValue = 0.2f;
-            so.FindProperty("damage").floatValue = 25f;
+            so.FindProperty("damage").intValue = 25;
             so.FindProperty("range").floatValue = 100f;
             so.FindProperty("baseSpread").floatValue = 0.02f;
             so.FindProperty("adsSpreadMultiplier").floatValue = 0.3f;
