@@ -22,6 +22,20 @@ namespace FPSGame.Environment
         [Header("Materials")]
         [SerializeField] private Material attacking;
         [SerializeField] private Material neutral;
+        
+        [Header("Animation")]
+        [SerializeField] private Animator animator;
+
+        [Header("Shooting FX")]
+        [SerializeField] private ParticleSystem shotEffect;
+
+        [Header("Death FX")]
+        [SerializeField] private GameObject deathEffect;
+        [SerializeField] private float deathEffectDuration = 3f;
+
+        [Header("Death")]
+        [SerializeField] private GameObject objectToHideOnDeath;
+        [SerializeField] private Collider bodyCollider;
 
         [SyncVar(hook = nameof(OnAliveChanged))]
         private bool isAlive;
@@ -36,6 +50,8 @@ namespace FPSGame.Environment
         private Renderer detectionRenderer;
         private float initialRotX;
         private float initialRotZ;
+        
+        private int _shot = Animator.StringToHash("Shot");
 
         public bool IsAlive => isAlive;
         public float Health => health;
@@ -45,8 +61,8 @@ namespace FPSGame.Environment
         {
             detectionCollider = GetComponent<SphereCollider>();
             detectionCollider.isTrigger = true;
-            detectionRenderer = GetComponent<Renderer>();
-            detectionRenderer.material = neutral;
+            // detectionRenderer = GetComponent<Renderer>();
+            // detectionRenderer.material = neutral;
             initialRotX = transform.eulerAngles.x;
             initialRotZ = transform.eulerAngles.z;
         }
@@ -99,7 +115,7 @@ namespace FPSGame.Environment
         {
             currentPlayerTarget = null;
             currentCarTarget = null;
-            detectionRenderer.material = neutral;
+            // detectionRenderer.material = neutral;
         }
 
         private void RotateTowardsTarget()
@@ -122,7 +138,7 @@ namespace FPSGame.Environment
             if (ph != null && !ph.IsDead)
             {
                 currentPlayerTarget = ph;
-                detectionRenderer.material = attacking;
+                // detectionRenderer.material = attacking;
                 Debug.Log($"[Enemy] {name}: player detected — {ph.name}");
                 return;
             }
@@ -131,7 +147,7 @@ namespace FPSGame.Environment
             if (car != null && car.HasDriver && car.VehicleIsAlive)
             {
                 currentCarTarget = car;
-                detectionRenderer.material = attacking;
+                // detectionRenderer.material = attacking;
                 Debug.Log($"[Enemy] {name}: vehicle detected — {car.name}");
             }
         }
@@ -189,6 +205,18 @@ namespace FPSGame.Environment
             }
 
             NetworkServer.Spawn(obj);
+            RpcPlayShotFx();
+        }
+
+        [ClientRpc]
+        private void RpcPlayShotFx()
+        {
+            // FireAt runs server-only, so shot visuals must be relayed to every
+            // client via RPC.
+            if (shotEffect != null)
+                shotEffect.Play();
+            if (animator != null)
+                animator.Play(_shot);
         }
 
         [Server]
@@ -204,7 +232,41 @@ namespace FPSGame.Environment
 
         private void OnAliveChanged(bool oldValue, bool newValue)
         {
-            // Hook fires on all clients — extend here for death visuals/effects.
+            // Hook fires on all clients. Apply death visuals only on the alive ->
+            // dead transition, so it doesn't replay for late-joining clients.
+            if (oldValue && !newValue)
+                HandleDeath();
+        }
+
+        private void HandleDeath()
+        {
+            PlayDeathEffect();
+
+            // Hide the turret body and disable its solid collider so the corpse
+            // doesn't block the player from walking through.
+            if (objectToHideOnDeath != null)
+                objectToHideOnDeath.SetActive(false);
+            if (bodyCollider != null)
+                bodyCollider.enabled = false;
+        }
+
+        private void PlayDeathEffect()
+        {
+            if (deathEffect == null)
+                return;
+
+            deathEffect.SetActive(true);
+            if (deathEffectDuration > 0f)
+            {
+                CancelInvoke(nameof(HideDeathEffect));
+                Invoke(nameof(HideDeathEffect), deathEffectDuration);
+            }
+        }
+
+        private void HideDeathEffect()
+        {
+            if (deathEffect != null)
+                deathEffect.SetActive(false);
         }
 
         private void OnDrawGizmosSelected()
