@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using FPSGame.Vehicle;
 
 namespace FPSGame.Player
 {
@@ -46,6 +47,12 @@ namespace FPSGame.Player
         private Vector3 groundNormal = Vector3.up;
         private float airTime;
 
+        // Moving-platform support: the car the player currently stands on and its
+        // last sampled position, used to carry the player along as the car drives.
+        private Transform carPlatform;
+        private Vector3 carPlatformLastPos;
+        private static readonly Collider[] carOverlapBuffer = new Collider[8];
+
         public bool IsGrounded => isGrounded;
         public bool IsSprinting => isSprinting && !isCrouching && moveInput.y > 0;
         public bool IsCrouching => isCrouching;
@@ -84,6 +91,7 @@ namespace FPSGame.Player
 
             CheckGround();
             CheckOnCar();
+            ApplyPlatformMovement();
             HandleCrouch();
             HandleMovement();
             ApplyGravity();
@@ -113,7 +121,46 @@ namespace FPSGame.Player
         private void CheckOnCar()
         {
             Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
-            isOnCar = Physics.CheckSphere(sphereOrigin, groundCheckRadius, carMask, QueryTriggerInteraction.Ignore);
+            int count = Physics.OverlapSphereNonAlloc(
+                sphereOrigin, groundCheckRadius, carOverlapBuffer, carMask, QueryTriggerInteraction.Ignore);
+
+            // Resolve the actual car root so platform tracking uses a stable transform
+            // even if several of the car's child colliders fall inside the sphere.
+            Transform newPlatform = null;
+            for (int i = 0; i < count; i++)
+            {
+                CarController car = carOverlapBuffer[i].GetComponentInParent<CarController>();
+                if (car != null)
+                {
+                    newPlatform = car.transform;
+                    break;
+                }
+            }
+
+            isOnCar = newPlatform != null;
+
+            // Stepping onto a (different) car: reset the sampled position so the first
+            // frame doesn't apply one huge accumulated delta.
+            if (newPlatform != carPlatform)
+            {
+                carPlatform = newPlatform;
+                if (carPlatform != null)
+                    carPlatformLastPos = carPlatform.position;
+            }
+        }
+
+        // Carries the player along with the car they stand on: applies the car's
+        // per-frame position change directly to the CharacterController.
+        private void ApplyPlatformMovement()
+        {
+            if (carPlatform == null)
+                return;
+
+            Vector3 delta = carPlatform.position - carPlatformLastPos;
+            carPlatformLastPos = carPlatform.position;
+
+            if (delta.sqrMagnitude > 0.0000001f)
+                characterController.Move(delta);
         }
 
         private void HandleMovement()
