@@ -27260,6 +27260,14 @@ PrefabInstance:
       propertyPath: maxVehicleHealth
       value: 50
       objectReference: {fileID: 0}
+    - target: {fileID: 8881416774754931581, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
+      propertyPath: chaosOnlyWhileMoving
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8881416774754931581, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
+      propertyPath: enableChaoticMovement
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 711826237119480789, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
     m_RemovedGameObjects: []

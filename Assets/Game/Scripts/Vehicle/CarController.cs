@@ -47,6 +47,20 @@ namespace FPSGame.Vehicle
         [SerializeField] private float autopilotSpeed = 8f;
         [SerializeField] private float autopilotArriveThreshold = 0.3f;
 
+        [Header("Chaotic Movement")]
+        [Tooltip("Master switch: when off, the car drives perfectly straight (no jitter at all).")]
+        [SerializeField] private bool enableChaoticMovement = false;
+        [Tooltip("Strength of the chaotic jitter, in units/sec added to the car's velocity.")]
+        [SerializeField] private float chaosStrength = 3f;
+        [Tooltip("How fast the chaotic direction changes. Low = slow drifting wobble, high = frantic twitching.")]
+        [SerializeField] private float chaosFrequency = 2f;
+        [Tooltip("Multiplier for the left/right (strafe) component of the jitter.")]
+        [SerializeField] private float chaosStrafeScale = 1f;
+        [Tooltip("Multiplier for the forward/backward component of the jitter.")]
+        [SerializeField] private float chaosForwardScale = 0.5f;
+        [Tooltip("When on, the car only jitters while actually moving; when off, it twitches even while standing still.")]
+        [SerializeField] private bool chaosOnlyWhileMoving = true;
+
         private float lastCollisionDamageTime;
 
         [SyncVar(hook = nameof(OnDriverChanged))]
@@ -73,6 +87,10 @@ namespace FPSGame.Vehicle
         private bool isExploded;
         private bool hasBeenDriven; // server-side: true once any player has entered at least once
 
+        // Independent Perlin-noise sample offsets so the X and Z jitter never correlate.
+        private float chaosSeedX;
+        private float chaosSeedZ;
+
         public bool HasDriver => driverNetId != 0;
         public Transform DriverSeat => driverSeat;
         public Transform ExitPoint => exitPoint;
@@ -81,10 +99,20 @@ namespace FPSGame.Vehicle
         public int MaxVehicleHealth => maxVehicleHealth;
         public bool VehicleIsAlive => vehicleIsAlive;
 
+        /// <summary>Toggle the chaotic jitter on/off at runtime (e.g. from a power-up or settings menu).</summary>
+        public bool ChaoticMovementEnabled
+        {
+            get => enableChaoticMovement;
+            set => enableChaoticMovement = value;
+        }
+
         private void Awake()
         {
             // rb = GetComponent<Rigidbody>();/**/
             rb.freezeRotation = true;
+
+            chaosSeedX = Random.value * 1000f;
+            chaosSeedZ = Random.value * 1000f;
         }
 
         public override void OnStartServer()
@@ -233,8 +261,12 @@ namespace FPSGame.Vehicle
 
                 currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
 
-                if (currentVelocity.sqrMagnitude > 0.001f)
-                    rb.MovePosition(rb.position + currentVelocity * Time.fixedDeltaTime);
+                // Chaos is applied only to this frame's move step, never stored into
+                // currentVelocity, so it can't corrupt collision-impact speed or smoothing.
+                Vector3 frameVelocity = currentVelocity + GetChaosOffset();
+
+                if (frameVelocity.sqrMagnitude > 0.001f)
+                    rb.MovePosition(rb.position + frameVelocity * Time.fixedDeltaTime);
             }
             else if (isServer && autopilotActive && vehicleIsAlive)
             {
@@ -247,6 +279,30 @@ namespace FPSGame.Vehicle
                 Vector3 step = -transform.forward * (driverlessReverseSpeed * Time.fixedDeltaTime);
                 rb.MovePosition(rb.position + step);
             }
+        }
+
+        /// <summary>
+        /// Returns a chaotic per-frame velocity perturbation built from Perlin noise.
+        /// Smoothly wandering at low <see cref="chaosFrequency"/>, frantically twitchy at high values.
+        /// Returns zero when disabled, so a driver-controlled car drives perfectly straight.
+        /// </summary>
+        private Vector3 GetChaosOffset()
+        {
+            if (!enableChaoticMovement || chaosStrength <= 0f)
+                return Vector3.zero;
+
+            if (chaosOnlyWhileMoving && currentVelocity.sqrMagnitude < 0.01f)
+                return Vector3.zero;
+
+            float t = Time.time * chaosFrequency;
+            // Perlin noise is 0..1; remap to -1..1 so the jitter swings both ways.
+            float noiseX = Mathf.PerlinNoise(chaosSeedX, t) * 2f - 1f;
+            float noiseZ = Mathf.PerlinNoise(chaosSeedZ, t) * 2f - 1f;
+
+            Vector3 offset = transform.right * (noiseX * chaosStrafeScale)
+                           + transform.forward * (noiseZ * chaosForwardScale);
+
+            return offset * chaosStrength;
         }
 
         [Server]
