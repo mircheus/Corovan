@@ -22,6 +22,12 @@ namespace FPSGame.Environment
         [SerializeField] private float attackRange = 30f;
         [SerializeField] private int projectileDamage = 10;
 
+        [Header("Gun Aim")]
+        [Tooltip("Root transform of the machine-gun that yaws toward the target. FirePoint should be its child so it rotates along.")]
+        [SerializeField] private Transform gunPivot;
+        [Tooltip("Degrees per second the gun rotates toward the target.")]
+        [SerializeField] private float gunRotationSpeed = 180f;
+
         [Header("Shooting FX")]
         [SerializeField] private ParticleSystem shotEffect;
 
@@ -30,6 +36,8 @@ namespace FPSGame.Environment
         private float retargetCooldown;
         private float fireCooldown;
         private float fixedY;
+
+        [SyncVar] private float gunYaw;
 
         private void Awake()
         {
@@ -55,7 +63,38 @@ namespace FPSGame.Environment
             if (currentTarget == null)
                 return;
 
+            UpdateGunAimServer();
             TryFire();
+        }
+
+        private void LateUpdate()
+        {
+            // All clients (and host) apply the synced yaw locally so remote
+            // viewers see the gun track its target.
+            ApplyGunYaw();
+        }
+
+        private void UpdateGunAimServer()
+        {
+            if (gunPivot == null)
+                return;
+
+            Vector3 toTarget = currentTarget.transform.position - gunPivot.position;
+            toTarget.y = 0f;
+            if (toTarget.sqrMagnitude < 0.0001f)
+                return;
+
+            float desiredYaw = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+            gunYaw = Mathf.MoveTowardsAngle(gunYaw, desiredYaw, gunRotationSpeed * Time.deltaTime);
+        }
+
+        private void ApplyGunYaw()
+        {
+            if (gunPivot == null)
+                return;
+            // Yaw is in world space; the body never rotates, so a world-space
+            // rotation on the pivot is unambiguous and avoids parent-rotation drift.
+            gunPivot.rotation = Quaternion.Euler(0f, gunYaw, 0f);
         }
 
         private void FixedUpdate()
@@ -88,7 +127,7 @@ namespace FPSGame.Environment
         {
             CarController best = null;
             float bestSqr = float.PositiveInfinity;
-            var cars = FindObjectsByType<CarController>(FindObjectsSortMode.None);
+            var cars = FindObjectsByType<CarController>(FindObjectsSortMode.None); // TODO: Remove FindObjectsByType
             Vector3 myPos = transform.position;
             foreach (var car in cars)
             {
