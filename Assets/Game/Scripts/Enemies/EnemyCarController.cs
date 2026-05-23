@@ -1,18 +1,24 @@
 using Mirror;
 using UnityEngine;
+using UnityEngine.AI;
 using FPSGame.Vehicle;
 
 namespace FPSGame.Environment
 {
     [RequireComponent(typeof(Rigidbody))]
+    [RequireComponent(typeof(NavMeshAgent))]
     public class EnemyCarController : NetworkBehaviour
     {
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 8f;
+        [SerializeField] private float angularSpeed = 0f;
+        [SerializeField] private float acceleration = 12f;
         [Tooltip("Stop chasing once within this distance (no ramming).")]
         [SerializeField] private float stopDistance = 12f;
         [Tooltip("Re-scan for a target this often (seconds).")]
         [SerializeField] private float retargetInterval = 1f;
+        [Tooltip("Re-issue SetDestination this often (seconds) while target is moving.")]
+        [SerializeField] private float repathInterval = 0.25f;
 
         [Header("Combat")]
         [SerializeField] private GameObject projectilePrefab;
@@ -32,10 +38,11 @@ namespace FPSGame.Environment
         [SerializeField] private ParticleSystem shotEffect;
 
         private Rigidbody rb;
+        private NavMeshAgent agent;
         private CarController currentTarget;
         private float retargetCooldown;
+        private float repathCooldown;
         private float fireCooldown;
-        private float fixedY;
 
         [SyncVar] private float gunYaw;
 
@@ -45,7 +52,15 @@ namespace FPSGame.Environment
             rb.isKinematic = true;
             rb.useGravity = false;
             rb.constraints = RigidbodyConstraints.FreezeRotation;
-            fixedY = transform.position.y;
+
+            agent = GetComponent<NavMeshAgent>();
+            // Body stays orientation-locked; only the gun pivot rotates.
+            agent.updateRotation = false;
+            agent.speed = moveSpeed;
+            agent.angularSpeed = angularSpeed;
+            agent.acceleration = acceleration;
+            agent.stoppingDistance = stopDistance;
+            agent.autoBraking = true;
         }
 
         private void Update()
@@ -58,13 +73,32 @@ namespace FPSGame.Environment
             {
                 currentTarget = FindNearestTarget();
                 retargetCooldown = retargetInterval;
+                repathCooldown = 0f;
             }
 
             if (currentTarget == null)
+            {
+                if (agent.isOnNavMesh && agent.hasPath)
+                    agent.ResetPath();
                 return;
+            }
 
+            UpdatePathServer();
             UpdateGunAimServer();
             TryFire();
+        }
+
+        private void UpdatePathServer()
+        {
+            if (!agent.isOnNavMesh)
+                return;
+
+            repathCooldown -= Time.deltaTime;
+            if (repathCooldown > 0f)
+                return;
+
+            agent.SetDestination(currentTarget.transform.position);
+            repathCooldown = repathInterval;
         }
 
         private void LateUpdate()
@@ -95,32 +129,6 @@ namespace FPSGame.Environment
             // Yaw is in world space; the body never rotates, so a world-space
             // rotation on the pivot is unambiguous and avoids parent-rotation drift.
             gunPivot.rotation = Quaternion.Euler(0f, gunYaw, 0f);
-        }
-
-        private void FixedUpdate()
-        {
-            if (!isServer || currentTarget == null)
-                return;
-
-            Vector3 pos = rb.position;
-            Vector3 targetPos = currentTarget.transform.position;
-            Vector3 delta = targetPos - pos;
-            delta.y = 0f;
-
-            float dist = delta.magnitude;
-            if (dist <= stopDistance || dist < 0.001f)
-                return;
-
-            Vector3 dir = delta / dist;
-            Vector3 step = dir * moveSpeed * Time.fixedDeltaTime;
-            // Clamp so we don't overshoot stopDistance in one step.
-            float maxStep = dist - stopDistance;
-            if (step.magnitude > maxStep)
-                step = dir * maxStep;
-
-            Vector3 newPos = pos + step;
-            newPos.y = fixedY;
-            rb.MovePosition(newPos);
         }
 
         private CarController FindNearestTarget()
