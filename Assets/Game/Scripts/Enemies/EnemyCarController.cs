@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 using UnityEngine.AI;
@@ -15,8 +16,6 @@ namespace FPSGame.Environment
         [SerializeField] private float acceleration = 12f;
         [Tooltip("Stop chasing once within this distance (no ramming).")]
         [SerializeField] private float stopDistance = 12f;
-        [Tooltip("Re-scan for a target this often (seconds).")]
-        [SerializeField] private float retargetInterval = 1f;
         [Tooltip("Re-issue SetDestination this often (seconds) while target is moving.")]
         [SerializeField] private float repathInterval = 0.25f;
 
@@ -40,7 +39,7 @@ namespace FPSGame.Environment
         private Rigidbody rb;
         private NavMeshAgent agent;
         private CarController currentTarget;
-        private float retargetCooldown;
+        private readonly HashSet<CarController> candidates = new();
         private float repathCooldown;
         private float fireCooldown;
 
@@ -68,11 +67,9 @@ namespace FPSGame.Environment
             if (!isServer)
                 return;
 
-            retargetCooldown -= Time.deltaTime;
-            if (currentTarget == null || !IsValidTarget(currentTarget) || retargetCooldown <= 0f)
+            if (currentTarget == null || !IsValidTarget(currentTarget))
             {
-                currentTarget = FindNearestTarget();
-                retargetCooldown = retargetInterval;
+                currentTarget = PickNearestCandidate();
                 repathCooldown = 0f;
             }
 
@@ -86,6 +83,47 @@ namespace FPSGame.Environment
             UpdatePathServer();
             UpdateGunAimServer();
             TryFire();
+        }
+
+        // Called by EnemyAggroZone on the server when a player car enters its trigger.
+        [Server]
+        public void RegisterTarget(CarController car)
+        {
+            if (car == null)
+                return;
+            candidates.Add(car);
+        }
+
+        // Called by EnemyAggroZone on the server when a player car exits its trigger.
+        [Server]
+        public void UnregisterTarget(CarController car)
+        {
+            if (car == null)
+                return;
+            candidates.Remove(car);
+            if (currentTarget == car)
+                currentTarget = null;
+        }
+
+        private CarController PickNearestCandidate()
+        {
+            CarController best = null;
+            float bestSqr = float.PositiveInfinity;
+            Vector3 myPos = transform.position;
+            // Iterate via ToArray-free pattern; prune invalid entries lazily.
+            candidates.RemoveWhere(c => c == null);
+            foreach (var car in candidates)
+            {
+                if (!IsValidTarget(car))
+                    continue;
+                float sqr = (car.transform.position - myPos).sqrMagnitude;
+                if (sqr < bestSqr)
+                {
+                    bestSqr = sqr;
+                    best = car;
+                }
+            }
+            return best;
         }
 
         private void UpdatePathServer()
@@ -129,26 +167,6 @@ namespace FPSGame.Environment
             // Yaw is in world space; the body never rotates, so a world-space
             // rotation on the pivot is unambiguous and avoids parent-rotation drift.
             gunPivot.rotation = Quaternion.Euler(0f, gunYaw, 0f);
-        }
-
-        private CarController FindNearestTarget()
-        {
-            CarController best = null;
-            float bestSqr = float.PositiveInfinity;
-            var cars = FindObjectsByType<CarController>(FindObjectsSortMode.None); // TODO: Remove FindObjectsByType
-            Vector3 myPos = transform.position;
-            foreach (var car in cars)
-            {
-                if (!IsValidTarget(car))
-                    continue;
-                float sqr = (car.transform.position - myPos).sqrMagnitude;
-                if (sqr < bestSqr)
-                {
-                    bestSqr = sqr;
-                    best = car;
-                }
-            }
-            return best;
         }
 
         private bool IsValidTarget(CarController car)

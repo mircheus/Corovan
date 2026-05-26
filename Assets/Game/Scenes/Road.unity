@@ -5210,6 +5210,75 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 440830913}
   m_Mesh: {fileID: -8157789275978660248, guid: 7dc46aab6b2b961439bc90cd5e95b60c, type: 3}
+--- !u!1 &442465406
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 442465409}
+  - component: {fileID: 442465408}
+  - component: {fileID: 442465407}
+  m_Layer: 0
+  m_Name: EnemyAggroZone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &442465407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 442465406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dec3c133fb44a874694200a80f5ec3cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enemies:
+  - {fileID: 3522891946004934788}
+  enableTriggerExit: 0
+--- !u!65 &442465408
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 442465406}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!4 &442465409
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 442465406}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -24, y: 8.665811, z: -47}
+  m_LocalScale: {x: 31.48, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &479053825
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -19191,7 +19260,6 @@ MonoBehaviour:
   angularSpeed: 0
   acceleration: 12
   stopDistance: 12
-  retargetInterval: 1
   repathInterval: 0.25
   projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
   firePoint: {fileID: 330404316}
@@ -30108,7 +30176,6 @@ MonoBehaviour:
   angularSpeed: 0
   acceleration: 12
   stopDistance: 12
-  retargetInterval: 1
   repathInterval: 0.25
   projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
   firePoint: {fileID: 178877951}
@@ -32224,3 +32291,4 @@ SceneRoots:
   - {fileID: 8806730356818223809}
   - {fileID: 2994208989239483886}
   - {fileID: 1274760272}
+  - {fileID: 442465409}
