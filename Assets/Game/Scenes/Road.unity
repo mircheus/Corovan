@@ -14667,7 +14667,7 @@ MonoBehaviour:
   m_Center: {x: 0, y: 2, z: 0}
   m_LayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
   m_UseGeometry: 0
   m_DefaultArea: 0
   m_GenerateLinks: 0
@@ -22601,13 +22601,13 @@ GameObject:
   - component: {fileID: 1423432165}
   - component: {fileID: 1423432164}
   - component: {fileID: 1423432170}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!64 &1423432164
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -22958,7 +22958,7 @@ MonoBehaviour:
   m_Center: {x: 0, y: 2, z: 0}
   m_LayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1024
   m_UseGeometry: 0
   m_DefaultArea: 0
   m_GenerateLinks: 0
@@ -22969,7 +22969,7 @@ MonoBehaviour:
   m_OverrideVoxelSize: 0
   m_VoxelSize: 0.16666667
   m_MinRegionArea: 2
-  m_NavMeshData: {fileID: 0}
+  m_NavMeshData: {fileID: 23800000, guid: c6663a2605c80e84a9dc17c3deacfa6c, type: 2}
   m_BuildHeightMesh: 0
 --- !u!1 &1425179398
 GameObject:
@@ -31387,7 +31387,7 @@ MonoBehaviour:
   m_Center: {x: 0, y: 2, z: 0}
   m_LayerMask:
     serializedVersion: 2
-    m_Bits: 3071
+    m_Bits: 265
   m_UseGeometry: 0
   m_DefaultArea: 0
   m_GenerateLinks: 0
