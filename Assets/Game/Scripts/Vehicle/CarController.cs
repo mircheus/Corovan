@@ -92,6 +92,15 @@ namespace FPSGame.Vehicle
         private float chaosSeedZ;
 
         public bool HasDriver => driverNetId != 0;
+        public uint DriverNetId => driverNetId;
+
+        /// <summary>Server-only: resolves the current driver's PlayerHealth, or null if seat is empty.</summary>
+        public FPSGame.Player.PlayerHealth GetCurrentDriverServer()
+        {
+            if (driverNetId == 0) return null;
+            if (!NetworkServer.spawned.TryGetValue(driverNetId, out NetworkIdentity ident)) return null;
+            return ident != null ? ident.GetComponent<FPSGame.Player.PlayerHealth>() : null;
+        }
         public Transform DriverSeat => driverSeat;
         public Transform ExitPoint => exitPoint;
         public float InteractDistance => interactDistance;
@@ -392,6 +401,9 @@ namespace FPSGame.Vehicle
                 tool.ServerSetBoundCar(netId);
         }
 
+        /// <summary>Server-only: fires when the driver leaves the seat, with the PlayerHealth that just exited.</summary>
+        public event System.Action<CarController, FPSGame.Player.PlayerHealth> ServerOnDriverExited;
+
         [Server]
         public void ServerExit()
         {
@@ -399,10 +411,13 @@ namespace FPSGame.Vehicle
                 return;
 
             uint oldDriverId = driverNetId;
+            var exitingDriver = GetCurrentDriverServer();
             driverNetId = 0;
             moveInput = Vector2.zero;
             currentVelocity = Vector3.zero;
             netIdentity.RemoveClientAuthority();
+
+            ServerOnDriverExited?.Invoke(this, exitingDriver);
         }
 
         private void OnDriverChanged(uint oldId, uint newId)

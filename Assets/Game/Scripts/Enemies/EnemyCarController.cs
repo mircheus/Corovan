@@ -2,10 +2,13 @@ using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 using UnityEngine.AI;
+using FPSGame.Player;
 using FPSGame.Vehicle;
 
 namespace FPSGame.Environment
 {
+    public enum DriverExitBehavior { ShootPlayer, ShootCar }
+
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(NavMeshAgent))]
     public class EnemyCarController : NetworkBehaviour
@@ -18,6 +21,10 @@ namespace FPSGame.Environment
         [SerializeField] private float stopDistance = 12f;
         [Tooltip("Re-issue SetDestination this often (seconds) while target is moving.")]
         [SerializeField] private float repathInterval = 0.25f;
+
+        [Header("Targeting")]
+        [Tooltip("After the player leaves their car, who to keep shooting at — the player on foot, or the abandoned car.")]
+        [SerializeField] private DriverExitBehavior onDriverExit = DriverExitBehavior.ShootPlayer;
 
         [Header("Combat")]
         [SerializeField] private GameObject projectilePrefab;
@@ -38,8 +45,12 @@ namespace FPSGame.Environment
 
         private Rigidbody rb;
         private NavMeshAgent agent;
-        private CarController currentTarget;
+        private CarController currentCarTarget;
+        private PlayerHealth currentPlayerTarget;
         private readonly HashSet<CarController> candidates = new();
+        // Remembers the last driver of each candidate car so we can keep
+        // shooting at the player on foot after they leave the seat.
+        private readonly Dictionary<CarController, PlayerHealth> lastDriverByCar = new();
         private float repathCooldown;
         private float fireCooldown;
 
@@ -67,13 +78,13 @@ namespace FPSGame.Environment
             if (!isServer)
                 return;
 
-            if (currentTarget == null || !IsValidTarget(currentTarget))
+            if (!HasValidTarget())
             {
-                currentTarget = PickNearestCandidate();
+                PickTarget();
                 repathCooldown = 0f;
             }
 
-            if (currentTarget == null)
+            if (!HasTarget())
             {
                 if (agent.isOnNavMesh && agent.hasPath)
                     agent.ResetPath();
@@ -91,7 +102,8 @@ namespace FPSGame.Environment
         {
             if (car == null)
                 return;
-            candidates.Add(car);
+            if (candidates.Add(car))
+                car.ServerOnDriverExited += OnCarDriverExited;
         }
 
         // Called by EnemyAggroZone on the server when a player car exits its trigger.
@@ -100,30 +112,99 @@ namespace FPSGame.Environment
         {
             if (car == null)
                 return;
-            candidates.Remove(car);
-            if (currentTarget == car)
-                currentTarget = null;
+            if (candidates.Remove(car))
+                car.ServerOnDriverExited -= OnCarDriverExited;
+            lastDriverByCar.Remove(car);
+            if (currentCarTarget == car)
+                currentCarTarget = null;
         }
 
-        private CarController PickNearestCandidate()
+        private void OnCarDriverExited(CarController car, PlayerHealth exitingDriver)
         {
-            CarController best = null;
-            float bestSqr = float.PositiveInfinity;
-            Vector3 myPos = transform.position;
-            // Iterate via ToArray-free pattern; prune invalid entries lazily.
-            candidates.RemoveWhere(c => c == null);
+            // Snapshot only at the moment the driver leaves — no per-frame polling.
+            if (exitingDriver != null)
+                lastDriverByCar[car] = exitingDriver;
+        }
+
+        private void OnDestroy()
+        {
             foreach (var car in candidates)
             {
-                if (!IsValidTarget(car))
+                if (car != null)
+                    car.ServerOnDriverExited -= OnCarDriverExited;
+            }
+        }
+
+        private bool HasTarget() => currentCarTarget != null || currentPlayerTarget != null;
+
+        private bool HasValidTarget()
+        {
+            if (currentPlayerTarget != null && !currentPlayerTarget.IsDead)
+                return true;
+            if (currentCarTarget != null && currentCarTarget.VehicleIsAlive)
+            {
+                // Still valid only if it matches our exit-behavior expectation:
+                // driver present → always valid; driver gone → only if we chose to keep shooting the car.
+                if (currentCarTarget.HasDriver)
+                    return true;
+                if (onDriverExit == DriverExitBehavior.ShootCar)
+                    return true;
+            }
+            return false;
+        }
+
+        private void PickTarget()
+        {
+            currentCarTarget = null;
+            currentPlayerTarget = null;
+
+            float bestSqr = float.PositiveInfinity;
+            Vector3 myPos = transform.position;
+
+            foreach (var car in candidates)
+            {
+                if (car == null || !car.VehicleIsAlive)
                     continue;
-                float sqr = (car.transform.position - myPos).sqrMagnitude;
+
+                Transform effective;
+                CarController carPick = null;
+                PlayerHealth playerPick = null;
+
+                if (car.HasDriver)
+                {
+                    carPick = car;
+                    effective = car.transform;
+                }
+                else if (onDriverExit == DriverExitBehavior.ShootCar)
+                {
+                    carPick = car;
+                    effective = car.transform;
+                }
+                else
+                {
+                    // ShootPlayer mode: target the player who was driving.
+                    lastDriverByCar.TryGetValue(car, out var driver);
+                    if (driver == null || driver.IsDead)
+                        continue;
+                    playerPick = driver;
+                    effective = driver.transform;
+                }
+
+                float sqr = (effective.position - myPos).sqrMagnitude;
                 if (sqr < bestSqr)
                 {
                     bestSqr = sqr;
-                    best = car;
+                    currentCarTarget = carPick;
+                    currentPlayerTarget = playerPick;
                 }
             }
-            return best;
+        }
+
+        private Vector3 GetTargetPosition()
+        {
+            if (currentPlayerTarget != null)
+                return currentPlayerTarget.transform.position + Vector3.up;
+            return currentCarTarget.transform.position;
         }
 
         private void UpdatePathServer()
@@ -135,7 +216,7 @@ namespace FPSGame.Environment
             if (repathCooldown > 0f)
                 return;
 
-            agent.SetDestination(currentTarget.transform.position);
+            agent.SetDestination(GetTargetPosition());
             repathCooldown = repathInterval;
         }
 
@@ -151,7 +232,7 @@ namespace FPSGame.Environment
             if (gunPivot == null)
                 return;
 
-            Vector3 toTarget = currentTarget.transform.position - gunPivot.position;
+            Vector3 toTarget = GetTargetPosition() - gunPivot.position;
             toTarget.y = 0f;
             if (toTarget.sqrMagnitude < 0.0001f)
                 return;
@@ -169,18 +250,13 @@ namespace FPSGame.Environment
             gunPivot.rotation = Quaternion.Euler(0f, gunYaw, 0f);
         }
 
-        private bool IsValidTarget(CarController car)
-        {
-            return car != null && car.HasDriver && car.VehicleIsAlive;
-        }
-
         private void TryFire()
         {
             fireCooldown -= Time.deltaTime;
             if (fireCooldown > 0f)
                 return;
 
-            Vector3 targetPos = currentTarget.transform.position + Vector3.up;
+            Vector3 targetPos = GetTargetPosition();
             float dist = Vector3.Distance(firePoint != null ? firePoint.position : transform.position, targetPos);
             if (dist > attackRange)
                 return;

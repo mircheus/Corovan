@@ -19261,6 +19261,7 @@ MonoBehaviour:
   acceleration: 12
   stopDistance: 12
   repathInterval: 0.25
+  onDriverExit: 0
   projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
   firePoint: {fileID: 330404316}
   fireRate: 0.5
@@ -30177,6 +30178,7 @@ MonoBehaviour:
   acceleration: 12
   stopDistance: 12
   repathInterval: 0.25
+  onDriverExit: 0
   projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
   firePoint: {fileID: 178877951}
   fireRate: 0.5
@@ -30854,8 +30856,12 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8881416774754931581, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
+      propertyPath: explosionDelay
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8881416774754931581, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
       propertyPath: maxVehicleHealth
-      value: 500
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 8881416774754931581, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
       propertyPath: chaosOnlyWhileMoving
