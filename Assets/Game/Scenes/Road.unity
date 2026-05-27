@@ -6040,7 +6040,7 @@ NavMeshObstacle:
   m_Extents: {x: 0.5, y: 0.5, z: 0.5}
   m_MoveThreshold: 0.1
   m_Carve: 1
-  m_CarveOnlyStationary: 1
+  m_CarveOnlyStationary: 0
   m_Center: {x: 0, y: 0, z: 0}
   m_TimeToStationary: 0.5
 --- !u!1 &507222426 stripped
@@ -30178,7 +30178,7 @@ MonoBehaviour:
   acceleration: 12
   stopDistance: 12
   repathInterval: 0.25
-  onDriverExit: 0
+  onDriverExit: 1
   projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
   firePoint: {fileID: 178877951}
   fireRate: 0.5
@@ -30415,6 +30415,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: OpenWagon
       objectReference: {fileID: 0}
+    - target: {fileID: 179046446862631486, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 324714962589700383, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -30447,10 +30451,22 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 493819217}
+    - target: {fileID: 1776791063773065809, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1938495946875995076, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2020269869021724763, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 852025252}
+    - target: {fileID: 2147018344508939680, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2277332364978149024, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -30491,6 +30507,10 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 852025252}
+    - target: {fileID: 4618078581873921342, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4695852215060500741, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_LocalPosition.x
       value: -3.8288918
@@ -30555,6 +30575,10 @@ PrefabInstance:
       propertyPath: m_VersionIndex
       value: 3619
       objectReference: {fileID: 0}
+    - target: {fileID: 5608174192027165655, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5689217945970173378, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -30563,6 +30587,10 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 1419690580}
+    - target: {fileID: 6789586566593123849, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6952108782551148886, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -30582,6 +30610,18 @@ PrefabInstance:
     - target: {fileID: 8046379907004660242, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_VersionIndex
       value: 2923
+      objectReference: {fileID: 0}
+    - target: {fileID: 8159714504027731725, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8974115568787009700, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8980588990641334212, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
+      propertyPath: m_Layer
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9153197811209777978, guid: 8b89603fa91e367489c9e345ab759be7, type: 3}
       propertyPath: m_Mesh
@@ -31460,7 +31500,7 @@ MonoBehaviour:
   m_Center: {x: 0, y: 2, z: 0}
   m_LayerMask:
     serializedVersion: 2
-    m_Bits: 265
+    m_Bits: 329
   m_UseGeometry: 0
   m_DefaultArea: 0
   m_GenerateLinks: 0
