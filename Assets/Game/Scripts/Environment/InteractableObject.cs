@@ -1,3 +1,4 @@
+using System;
 using Mirror;
 using UnityEngine;
 using UnityEngine.Events;
@@ -17,11 +18,16 @@ namespace FPSGame.Environment
         public float HoldDuration => holdDuration;
         public float InteractRange => interactRange;
 
+        // Fired on the server every time a successful interaction occurs.
+        // InteractObjective subscribes to this in OnStartServer.
+        public event Action<GameObject> OnInteracted;
+
         // Called server-side by PlayerInputHandler after the hold completes and
         // server-side range validation passes.
         [Server]
         public void ServerInteract(GameObject instigator)
         {
+            OnInteracted?.Invoke(instigator);
             RpcOnInteracted();
         }
 

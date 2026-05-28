@@ -369,7 +369,7 @@ GameObject:
   - component: {fileID: 8748416773709099587}
   - component: {fileID: 4308283415205484576}
   m_Layer: 0
-  m_Name: Door
+  m_Name: Door_onDestruction
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -528,6 +528,8 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+  doorCollider: {fileID: 495977552822754277}
+  doorRenderer: {fileID: 7147745574411652757}
 --- !u!114 &4308283415205484576
 MonoBehaviour:
   m_ObjectHideFlags: 0
