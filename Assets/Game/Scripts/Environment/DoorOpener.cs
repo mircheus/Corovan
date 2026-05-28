@@ -5,8 +5,7 @@ namespace FPSGame.Environment
 {
     public class DoorOpener : NetworkBehaviour
     {
-        [SerializeField] private Collider doorCollider;
-        [SerializeField] private MeshRenderer doorRenderer;
+        [SerializeField] private GameObject door;
 
         [SyncVar(hook = nameof(OnOpenedStateChange))]
         private bool isOpened;
@@ -47,11 +46,8 @@ namespace FPSGame.Environment
 
         private void ApplyOpenedState(bool opened)
         {
-            if (doorCollider != null)
-                doorCollider.enabled = !opened;
-
-            if (doorRenderer != null)
-                doorRenderer.enabled = !opened;
+            if (door != null)
+                door.SetActive(!opened);
         }
     }
 }
