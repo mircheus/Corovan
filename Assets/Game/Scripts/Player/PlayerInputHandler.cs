@@ -155,6 +155,11 @@ namespace FPSGame.Player
                 {
                     CancelInteraction();
                 }
+                else if (currentInteractTarget.HoldToActivate)
+                {
+                    // Hold-to-activate mode: nothing to advance — active state is server-driven
+                    // and stays on until release or range loss. Range loss handled above.
+                }
                 else
                 {
                     interactHoldTimer += Time.deltaTime;
@@ -296,7 +301,11 @@ namespace FPSGame.Player
                     currentInteractTarget = target;
                     interactHoldTimer = 0f;
                     isInteractHeld = true;
-                    OnInteractProgress?.Invoke(0f);
+
+                    if (target.HoldToActivate)
+                        CmdSetInteractActive(target.netIdentity, true);
+                    else
+                        OnInteractProgress?.Invoke(0f);
                 }
             }
             else
@@ -418,6 +427,9 @@ namespace FPSGame.Player
 
         private void CancelInteraction()
         {
+            if (currentInteractTarget != null && currentInteractTarget.HoldToActivate)
+                CmdSetInteractActive(currentInteractTarget.netIdentity, false);
+
             isInteractHeld = false;
             interactHoldTimer = 0f;
             currentInteractTarget = null;
@@ -460,6 +472,27 @@ namespace FPSGame.Player
                 return;
 
             interactable.ServerInteract(gameObject);
+        }
+
+        [Command]
+        private void CmdSetInteractActive(NetworkIdentity targetIdentity, bool active)
+        {
+            if (targetIdentity == null)
+                return;
+
+            var interactable = targetIdentity.GetComponent<InteractableObject>();
+            if (interactable == null)
+                return;
+
+            if (active)
+            {
+                // Range re-validation only matters when starting activation.
+                float dist = Vector3.Distance(transform.position, interactable.transform.position);
+                if (dist > interactable.InteractRange + 1f)
+                    return;
+            }
+
+            interactable.ServerSetActive(active, gameObject);
         }
     }
 }

@@ -530,6 +530,7 @@ MonoBehaviour:
   syncInterval: 0
   targets:
   - {fileID: 0}
+  repeatable: 0
   requiredCount: 0
   onObjectiveCompleted:
     m_PersistentCalls:
