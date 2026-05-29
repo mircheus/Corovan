@@ -1575,7 +1575,7 @@ MonoBehaviour:
   groundCheckOffset: 0.1
   groundMask:
     serializedVersion: 2
-    m_Bits: 1097
+    m_Bits: 1353
   carMask:
     serializedVersion: 2
     m_Bits: 64

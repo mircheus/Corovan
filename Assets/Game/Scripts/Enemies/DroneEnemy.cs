@@ -54,6 +54,7 @@ namespace FPSGame.Enemies
         [SerializeField] private Transform firePoint;
         [SerializeField] private float fireRate = 2f;
         [SerializeField] private int projectileDamage = 8;
+        [SerializeField] private float projectileSpeed = 20f;
 
         [Header("Health")]
         [SerializeField] private int maxHealth = 40;
@@ -343,7 +344,7 @@ namespace FPSGame.Enemies
             var projectile = obj.GetComponent<EnemyProjectile>();
             if (projectile != null)
             {
-                projectile.Initialize(direction, projectileDamage);
+                projectile.Initialize(direction, projectileDamage, projectileSpeed);
                 foreach (var col in GetComponentsInChildren<Collider>())
                     projectile.IgnoreCollider(col);
             }

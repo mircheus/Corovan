@@ -2,10 +2,10 @@ using Mirror;
 using UnityEngine;
 using FPSGame.Player;
 using FPSGame.Vehicle;
+using Unity.VisualScripting;
 
 namespace FPSGame.Environment
 {
-    [RequireComponent(typeof(SphereCollider))]
     public class Enemy : NetworkBehaviour
     {
         [Header("Combat")]
@@ -13,8 +13,10 @@ namespace FPSGame.Environment
         [SerializeField] private Transform firePoint;
         [SerializeField] private float fireRate = 1f;
         [SerializeField] private int projectileDamage = 10;
+        [SerializeField] private float projectileSpeed = 20f;
         [SerializeField] private float rotationSpeed = 5f;
         [SerializeField] private bool keepAttackAfterTriggerExit;
+        [SerializeField] private Collider detectionCollider;
 
         [Header("Health")]
         [SerializeField] private int maxHealth = 100;
@@ -46,7 +48,6 @@ namespace FPSGame.Environment
         private float fireCooldown;
         private PlayerHealth currentPlayerTarget;
         private CarController currentCarTarget;
-        private SphereCollider detectionCollider;
         private Renderer detectionRenderer;
         private float initialRotX;
         private float initialRotZ;
@@ -59,7 +60,6 @@ namespace FPSGame.Environment
 
         private void Awake()
         {
-            detectionCollider = GetComponent<SphereCollider>();
             detectionCollider.isTrigger = true;
             // detectionRenderer = GetComponent<Renderer>();
             // detectionRenderer.material = neutral;
@@ -198,7 +198,7 @@ namespace FPSGame.Environment
             var projectile = obj.GetComponent<EnemyProjectile>();
             if (projectile != null)
             {
-                projectile.Initialize(direction, projectileDamage);
+                projectile.Initialize(direction, projectileDamage, projectileSpeed);
 
                 foreach (var col in GetComponentsInChildren<Collider>())
                     projectile.IgnoreCollider(col);
@@ -255,6 +255,7 @@ namespace FPSGame.Environment
             if (deathEffect == null)
                 return;
 
+            Debug.Log($"Play Death Effect");
             deathEffect.SetActive(true);
             if (deathEffectDuration > 0f)
             {

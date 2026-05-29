@@ -8,6 +8,7 @@ namespace FPSGame.Environment
     [RequireComponent(typeof(Rigidbody))]
     public class EnemyProjectile : NetworkBehaviour
     {
+        [Tooltip("Fallback speed. The firing enemy normally overrides this via Initialize().")]
         [SerializeField] private float speed = 20f;
         [SerializeField] private float lifetime = 5f;
 
@@ -25,10 +26,11 @@ namespace FPSGame.Environment
         }
 
         // Called by Enemy before NetworkServer.Spawn.
-        public void Initialize(Vector3 dir, int dmg)
+        public void Initialize(Vector3 dir, int dmg, float projectileSpeed)
         {
             direction = dir;
             damage = dmg;
+            speed = projectileSpeed;
         }
 
         // Called by Enemy to prevent the projectile from hitting the enemy's own colliders.

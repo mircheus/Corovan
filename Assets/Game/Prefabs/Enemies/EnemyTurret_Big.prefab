@@ -124,6 +124,7 @@ MonoBehaviour:
   projectileDamage: 10
   rotationSpeed: 5
   keepAttackAfterTriggerExit: 0
+  detectionCollider: {fileID: 0}
   maxHealth: 20
   attacking: {fileID: 2100000, guid: 8e83aaa94f7cd4f43b0b2f970d7d0f27, type: 2}
   neutral: {fileID: 2100000, guid: 33fb2ffd6d9883248b457b72f1207819, type: 2}
@@ -716,6 +717,10 @@ PrefabInstance:
     - target: {fileID: 6885766525796233788, guid: 0a7b18eb8cf9ebc4d832aa6642305a2e, type: 3}
       propertyPath: m_Name
       value: FireExplosionRed
+      objectReference: {fileID: 0}
+    - target: {fileID: 6885766525796233788, guid: 0a7b18eb8cf9ebc4d832aa6642305a2e, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 723931347573818004, guid: 0a7b18eb8cf9ebc4d832aa6642305a2e, type: 3}

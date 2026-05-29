@@ -33,6 +33,7 @@ namespace FPSGame.Environment
         [SerializeField] private float fireRate = 0.5f;
         [SerializeField] private float attackRange = 30f;
         [SerializeField] private int projectileDamage = 10;
+        [SerializeField] private float projectileSpeed = 20f;
 
         [Header("Gun Aim")]
         [Tooltip("Root transform of the machine-gun that yaws toward the target. FirePoint should be its child so it rotates along.")]
@@ -284,7 +285,7 @@ namespace FPSGame.Environment
             var projectile = obj.GetComponent<EnemyProjectile>();
             if (projectile != null)
             {
-                projectile.Initialize(direction, projectileDamage);
+                projectile.Initialize(direction, projectileDamage, projectileSpeed);
                 foreach (var col in GetComponentsInChildren<Collider>())
                     projectile.IgnoreCollider(col);
             }
