@@ -17,6 +17,8 @@ namespace FPSGame.Environment
         [SerializeField] private float rotationSpeed = 5f;
         [SerializeField] private bool keepAttackAfterTriggerExit;
         [SerializeField] private Collider detectionCollider;
+        [Tooltip("Child object (the gun/turret) that rotates to face the target. Falls back to this transform if unset.")]
+        [SerializeField] private Transform rotatingPart;
 
         [Header("Health")]
         [SerializeField] private int maxHealth = 100;
@@ -63,8 +65,10 @@ namespace FPSGame.Environment
             detectionCollider.isTrigger = true;
             // detectionRenderer = GetComponent<Renderer>();
             // detectionRenderer.material = neutral;
-            initialRotX = transform.eulerAngles.x;
-            initialRotZ = transform.eulerAngles.z;
+            if (rotatingPart == null)
+                rotatingPart = transform;
+            initialRotX = rotatingPart.eulerAngles.x;
+            initialRotZ = rotatingPart.eulerAngles.z;
         }
 
         public override void OnStartServer()
@@ -120,13 +124,13 @@ namespace FPSGame.Environment
 
         private void RotateTowardsTarget()
         {
-            Vector3 dir = GetTargetPosition() - transform.position;
+            Vector3 dir = GetTargetPosition() - rotatingPart.position;
             if (dir.sqrMagnitude < 0.001f)
                 return;
 
             float targetAngle = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
-            float newY = Mathf.LerpAngle(transform.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
-            transform.rotation = Quaternion.Euler(initialRotX, newY, initialRotZ);
+            float newY = Mathf.LerpAngle(rotatingPart.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
+            rotatingPart.rotation = Quaternion.Euler(initialRotX, newY, initialRotZ);
         }
 
         private void OnTriggerEnter(Collider other)

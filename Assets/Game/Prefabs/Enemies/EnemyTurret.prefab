@@ -29,7 +29,7 @@ Transform:
   m_LocalScale: {x: 0.25, y: 0.25, z: 1.25}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 4076972204810065949}
+  m_Father: {fileID: 4074142689471054669}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3279876845831046195
 GameObject:
@@ -44,10 +44,10 @@ GameObject:
   - component: {fileID: 7833071590373770577}
   - component: {fileID: 4203017019647993090}
   - component: {fileID: 1783099756632314204}
-  - component: {fileID: 5983316798164709999}
   - component: {fileID: 7239411004486347893}
+  - component: {fileID: 3480452815473532516}
   m_Layer: 0
-  m_Name: Enemy
+  m_Name: EnemyTurret
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -64,7 +64,7 @@ Transform:
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4076972204810065949}
   - {fileID: 8107184295938398222}
@@ -122,9 +122,11 @@ MonoBehaviour:
   firePoint: {fileID: 4363525155998438720}
   fireRate: 1
   projectileDamage: 10
+  projectileSpeed: 20
   rotationSpeed: 5
   keepAttackAfterTriggerExit: 0
-  detectionCollider: {fileID: 0}
+  detectionCollider: {fileID: 3480452815473532516}
+  rotatingPart: {fileID: 4074142689471054669}
   maxHealth: 20
   attacking: {fileID: 2100000, guid: 8e83aaa94f7cd4f43b0b2f970d7d0f27, type: 2}
   neutral: {fileID: 2100000, guid: 33fb2ffd6d9883248b457b72f1207819, type: 2}
@@ -147,31 +149,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 3802940818
+  _assetId: 4266259877
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
---- !u!135 &5983316798164709999
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3279876845831046195}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 5
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &7239411004486347893
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -206,6 +187,27 @@ MonoBehaviour:
   positionSensitivity: 0.01
   rotationSensitivity: 0.01
   scaleSensitivity: 0.01
+--- !u!65 &3480452815473532516
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3279876845831046195}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &3512683975277645949
 GameObject:
   m_ObjectHideFlags: 0
@@ -431,7 +433,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 4363525155998438720}
   - {fileID: 4074142689471054669}
   m_Father: {fileID: 1504090171019227163}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -553,6 +554,7 @@ Transform:
   m_Children:
   - {fileID: 4074616207233609687}
   - {fileID: 4076989397712960365}
+  - {fileID: 4363525155998438720}
   m_Father: {fileID: 4076972204810065949}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &4102961419680721595
