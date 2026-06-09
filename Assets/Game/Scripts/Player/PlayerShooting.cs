@@ -244,6 +244,10 @@ namespace FPSGame.Player
                 if (destructionTarget != null)
                     destructionTarget.TakeHit();
 
+                FPSGame.Environment.ContainerLock containerLock = hit.collider.GetComponentInParent<FPSGame.Environment.ContainerLock>();
+                if (containerLock != null)
+                    containerLock.TakeDamage(currentWeapon.Damage);
+
                 FPSGame.Hazards.Barrel barrel = hit.collider.GetComponentInParent<FPSGame.Hazards.Barrel>();
                 if (barrel != null)
                     barrel.TakeDamage(currentWeapon.Damage);
