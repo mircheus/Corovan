@@ -229,6 +229,9 @@ namespace FPSGame.Player
         {
             if (!isOwned || currentVehicle != null)
                 return;
+            // No jumping while carrying loot.
+            if (playerCarry != null && playerCarry.IsCarrying)
+                return;
             if (value.isPressed)
             {
                 playerController?.Jump();

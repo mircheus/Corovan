@@ -46,6 +46,7 @@ namespace FPSGame.Player
         private float targetHeight;
         private Vector3 groundNormal = Vector3.up;
         private float airTime;
+        private float carrySpeedMultiplier = 1f;
 
         // Moving-platform support: the car the player currently stands on and its
         // last sampled position, used to carry the player along as the car drives.
@@ -213,11 +214,23 @@ namespace FPSGame.Player
 
         private float GetCurrentSpeed()
         {
+            float baseSpeed;
             if (isCrouching)
-                return crouchSpeed;
-            if (IsSprinting)
-                return sprintSpeed;
-            return walkSpeed;
+                baseSpeed = crouchSpeed;
+            else if (IsSprinting)
+                baseSpeed = sprintSpeed;
+            else
+                baseSpeed = walkSpeed;
+
+            return baseSpeed * carrySpeedMultiplier;
+        }
+
+        // Set by PlayerCarry: 1 = normal speed, <1 = slowed while carrying loot.
+        public void SetCarrySpeedMultiplier(float multiplier)
+        {
+            if (!isOwned)
+                return;
+            carrySpeedMultiplier = Mathf.Clamp(multiplier, 0.1f, 1f);
         }
 
         private void ApplyGravity()

@@ -8,8 +8,15 @@ namespace FPSGame.Player
     {
         [SerializeField] private Transform carryPoint;
 
+        [Header("Actions")]
+        [Tooltip("If enabled, LMB throws the carried loot.")]
+        [SerializeField] private bool allowThrow = false;
+        [Tooltip("If enabled, RMB puts the carried loot down.")]
+        [SerializeField] private bool allowDrop = true;
+
         private PlayerCamera playerCamera;
         private PlayerShooting playerShooting;
+        private PlayerController playerController;
         private CarryableObject carriedObject;
 
         public bool IsCarrying => carriedObject != null;
@@ -18,6 +25,7 @@ namespace FPSGame.Player
         {
             playerCamera = GetComponentInChildren<PlayerCamera>();
             playerShooting = GetComponent<PlayerShooting>();
+            playerController = GetComponent<PlayerController>();
         }
 
         // Called from PlayerInputHandler when E is pressed.
@@ -34,13 +42,14 @@ namespace FPSGame.Player
             target.SetCarriedLocally(true);
             AttachToCarryPoint();
             playerShooting?.SetCarryingMode(true);
+            playerController?.SetCarrySpeedMultiplier(target.MovementSpeedMultiplier);
             CmdPickup(target.netIdentity);
         }
 
         // Called from PlayerInputHandler when RMB is pressed while carrying.
         public void TryDrop()
         {
-            if (!isOwned || carriedObject == null)
+            if (!isOwned || carriedObject == null || !allowDrop)
                 return;
 
             DetachFromCarryPoint();
@@ -48,12 +57,13 @@ namespace FPSGame.Player
             CmdDrop(carriedObject.netIdentity);
             carriedObject = null;
             playerShooting?.SetCarryingMode(false);
+            playerController?.SetCarrySpeedMultiplier(1f);
         }
 
         // Called from PlayerInputHandler when LMB is pressed while carrying.
         public void TryThrow()
         {
-            if (!isOwned || carriedObject == null)
+            if (!isOwned || carriedObject == null || !allowThrow)
                 return;
 
             Ray aimRay = playerCamera.GetAimRay();
@@ -63,6 +73,7 @@ namespace FPSGame.Player
             CmdThrow(carriedObject.netIdentity, impulse);
             carriedObject = null;
             playerShooting?.SetCarryingMode(false);
+            playerController?.SetCarrySpeedMultiplier(1f);
         }
 
         private void AttachToCarryPoint()

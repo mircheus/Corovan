@@ -12,6 +12,13 @@ namespace FPSGame.Environment
         [SerializeField] private float throwForce = 10f;
         [SerializeField] private int value = 1;
 
+        [Header("Movement")]
+        [Tooltip("If enabled, carrying this object slows the player's movement.")]
+        [SerializeField] private bool slowsPlayer = false;
+        [Tooltip("Speed multiplier applied to the carrier while holding this object (1 = no change).")]
+        [Range(0.1f, 1f)]
+        [SerializeField] private float carrySpeedMultiplier = 0.5f;
+
         [SyncVar(hook = nameof(OnCarriedChanged))]
         private bool isCarried;
 
@@ -22,6 +29,10 @@ namespace FPSGame.Environment
         public float PickupRange => pickupRange;
         public float ThrowForce => throwForce;
         public int Value => value;
+
+        // Speed multiplier the carrier should apply while holding this object.
+        // Returns 1 (no slow) when slowing is disabled for this object.
+        public float MovementSpeedMultiplier => slowsPlayer ? carrySpeedMultiplier : 1f;
 
         private void Awake()
         {
