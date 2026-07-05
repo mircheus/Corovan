@@ -37,7 +37,7 @@ namespace FPSGame.Player
             CmdPickup(target.netIdentity);
         }
 
-        // Called from PlayerInputHandler when LMB is pressed while carrying.
+        // Called from PlayerInputHandler when RMB is pressed while carrying.
         public void TryDrop()
         {
             if (!isOwned || carriedObject == null)
@@ -50,7 +50,7 @@ namespace FPSGame.Player
             playerShooting?.SetCarryingMode(false);
         }
 
-        // Called from PlayerInputHandler when RMB is pressed while carrying.
+        // Called from PlayerInputHandler when LMB is pressed while carrying.
         public void TryThrow()
         {
             if (!isOwned || carriedObject == null)

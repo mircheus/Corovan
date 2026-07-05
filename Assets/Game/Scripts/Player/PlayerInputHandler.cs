@@ -22,7 +22,10 @@ namespace FPSGame.Player
         private InputAction sprintAction;
         private InputAction interactAction;
         private bool isInitialized;
-        private bool aimBlockedAfterThrow;
+        // After a drop/throw the loot leaves the hands the same frame; block the button's
+        // normal fire/aim action until it is released so the same press doesn't also shoot/ADS.
+        private bool fireBlockedAfterCarry;
+        private bool aimBlockedAfterCarry;
 
         private CarController currentVehicle;
 
@@ -110,28 +113,38 @@ namespace FPSGame.Player
 
             if (isCarrying)
             {
-                // LMB drops, RMB throws — block normal firing/aiming while carrying.
+                // While carrying, firing/aiming is fully suppressed (PlayerShooting.isCarrying).
+                // LMB throws the loot, RMB just puts it down.
                 if (attackAction != null && attackAction.triggered)
-                    playerCarry.TryDrop();
+                {
+                    fireBlockedAfterCarry = true;
+                    playerCarry.TryThrow();
+                }
                 if (aimAction != null && aimAction.triggered)
                 {
-                    aimBlockedAfterThrow = true;
-                    playerCarry.TryThrow();
+                    aimBlockedAfterCarry = true;
+                    playerCarry.TryDrop();
                 }
             }
             else
             {
                 if (aimAction != null)
                 {
-                    // Clear the block only once RMB is fully released after a throw.
-                    if (aimBlockedAfterThrow && !aimAction.IsPressed())
-                        aimBlockedAfterThrow = false;
+                    // Clear the block only once RMB is fully released after a drop.
+                    if (aimBlockedAfterCarry && !aimAction.IsPressed())
+                        aimBlockedAfterCarry = false;
 
-                    playerShooting?.SetAiming(!aimBlockedAfterThrow && aimAction.IsPressed());
+                    playerShooting?.SetAiming(!aimBlockedAfterCarry && aimAction.IsPressed());
                 }
 
                 if (attackAction != null)
-                    playerShooting?.SetFiring(attackAction.IsPressed());
+                {
+                    // Clear the block only once LMB is fully released after a throw.
+                    if (fireBlockedAfterCarry && !attackAction.IsPressed())
+                        fireBlockedAfterCarry = false;
+
+                    playerShooting?.SetFiring(!fireBlockedAfterCarry && attackAction.IsPressed());
+                }
             }
 
             if (currentVehicle == null && sprintAction != null)
