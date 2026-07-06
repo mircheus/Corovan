@@ -259,13 +259,13 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  moveSpeed: 17
+  moveSpeed: 30
   launchDirection: {x: 0, y: 0, z: -1}
-  despawnDistance: 100
+  despawnDistance: 200
   gravity: -20
-  bounciness: 0.7
+  bounciness: 0.6
   accelerateOnBounce: 1
-  bounceSpeedMultiplier: 1.7
+  bounceSpeedMultiplier: 1.15
   maxMoveSpeed: 0
   initialBounceVelocity: 6
   minBounceVelocity: 1.5
@@ -273,7 +273,7 @@ MonoBehaviour:
   groundCheckDistance: 5
   groundMask:
     serializedVersion: 2
-    m_Bits: 9
+    m_Bits: 4294967295
   carDamage: 25
   playerDamage: 15
   damagePlayersOnFoot: 1
