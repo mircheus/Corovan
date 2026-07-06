@@ -11,19 +11,36 @@ namespace FPSGame.Hazards
     public class Barrel : NetworkBehaviour
     {
         [Header("Movement")]
+        [Tooltip("Initial horizontal speed (world units per second).")]
         [SerializeField] private float moveSpeed = 8f;
+        [Tooltip("Horizontal launch direction in world space. Y is ignored; the vector is normalized. Default is straight down -Z.")]
+        [SerializeField] private Vector3 launchDirection = new Vector3(0f, 0f, -1f);
         [SerializeField] private float despawnDistance = 60f;
 
-        [Header("Bounce")]
-        [SerializeField] private float bounceAmplitude = 0.8f;
-        [SerializeField] private float bounceFrequency = 0.3f;
-        // One cycle of the bounce shape. X axis: 0–1 (normalized period). Y axis: height multiplier (scaled by bounceAmplitude).
-        [SerializeField] private AnimationCurve bounceCurve = new AnimationCurve(
-            new Keyframe(0f,    0f),
-            new Keyframe(0.25f, 1f),
-            new Keyframe(0.5f,  0f),
-            new Keyframe(0.75f, -1f),
-            new Keyframe(1f,    0f));
+        [Header("Bounce Physics")]
+        [Tooltip("Downward acceleration applied every physics step (units/s²). Negative pulls the barrel toward the ground.")]
+        [SerializeField] private float gravity = -20f;
+        [Tooltip("Fraction of vertical speed kept after each ground bounce. 0 = no bounce, 1 = perfectly elastic.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float bounciness = 0.6f;
+
+        [Header("Bounce Acceleration")]
+        [Tooltip("When enabled, the barrel speeds up horizontally on every real bounce.")]
+        [SerializeField] private bool accelerateOnBounce = false;
+        [Tooltip("Horizontal speed is multiplied by this on each bounce (1 = no change, 1.15 = +15% per bounce).")]
+        [SerializeField] private float bounceSpeedMultiplier = 1.15f;
+        [Tooltip("Upper limit for the accelerated horizontal speed. 0 = uncapped.")]
+        [SerializeField] private float maxMoveSpeed = 0f;
+        [Tooltip("Upward speed given to the barrel on activation for its first hop.")]
+        [SerializeField] private float initialBounceVelocity = 6f;
+        [Tooltip("Once a post-bounce vertical speed drops below this, the barrel stops hopping and slides flat along the ground.")]
+        [SerializeField] private float minBounceVelocity = 1.5f;
+        [Tooltip("Distance from the barrel pivot down to the point that should rest on the ground surface.")]
+        [SerializeField] private float groundOffset = 0.5f;
+        [Tooltip("How far below the pivot to look for ground each step. Keep larger than one step's fall distance.")]
+        [SerializeField] private float groundCheckDistance = 5f;
+        [Tooltip("Layers treated as ground for bounce detection. Set this to your ground/road layer(s).")]
+        [SerializeField] private LayerMask groundMask = ~0;
 
         [Header("Damage")]
         [SerializeField] private int carDamage = 25;
@@ -52,7 +69,7 @@ namespace FPSGame.Hazards
         private CapsuleCollider barrelCollider;
 
         private Vector3 spawnPosition;
-        private float activeTime;
+        private Vector3 velocity;
         private int accumulatedDamage;
 
         // Assigned by BarrelSpawner; fires on server when barrel should return to pool
@@ -78,7 +95,12 @@ namespace FPSGame.Hazards
         {
             spawnPosition = position;
             rb.position = position;
-            activeTime = 0f;
+
+            Vector3 horizontal = new Vector3(launchDirection.x, 0f, launchDirection.z);
+            horizontal = horizontal.sqrMagnitude > 0.0001f ? horizontal.normalized : Vector3.back;
+            horizontal *= moveSpeed;
+            velocity = new Vector3(horizontal.x, initialBounceVelocity, horizontal.z);
+
             accumulatedDamage = 0;
             isActive = true;
         }
@@ -118,15 +140,53 @@ namespace FPSGame.Hazards
         {
             if (!isServer || !isActive) return;
 
-            activeTime += Time.fixedDeltaTime;
+            float dt = Time.fixedDeltaTime;
+            velocity.y += gravity * dt;
 
-            float zOffset = moveSpeed * activeTime;
-            float yOffset = bounceCurve.Evaluate((activeTime * bounceFrequency) % 1f) * bounceAmplitude;
+            Vector3 current = rb.position;
+            Vector3 next = current + velocity * dt;
 
-            rb.MovePosition(spawnPosition + new Vector3(0f, yOffset, -zOffset));
+            // Only test for the ground while descending, then reflect the vertical
+            // velocity with damping so successive hops lose height and eventually settle.
+            if (velocity.y < 0f &&
+                Physics.Raycast(current, Vector3.down, out RaycastHit hit,
+                    groundCheckDistance, groundMask, QueryTriggerInteraction.Ignore))
+            {
+                float groundY = hit.point.y + groundOffset;
+                if (next.y <= groundY)
+                {
+                    next.y = groundY;
+                    float bounceUp = -velocity.y * bounciness;
+                    if (bounceUp < minBounceVelocity)
+                    {
+                        // Settled: glue to the ground and roll flat. No acceleration here,
+                        // otherwise the per-frame re-snap would speed the barrel up endlessly.
+                        velocity.y = 0f;
+                    }
+                    else
+                    {
+                        velocity.y = bounceUp;
+                        if (accelerateOnBounce)
+                            ApplyBounceAcceleration();
+                    }
+                }
+            }
 
-            if (zOffset >= despawnDistance)
+            rb.MovePosition(next);
+
+            Vector3 travelled = next - spawnPosition;
+            travelled.y = 0f;
+            if (travelled.magnitude >= despawnDistance)
                 ServerDeactivate();
+        }
+
+        private void ApplyBounceAcceleration()
+        {
+            Vector3 horizontal = new Vector3(velocity.x, 0f, velocity.z) * bounceSpeedMultiplier;
+            if (maxMoveSpeed > 0f && horizontal.magnitude > maxMoveSpeed)
+                horizontal = horizontal.normalized * maxMoveSpeed;
+            velocity.x = horizontal.x;
+            velocity.z = horizontal.z;
         }
 
         private void OnTriggerEnter(Collider other)

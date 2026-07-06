@@ -260,51 +260,20 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   moveSpeed: 17
+  launchDirection: {x: 0, y: 0, z: -1}
   despawnDistance: 100
-  bounceAmplitude: 4
-  bounceFrequency: 0.8
-  bounceCurve:
+  gravity: -20
+  bounciness: 0.7
+  accelerateOnBounce: 1
+  bounceSpeedMultiplier: 1.7
+  maxMoveSpeed: 0
+  initialBounceVelocity: 6
+  minBounceVelocity: 1.5
+  groundOffset: 0.5
+  groundCheckDistance: 5
+  groundMask:
     serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 4
-      tangentMode: 65
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 0.25
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 0.75
-      value: -1
-      inSlope: -5.707952
-      outSlope: -5.707952
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0.36000013
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 4
-      outSlope: 0
-      tangentMode: 5
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
+    m_Bits: 9
   carDamage: 25
   playerDamage: 15
   damagePlayersOnFoot: 1
