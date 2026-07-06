@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using FPSGame.Weapons;
+using FPSGame.Environment;
 
 namespace FPSGame.Player
 {
@@ -34,6 +35,10 @@ namespace FPSGame.Player
         [SyncVar(hook = nameof(OnWeaponIndexChanged))]
         private int currentWeaponIndex;
 
+        // Bitmask of slots the player has unlocked (picked up). Bit i == slot i.
+        [SyncVar(hook = nameof(OnUnlockedMaskChanged))]
+        private int unlockedMask;
+
         // Per-slot ammo, server-side only. Saved/restored on weapon switch.
         private int[] savedMagAmmo;
         private int[] savedReserveAmmo;
@@ -57,6 +62,8 @@ namespace FPSGame.Player
         public event System.Action OnReloadStarted;
         public event System.Action OnReloadFinished;
         public event System.Action<int, WeaponData> OnWeaponSwitched;
+        // Fires when the set of unlocked weapons changes (pickup). For HUD refresh.
+        public event System.Action OnLoadoutChanged;
 
         private void Awake()
         {
@@ -91,10 +98,33 @@ namespace FPSGame.Player
                 }
             }
 
-            currentWeaponIndex = 0;
-            currentWeapon = availableWeapons[0];
-            currentAmmo = savedMagAmmo[0];
-            reserveAmmo = savedReserveAmmo[0];
+            // Start with only melee weapons unlocked; ranged weapons must be
+            // picked up in the world (WeaponPickup) to become usable.
+            int mask = 0;
+            int firstUnlocked = -1;
+            for (int i = 0; i < availableWeapons.Length; i++)
+            {
+                if (availableWeapons[i] != null && availableWeapons[i].IsMelee)
+                {
+                    mask |= 1 << i;
+                    if (firstUnlocked < 0)
+                        firstUnlocked = i;
+                }
+            }
+
+            // Fallback: if no melee weapon is configured, unlock slot 0 so the
+            // player is never stuck holding a locked (unusable) weapon.
+            if (firstUnlocked < 0)
+            {
+                firstUnlocked = 0;
+                mask |= 1 << 0;
+            }
+
+            unlockedMask = mask;
+            currentWeaponIndex = firstUnlocked;
+            currentWeapon = availableWeapons[firstUnlocked];
+            currentAmmo = savedMagAmmo[firstUnlocked];
+            reserveAmmo = savedReserveAmmo[firstUnlocked];
         }
 
         public override void OnStartClient()
@@ -134,6 +164,9 @@ namespace FPSGame.Player
                 return;
 
             if (IsToolSlot(currentWeaponIndex))
+                return;
+
+            if (!IsUnlocked(currentWeaponIndex))
                 return;
 
             bool canFire = Time.time >= lastFireTime + currentWeapon.FireRate;
@@ -198,6 +231,9 @@ namespace FPSGame.Player
         private void CmdFire(Vector3 origin, Vector3 direction)
         {
             if (currentWeapon == null || isReloading)
+                return;
+
+            if (!IsUnlocked(currentWeaponIndex))
                 return;
 
             // Ranged weapons consume ammo; melee does not.
@@ -424,6 +460,75 @@ namespace FPSGame.Player
             reserveAmmo = Mathf.Min(reserveAmmo + amount, currentWeapon.MaxReserveAmmo);
         }
 
+        // ── Weapon pickups ────────────────────────────────────────────────────
+
+        public bool IsUnlocked(int slot)
+        {
+            return slot >= 0 && slot < 32 && (unlockedMask & (1 << slot)) != 0;
+        }
+
+        // Owner-side: called by WeaponPickup when the local player overlaps its
+        // trigger. Forwards intent to the server, which validates range/grants.
+        public void RequestPickup(WeaponPickup pickup)
+        {
+            if (!isOwned || pickup == null)
+                return;
+            CmdClaimPickup(pickup.netIdentity);
+        }
+
+        [Command]
+        private void CmdClaimPickup(NetworkIdentity pickupId)
+        {
+            if (pickupId == null)
+                return;
+            var pickup = pickupId.GetComponent<WeaponPickup>();
+            if (pickup == null)
+                return;
+
+            // Server-side range re-validation (guards against stale/spoofed claims).
+            float dist = Vector3.Distance(transform.position, pickup.transform.position);
+            if (dist > pickup.PickupRange + 1f)
+                return;
+
+            pickup.ServerTryTake(this);
+        }
+
+        // Grants the weapon matching `data` in the catalog: unlocks its slot and
+        // auto-equips it, or tops up reserve ammo if already owned.
+        // Returns true if the pickup should be consumed.
+        [Server]
+        public bool ServerGrantWeapon(WeaponData data)
+        {
+            if (availableWeapons == null || data == null)
+                return false;
+
+            int slot = System.Array.IndexOf(availableWeapons, data);
+            if (slot < 0)
+                return false;
+
+            if (IsUnlocked(slot))
+            {
+                // Already owned — top up reserve ammo to the weapon's maximum.
+                savedReserveAmmo[slot] = data.MaxReserveAmmo;
+                if (slot == currentWeaponIndex)
+                    reserveAmmo = data.MaxReserveAmmo;
+                return true;
+            }
+
+            unlockedMask |= 1 << slot;
+            savedMagAmmo[slot] = data.MagazineSize;
+            savedReserveAmmo[slot] = data.MaxReserveAmmo;
+
+            // Auto-equip the newly acquired weapon.
+            ServerSwitchTo(slot);
+            return true;
+        }
+
+        private void OnUnlockedMaskChanged(int oldMask, int newMask)
+        {
+            OnLoadoutChanged?.Invoke();
+        }
+
         // ── Weapon switching ──────────────────────────────────────────────────
 
         public int WeaponCount => availableWeapons != null ? availableWeapons.Length : 0;
@@ -434,6 +539,8 @@ namespace FPSGame.Player
             if (!isOwned || availableWeapons == null)
                 return;
             if (index < 0 || index >= availableWeapons.Length || index == currentWeaponIndex)
+                return;
+            if (!IsUnlocked(index))
                 return;
 
             // Optimistic local update for responsive feel; server authoritative state
@@ -447,14 +554,31 @@ namespace FPSGame.Player
 
         public void SelectNextWeapon()
         {
-            if (availableWeapons == null || availableWeapons.Length < 2) return;
-            SelectWeaponSlot((currentWeaponIndex + 1) % availableWeapons.Length);
+            int next = FindNextUnlocked(1);
+            if (next >= 0) SelectWeaponSlot(next);
         }
 
         public void SelectPreviousWeapon()
         {
-            if (availableWeapons == null || availableWeapons.Length < 2) return;
-            SelectWeaponSlot((currentWeaponIndex - 1 + availableWeapons.Length) % availableWeapons.Length);
+            int prev = FindNextUnlocked(-1);
+            if (prev >= 0) SelectWeaponSlot(prev);
+        }
+
+        // Nearest unlocked slot in the given cycle direction (skips locked slots).
+        // Returns -1 if no other unlocked slot exists.
+        private int FindNextUnlocked(int dir)
+        {
+            if (availableWeapons == null || availableWeapons.Length < 2)
+                return -1;
+
+            int n = availableWeapons.Length;
+            for (int step = 1; step < n; step++)
+            {
+                int idx = ((currentWeaponIndex + dir * step) % n + n) % n;
+                if (IsUnlocked(idx))
+                    return idx;
+            }
+            return -1;
         }
 
         [Command]
@@ -462,6 +586,17 @@ namespace FPSGame.Player
         {
             if (availableWeapons == null || index < 0 || index >= availableWeapons.Length)
                 return;
+            if (index == currentWeaponIndex || !IsUnlocked(index))
+                return;
+
+            ServerSwitchTo(index);
+        }
+
+        // Server-side slot switch. Saves the outgoing slot's ammo and loads the
+        // incoming slot's — the SyncVar hooks push the change to all clients.
+        [Server]
+        private void ServerSwitchTo(int index)
+        {
             if (index == currentWeaponIndex)
                 return;
 

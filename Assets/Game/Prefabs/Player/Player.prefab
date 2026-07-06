@@ -1620,16 +1620,16 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   playerCamera: {fileID: 8250020369579678541}
-  playerController: {fileID: 0}
+  playerController: {fileID: 6545812997006591626}
   availableWeapons:
-  - {fileID: 11400000, guid: 62dc278a46770be4fa3994ca0f322d93, type: 2}
   - {fileID: 11400000, guid: e200fa3b434ccee458551e530b62febc, type: 2}
+  - {fileID: 11400000, guid: 62dc278a46770be4fa3994ca0f322d93, type: 2}
   - {fileID: 11400000, guid: 710bcb6393875024989be0236a64a929, type: 2}
   - {fileID: 11400000, guid: 14467d8d5c6d3be577760d5b42084fb7, type: 2}
   - {fileID: 11400000, guid: 9430f1ca6a082a54abeae5da2d5c3a08, type: 2}
   weaponModels:
-  - {fileID: 5955828827635620259}
   - {fileID: 5940216209869257070}
+  - {fileID: 5955828827635620259}
   - {fileID: 1533541316697757073}
   - {fileID: 653283312060764144}
   - {fileID: 2130785082212471400}
@@ -1640,8 +1640,8 @@ MonoBehaviour:
   - {fileID: 8001816722875645647}
   - {fileID: -2002139955816669472}
   muzzleFlashEffects:
-  - {fileID: 8416423132024354327}
   - {fileID: 0}
+  - {fileID: 8416423132024354327}
   - {fileID: 2041072395255228815}
   weaponHolder: {fileID: 3155472105227155606}
   hitMask:
@@ -1713,6 +1713,8 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   carryPoint: {fileID: 2246118536426932298}
+  allowThrow: 0
+  allowDrop: 1
 --- !u!114 &3654276019762407944
 MonoBehaviour:
   m_ObjectHideFlags: 0
