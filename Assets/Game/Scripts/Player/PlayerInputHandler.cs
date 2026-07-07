@@ -16,6 +16,7 @@ namespace FPSGame.Player
         private PlayerCamera playerCamera;
         private PlayerShooting playerShooting;
         private PlayerCarry playerCarry;
+        private PlayerKeycardHand playerKeycardHand;
         private PlayerInput playerInput;
         private InputAction aimAction;
         private InputAction attackAction;
@@ -46,6 +47,7 @@ namespace FPSGame.Player
             playerCamera = GetComponentInChildren<PlayerCamera>();
             playerShooting = GetComponent<PlayerShooting>();
             playerCarry = GetComponent<PlayerCarry>();
+            playerKeycardHand = GetComponent<PlayerKeycardHand>();
             playerInput = GetComponent<PlayerInput>();
         }
 
@@ -77,6 +79,7 @@ namespace FPSGame.Player
             playerShooting?.SetFiring(false);
             playerShooting?.SetAiming(false);
             playerController?.SetSprinting(false);
+            playerKeycardHand?.Unequip();
             if (currentVehicle != null)
             {
                 CmdExitVehicle(currentVehicle.netIdentity);
@@ -110,20 +113,26 @@ namespace FPSGame.Player
                 transform.position = currentVehicle.DriverSeat.position;
 
             bool isCarrying = playerCarry != null && playerCarry.IsCarrying;
+            bool cardInHand = playerKeycardHand != null && playerKeycardHand.IsEquipped;
 
-            if (isCarrying)
+            if (isCarrying || cardInHand)
             {
-                // While carrying, firing/aiming is fully suppressed (PlayerShooting.isCarrying).
-                // LMB throws the loot, RMB just puts it down.
+                // Hands occupied (loot or keycard) — firing/aiming is fully suppressed
+                // (PlayerShooting.isCarrying). LMB throws; for loot RMB also puts it down.
                 if (attackAction != null && attackAction.triggered)
                 {
                     fireBlockedAfterCarry = true;
-                    playerCarry.TryThrow();
+                    if (isCarrying)
+                        playerCarry.TryThrow();
+                    else
+                        playerKeycardHand.TryThrow();
                 }
                 if (aimAction != null && aimAction.triggered)
                 {
                     aimBlockedAfterCarry = true;
-                    playerCarry.TryDrop();
+                    // Keycard has no RMB action; it's put away via "0" or a weapon key.
+                    if (isCarrying)
+                        playerCarry.TryDrop();
                 }
             }
             else
@@ -183,19 +192,29 @@ namespace FPSGame.Player
                 }
             }
 
-            // Direct slot selection via number keys — only when on foot and not carrying.
+            // Number keys — on foot and not carrying loot. "0" pulls the keycard
+            // into / out of hand; 1-9 select weapon slots (and put any held card away).
             if (currentVehicle == null && !isCarrying && playerShooting != null)
             {
                 var kb = Keyboard.current;
                 if (kb != null)
                 {
-                    int count = Mathf.Min(playerShooting.WeaponCount, slotKeys.Length);
-                    for (int i = 0; i < count; i++)
+                    if (kb[Key.Digit0].wasPressedThisFrame && playerKeycardHand != null)
                     {
-                        if (kb[slotKeys[i]].wasPressedThisFrame)
+                        playerKeycardHand.ToggleEquip();
+                    }
+                    else
+                    {
+                        int count = Mathf.Min(playerShooting.WeaponCount, slotKeys.Length);
+                        for (int i = 0; i < count; i++)
                         {
-                            playerShooting.SelectWeaponSlot(i);
-                            break;
+                            if (kb[slotKeys[i]].wasPressedThisFrame)
+                            {
+                                // Selecting a weapon puts the keycard away.
+                                playerKeycardHand?.Unequip();
+                                playerShooting.SelectWeaponSlot(i);
+                                break;
+                            }
                         }
                     }
                 }
@@ -289,8 +308,10 @@ namespace FPSGame.Player
                     return;
                 }
 
-                // Can't pick up or interact while already carrying.
+                // Can't pick up or interact while already carrying loot or holding a card.
                 if (playerCarry != null && playerCarry.IsCarrying)
+                    return;
+                if (playerKeycardHand != null && playerKeycardHand.IsEquipped)
                     return;
 
                 // Vehicle enter next.
@@ -406,6 +427,9 @@ namespace FPSGame.Player
 
             currentVehicle = car;
             playerController?.SetVehicleMode(true);
+
+            // Put any held keycard away before driving.
+            playerKeycardHand?.Unequip();
 
             // Clear shooting states
             playerShooting?.SetAiming(false);
