@@ -310,6 +310,14 @@ namespace FPSGame.Player
                         return;
                 }
 
+                // Toggle a nearby breach-console key-card slot (insert / pull out).
+                BreachConsoleSlot slot = FindNearbyConsoleSlot();
+                if (slot != null)
+                {
+                    CmdToggleBreachConsole(slot.netIdentity);
+                    return;
+                }
+
                 // Start hold for interactive objects.
                 InteractableObject target = FindNearbyInteractable();
                 if (target != null)
@@ -439,6 +447,49 @@ namespace FPSGame.Player
             }
 
             return closest;
+        }
+
+        private BreachConsoleSlot FindNearbyConsoleSlot()
+        {
+            // Broad-phase overlap, then filter by each slot's own InteractRange.
+            Collider[] hits = new Collider[10];
+            var size = Physics.OverlapSphereNonAlloc(transform.position, 10f, hits);
+            BreachConsoleSlot closest = null;
+            float closestDist = float.MaxValue;
+
+            for (int i = 0; i < size; i++)
+            {
+                var candidate = hits[i].GetComponentInParent<BreachConsoleSlot>();
+                if (candidate == null)
+                    continue;
+
+                float dist = Vector3.Distance(transform.position, candidate.transform.position);
+                if (dist <= candidate.InteractRange && dist < closestDist)
+                {
+                    closest = candidate;
+                    closestDist = dist;
+                }
+            }
+
+            return closest;
+        }
+
+        [Command]
+        private void CmdToggleBreachConsole(NetworkIdentity slotIdentity)
+        {
+            if (slotIdentity == null)
+                return;
+
+            var slot = slotIdentity.GetComponent<BreachConsoleSlot>();
+            if (slot == null)
+                return;
+
+            // Server-side range re-validation (+1 m tolerance for network latency).
+            float dist = Vector3.Distance(transform.position, slot.transform.position);
+            if (dist > slot.InteractRange + 1f)
+                return;
+
+            slot.ServerToggle(gameObject);
         }
 
         private void CancelInteraction()
