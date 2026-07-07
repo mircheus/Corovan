@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using FPSGame.Vehicle;
+using FPSGame.Environment;
 
 namespace FPSGame.Player
 {
@@ -53,8 +54,14 @@ namespace FPSGame.Player
         private Transform carPlatform;
         private Vector3 carPlatformLastPos;
         private static readonly Collider[] carOverlapBuffer = new Collider[8];
+        private static readonly Collider[] groundOverlapBuffer = new Collider[8];
+
+        // The MotionPlatform the player currently stands on (null when off any convoy platform).
+        // Resolved for free inside CheckGround's existing feet sweep — no extra physics query.
+        private MotionPlatform currentMotionPlatform;
 
         public bool IsGrounded => isGrounded;
+        public bool OnMotionPlatform => currentMotionPlatform != null;
         public bool IsSprinting => isSprinting && !isCrouching && moveInput.y > 0;
         public bool IsCrouching => isCrouching;
         public Vector3 Velocity => velocity;
@@ -114,7 +121,20 @@ namespace FPSGame.Player
             // );
             
             Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
-            isGrounded = Physics.CheckSphere(sphereOrigin, groundCheckRadius, groundMask, QueryTriggerInteraction.Ignore);
+            int count = Physics.OverlapSphereNonAlloc(
+                sphereOrigin, groundCheckRadius, groundOverlapBuffer, groundMask, QueryTriggerInteraction.Ignore);
+            isGrounded = count > 0;
+
+            // Same sweep also tells us whether the ground we're on is a MotionPlatform,
+            // so the ride only affects the player while actually standing on the convoy.
+            MotionPlatform platform = null;
+            for (int i = 0; i < count; i++)
+            {
+                platform = groundOverlapBuffer[i].GetComponentInParent<MotionPlatform>();
+                if (platform != null)
+                    break;
+            }
+            currentMotionPlatform = platform;
 
             // groundNormal = isGrounded ? hit.normal : Vector3.up;
         }
