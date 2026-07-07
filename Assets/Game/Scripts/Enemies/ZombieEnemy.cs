@@ -62,6 +62,11 @@ namespace FPSGame.Environment
         private NavMeshAgent agent;
         private CapsuleCollider capsuleCollider;
         private PlayerHealth currentTarget;
+        // True when the target was handed in externally (e.g. by ZombieSpawner). A
+        // commanded target is chased from any distance and is only dropped when it dies,
+        // so a zombie spawned to hunt a specific player won't idle just because that
+        // player is beyond detectionRadius.
+        private bool targetCommanded;
         private float attackTimer;
         private int stateParamHash;
 
@@ -130,7 +135,7 @@ namespace FPSGame.Environment
 
             if (dist <= attackRadius)
                 UpdateAttacking();
-            else if (dist <= detectionRadius)
+            else if (targetCommanded || dist <= detectionRadius)
                 UpdateChasing();
             else
                 LoseTarget();
@@ -167,8 +172,21 @@ namespace FPSGame.Environment
         private void LoseTarget()
         {
             currentTarget = null;
+            targetCommanded = false;
             TransitionTo(ZombieState.Idle);
             agent.isStopped = true;
+        }
+
+        // Assign a target from outside (server-only). The zombie chases it regardless of
+        // detectionRadius until the target dies. Used by ZombieSpawner to hand a zombie
+        // the player standing in the spawner's aggro zone the moment it spawns.
+        [Server]
+        public void ServerSetTarget(PlayerHealth target)
+        {
+            if (!isAlive || target == null || target.IsDead)
+                return;
+            currentTarget = target;
+            targetCommanded = true;
         }
 
         // ── Server helpers ────────────────────────────────────────────────
@@ -176,7 +194,10 @@ namespace FPSGame.Environment
         private void ValidateTarget()
         {
             if (currentTarget != null && currentTarget.IsDead)
+            {
                 currentTarget = null;
+                targetCommanded = false;
+            }
         }
 
         private PlayerHealth FindNearestPlayer()
