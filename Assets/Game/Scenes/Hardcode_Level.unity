@@ -1345,7 +1345,8 @@ Transform:
   m_LocalPosition: {x: 3, y: 9, z: -30.684532}
   m_LocalScale: {x: 20, y: 1, z: 40}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1454554932}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &1311138595
@@ -1467,11 +1468,11 @@ Transform:
   m_GameObject: {fileID: 1454554927}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3, y: 9, z: -30.684532}
-  m_LocalScale: {x: 20, y: 1, z: 40}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1311138594}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1454554933
 MonoBehaviour:
@@ -2179,7 +2180,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5651524541239546090, guid: 818128c313c8111428c3d18777c00343, type: 3}
       propertyPath: spawnPrefabs.Array.size
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 5651524541239546090, guid: 818128c313c8111428c3d18777c00343, type: 3}
       propertyPath: 'spawnPoints.Array.data[0]'
@@ -2196,7 +2197,7 @@ PrefabInstance:
     - target: {fileID: 5651524541239546090, guid: 818128c313c8111428c3d18777c00343, type: 3}
       propertyPath: 'spawnPrefabs.Array.data[1]'
       value: 
-      objectReference: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
+      objectReference: {fileID: 4419407481574663367, guid: 567bb9a90c1da8e4ba7e935ee8c39a82, type: 3}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2541,7 +2542,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7215155831701621846, guid: d6b2bafefb6ef3e4a944986f21cc754c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -161
+      value: -61.5
       objectReference: {fileID: 0}
     - target: {fileID: 7215155831701621846, guid: d6b2bafefb6ef3e4a944986f21cc754c, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2664,7 +2665,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6574245136394788149, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -159.5
+      value: -60
       objectReference: {fileID: 0}
     - target: {fileID: 6574245136394788149, guid: 7a375a239faada141b94d88da1b1c423, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2833,6 +2834,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: BarrelSpawnTrigger_Multi
       objectReference: {fileID: 0}
+    - target: {fileID: 5959996394562101769, guid: aa7591fe1df9eb24f92fad66e1819218, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6567790454259397192, guid: aa7591fe1df9eb24f92fad66e1819218, type: 3}
       propertyPath: sceneId
       value: 1861278303
@@ -2974,3 +2979,5 @@ SceneRoots:
   - {fileID: 7509574869147119877}
   - {fileID: 899331496}
   - {fileID: 6986096891573401581}
+  - {fileID: 1852803828}
+  - {fileID: 1311138594}

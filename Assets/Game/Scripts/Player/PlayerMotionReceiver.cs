@@ -28,27 +28,91 @@ namespace FPSGame.Player
         [Tooltip("Keep applying the push briefly after leaving the platform (e.g. mid-jump).")]
         [SerializeField] private float stayGrace = 0.25f;
 
+        [Header("Debug")]
+        [Tooltip("Log platform state and push values to the console. Turn off once wired.")]
+        [SerializeField] private bool debugLog = true;
+
         private PlayerController controller;
         private PlayerCarry carry;
         private float onPlatformTimer;
+
+        // Debug bookkeeping.
+        private bool loggedNoDirector;
+        private bool lastOnPlatform;
+        private float debugAccum;
+
+        private bool loggedNotOwned;
 
         private void Awake()
         {
             controller = GetComponent<PlayerController>();
             carry = GetComponent<PlayerCarry>();
+            Debug.Log($"[PlayerMotionReceiver] Awake on '{name}', controller={(controller != null)}", this);
+        }
+
+        public override void OnStartLocalPlayer()
+        {
+            base.OnStartLocalPlayer();
+            Debug.Log("[PlayerMotionReceiver] OnStartLocalPlayer — this is the owned local player.", this);
         }
 
         private void Update()
         {
             if (!isOwned)
+            {
+                if (debugLog && !loggedNotOwned)
+                {
+                    Debug.Log($"[PlayerMotionReceiver] Update running but !isOwned on '{name}'.", this);
+                    loggedNotOwned = true;
+                }
                 return;
+            }
+
+            if (controller == null)
+            {
+                if (debugLog && !loggedNoDirector)
+                {
+                    Debug.LogWarning("[PlayerMotionReceiver] No PlayerController on this object — " +
+                        "the component must sit on the same GameObject as PlayerController.", this);
+                    loggedNoDirector = true;
+                }
+                return;
+            }
 
             MotionDirector director = MotionDirector.Instance;
-            if (director == null || controller == null)
+            if (director == null)
+            {
+                if (debugLog && !loggedNoDirector)
+                {
+                    Debug.LogWarning("[PlayerMotionReceiver] MotionDirector.Instance is null — " +
+                        "no MotionDirector spawned in the scene?", this);
+                    loggedNoDirector = true;
+                }
                 return;
+            }
+            loggedNoDirector = false;
+
+            // Periodic diagnostic: dump what's actually under the player's feet.
+            if (debugLog)
+            {
+                debugAccum += Time.deltaTime;
+                if (debugAccum >= 0.5f)
+                {
+                    debugAccum = 0f;
+                    DumpFeet();
+                }
+            }
+
+            // Log platform enter/exit transitions.
+            bool onPlatform = controller.OnMotionPlatform;
+            if (debugLog && onPlatform != lastOnPlatform)
+            {
+                Debug.Log($"[PlayerMotionReceiver] OnMotionPlatform -> {onPlatform}", this);
+                lastOnPlatform = onPlatform;
+            }
 
             // Grace window so a jump on the platform doesn't cut the push mid-swerve.
-            if (controller.OnMotionPlatform)
+            if (onPlatform)
                 onPlatformTimer = stayGrace;
             else
                 onPlatformTimer -= Time.deltaTime;
@@ -62,6 +126,32 @@ namespace FPSGame.Player
 
             Vector3 push = director.LateralAxis * (director.LateralSignal * scale);
             controller.AddExternalVelocity(push);
+        }
+
+        // Debug-only: sweep the player's feet across ALL layers and report every collider,
+        // its layer, and whether it carries a MotionPlatform. Reveals a missing marker,
+        // a trigger floor, or a layer that's outside the player's Ground Mask.
+        private void DumpFeet()
+        {
+            Vector3 origin = transform.position + Vector3.down * 0.1f;
+            Collider[] hits = Physics.OverlapSphere(origin, 0.4f, ~0, QueryTriggerInteraction.Collide);
+
+            if (hits.Length == 0)
+            {
+                Debug.Log($"[PlayerMotionReceiver] feet sweep: nothing under player " +
+                    $"(OnMotionPlatform={controller.OnMotionPlatform})", this);
+                return;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"[PlayerMotionReceiver] feet sweep (OnMotionPlatform={controller.OnMotionPlatform}):");
+            foreach (var h in hits)
+            {
+                bool hasMarker = h.GetComponentInParent<FPSGame.Environment.MotionPlatform>() != null;
+                sb.Append($"\n  - '{h.name}' layer='{LayerMask.LayerToName(h.gameObject.layer)}'({h.gameObject.layer}) " +
+                    $"isTrigger={h.isTrigger} MotionPlatform={hasMarker}");
+            }
+            Debug.Log(sb.ToString(), this);
         }
     }
 }

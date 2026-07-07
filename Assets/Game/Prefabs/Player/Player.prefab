@@ -1478,6 +1478,7 @@ GameObject:
   - component: {fileID: -2002139955816669472}
   - component: {fileID: 8613390522727669663}
   - component: {fileID: 5944533771368176222}
+  - component: {fileID: 6220710440049244997}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -1883,12 +1884,29 @@ MonoBehaviour:
   syncInterval: 0
   heldCardVisual: {fileID: 2819216339134641792}
   keycardPickupPrefab: {fileID: 6788712794066666841, guid: a4cc981005907684aa67617237a4a6bd, type: 3}
-  throwDistance: 4
+  throwSpeed: 6
+  throwUpSpeed: 2
   throwHeight: 2
-  groundSnapDistance: 5
-  groundMask:
-    serializedVersion: 2
-    m_Bits: 1
+  releaseForwardOffset: 0.6
+--- !u!114 &6220710440049244997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67d260c18db9d10499ddb1b861dadf28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  pushScale: 3
+  carryMultiplier: 1.8
+  stayGrace: 0.25
+  debugLog: 0
 --- !u!1 &5430647513219006457
 GameObject:
   m_ObjectHideFlags: 0
