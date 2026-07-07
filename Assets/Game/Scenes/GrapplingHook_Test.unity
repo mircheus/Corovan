@@ -758,7 +758,7 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   warmupDuration: 2
-  heatRisePerSecond: 0.2
+  heatRisePerSecond: 0.05
   heatFallPerSecond: 0.35
   overheatThreshold: 1
   overheatCooldown: 4
