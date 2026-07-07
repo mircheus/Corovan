@@ -20,6 +20,10 @@ namespace FPSGame.Environment
         [Tooltip("Metres of upward hop per vertical signal unit.")]
         [SerializeField] private float bouncePerUnit = 0.1f;
 
+        [Header("Telegraph")]
+        [Tooltip("Anticipatory bank (degrees) toward the incoming swerve, ramped over the lead window.")]
+        [SerializeField] private float anticipatoryRoll = 2f;
+
         [Header("Smoothing")]
         [SerializeField] private float smoothSpeed = 12f;
 
@@ -42,6 +46,12 @@ namespace FPSGame.Environment
                 return;
 
             float targetRoll = -director.LateralSignal * rollPerUnit;
+
+            // During the telegraph, pre-bank toward the direction the swerve will throw us,
+            // ramping up over the lead window so the lurch reads as anticipated.
+            if (director.SwerveTelegraphed)
+                targetRoll += -director.SwerveDir * anticipatoryRoll * director.TelegraphProgress;
+
             float targetPitch = -director.VerticalSignal * pitchPerUnit;
             float targetBounce = director.VerticalSignal * bouncePerUnit;
 

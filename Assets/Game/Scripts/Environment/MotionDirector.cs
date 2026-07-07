@@ -37,6 +37,8 @@ namespace FPSGame.Environment
             new Keyframe(0f, 0f), new Keyframe(0.35f, 1f), new Keyframe(1f, 0f));
         [SerializeField] private float swerveMagnitude = 1.0f;
         [SerializeField] private float swerveDuration = 0.8f;
+        [Tooltip("Warning time before a swerve actually hits. Consumers read the telegraph state during this window.")]
+        [SerializeField] private float telegraphLead = 1.0f;
 
         [Header("Bump shape")]
         [Tooltip("Evaluated over 0..1 of the bump duration. Vertical jolt, starts and ends at 0.")]
@@ -49,6 +51,11 @@ namespace FPSGame.Environment
         [Tooltip("Force scale applied to registered loot Rigidbodies from the lateral signal.")]
         [SerializeField] private float lootForceScale = 8f;
 
+        [Header("Telegraph audio (optional, local)")]
+        [Tooltip("Played on every client the moment a swerve is scheduled — the warning siren.")]
+        [SerializeField] private AudioSource telegraphAudio;
+        [SerializeField] private AudioClip telegraphClip;
+
         [Header("Auto trigger (server-side, for playtest)")]
         [SerializeField] private bool autoSwerve = true;
         [SerializeField] private float autoMinInterval = 4f;
@@ -57,10 +64,16 @@ namespace FPSGame.Environment
         [Header("Debug keyboard trigger (server-side)")]
         [SerializeField] private bool debugKeys = true;
 
-        // Active discrete events. -1 / +1 direction along lateralAxis. startTime is NetworkTime.time.
+        // Active discrete events. -1 / +1 direction along lateralAxis. swerveStartTime is the
+        // (possibly future) NetworkTime at which the lurch begins; during the lead window before
+        // it, the swerve is "telegraphed" but the signal is still 0.
         private double swerveStartTime = double.NegativeInfinity;
         private int swerveDir;
         private double bumpStartTime = double.NegativeInfinity;
+
+        // Fired when a swerve is scheduled (client-side), for one-shot telegraph cues
+        // (siren, edge highlight). Args: direction (-1/+1), lead seconds.
+        public event System.Action<int, float> OnSwerveScheduled;
 
         private float autoTimer;
 
@@ -84,6 +97,33 @@ namespace FPSGame.Environment
 
         // Upward jolt signal from the active bump (0 when none).
         public float VerticalSignal => EvaluateBump();
+
+        // ---- Telegraph state (read by consumers during the lead window) ---------------
+
+        public float TelegraphLead => telegraphLead;
+
+        // Direction of the pending/active swerve (-1 / +1).
+        public int SwerveDir => swerveDir;
+
+        // Seconds until the scheduled swerve begins. >0 while telegraphed, <=0 once it hits.
+        public float SwerveCountdown => (float)(swerveStartTime - NetworkTime.time);
+
+        // True during the lead window before a swerve strikes.
+        public bool SwerveTelegraphed
+        {
+            get { float c = SwerveCountdown; return c > 0f && c <= telegraphLead; }
+        }
+
+        // 0..1 ramp across the telegraph window (0 at schedule, 1 the instant the swerve hits).
+        public float TelegraphProgress
+        {
+            get
+            {
+                if (!SwerveTelegraphed || telegraphLead <= 0f)
+                    return 0f;
+                return Mathf.Clamp01(1f - SwerveCountdown / telegraphLead);
+            }
+        }
 
         private float EvaluateSwerve()
         {
@@ -151,8 +191,8 @@ namespace FPSGame.Environment
 
             if (debugKeys && Keyboard.current != null)
             {
-                if (Keyboard.current.jKey.wasPressedThisFrame) ServerTriggerSwerve(-1);
-                if (Keyboard.current.kKey.wasPressedThisFrame) ServerTriggerSwerve(1);
+                if (Keyboard.current.jKey.wasPressedThisFrame) ServerScheduleSwerve(-1);
+                if (Keyboard.current.kKey.wasPressedThisFrame) ServerScheduleSwerve(1);
                 if (Keyboard.current.lKey.wasPressedThisFrame) ServerTriggerBump();
             }
 
@@ -161,7 +201,7 @@ namespace FPSGame.Environment
                 autoTimer -= Time.deltaTime;
                 if (autoTimer <= 0f)
                 {
-                    ServerTriggerSwerve(Random.value < 0.5f ? -1 : 1);
+                    ServerScheduleSwerve(Random.value < 0.5f ? -1 : 1);
                     autoTimer = Random.Range(autoMinInterval, autoMaxInterval);
                 }
             }
@@ -189,12 +229,19 @@ namespace FPSGame.Environment
 
         // ---- Discrete event triggers (server → all clients) ---------------------------
 
+        // Schedule a swerve telegraphLead seconds into the future. The single broadcast carries
+        // both the telegraph (consumers react during the lead) and the swerve schedule itself —
+        // EvaluateSwerve stays 0 until the start time arrives.
         [Server]
-        public void ServerTriggerSwerve(int direction)
+        public void ServerScheduleSwerve(int direction)
         {
-            swerveDir = direction >= 0 ? 1 : -1;
-            swerveStartTime = NetworkTime.time;
-            RpcSwerve(swerveStartTime, swerveDir);
+            int dir = direction >= 0 ? 1 : -1;
+            double startTime = NetworkTime.time + telegraphLead;
+            // Set on the server too so server-side loot physics sees the swerve even in
+            // dedicated-server mode (where the ClientRpc doesn't run locally).
+            swerveStartTime = startTime;
+            swerveDir = dir;
+            RpcScheduleSwerve(startTime, dir);
         }
 
         [Server]
@@ -205,11 +252,13 @@ namespace FPSGame.Environment
         }
 
         [ClientRpc(includeOwner = true)]
-        private void RpcSwerve(double startTime, int direction)
+        private void RpcScheduleSwerve(double startTime, int direction)
         {
-            // Host already set these in the [Server] call; harmless to reassign.
             swerveStartTime = startTime;
             swerveDir = direction;
+            if (telegraphAudio != null && telegraphClip != null)
+                telegraphAudio.PlayOneShot(telegraphClip);
+            OnSwerveScheduled?.Invoke(direction, (float)(startTime - NetworkTime.time));
         }
 
         [ClientRpc(includeOwner = true)]

@@ -45,9 +45,15 @@ namespace FPSGame.Player
         private float targetFOV;
         private float currentFOV;
         private float bobTimer;
+        private Vector3 currentBobOffset;
         private Vector3 originalCameraPosition;
         private Vector3 currentRecoil;
         private Vector3 targetRecoil;
+
+        // Additive shake offsets set each frame by an external source (e.g. CameraMotionShake).
+        // Position is on the camera child; rotation feeds pitch (x) and roll (z) of the pivot.
+        private Vector3 shakePositionOffset;
+        private Vector3 shakeRotationOffset;
         private bool isAiming;
         private bool isInitialized;
         private bool isDead;
@@ -169,7 +175,7 @@ namespace FPSGame.Player
             pitch += mouseY;
             pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
-            Vector3 finalRotation = new Vector3(pitch, 0, 0) + currentRecoil;
+            Vector3 finalRotation = new Vector3(pitch, 0, 0) + currentRecoil + shakeRotationOffset;
             transform.localRotation = Quaternion.Euler(finalRotation.x, 0, finalRotation.z);
 
             if (playerBody != null)
@@ -202,10 +208,11 @@ namespace FPSGame.Player
 
         private void HandleHeadBob()
         {
-            if (!enableHeadBob || playerController == null || playerCamera == null)
+            if (playerCamera == null)
                 return;
 
-            if (playerController.IsGrounded && playerController.Velocity.sqrMagnitude > 0.1f)
+            if (enableHeadBob && playerController != null &&
+                playerController.IsGrounded && playerController.Velocity.sqrMagnitude > 0.1f)
             {
                 float bobMultiplier = playerController.IsSprinting ? sprintBobMultiplier : 1.0f;
                 bobTimer += Time.deltaTime * bobFrequency * bobMultiplier;
@@ -213,18 +220,16 @@ namespace FPSGame.Player
                 float bobOffsetY = Mathf.Sin(bobTimer * Mathf.PI * 2) * bobAmplitude;
                 float bobOffsetX = Mathf.Cos(bobTimer * Mathf.PI) * bobAmplitude * 0.5f;
 
-                Vector3 bobOffset = new Vector3(bobOffsetX, bobOffsetY, 0);
-                playerCamera.transform.localPosition = originalCameraPosition + bobOffset;
+                currentBobOffset = new Vector3(bobOffsetX, bobOffsetY, 0);
             }
             else
             {
                 bobTimer = 0;
-                playerCamera.transform.localPosition = Vector3.Lerp(
-                    playerCamera.transform.localPosition,
-                    originalCameraPosition,
-                    Time.deltaTime * 10f
-                );
+                currentBobOffset = Vector3.Lerp(currentBobOffset, Vector3.zero, Time.deltaTime * 10f);
             }
+
+            // Head bob and motion shake share the camera's local position.
+            playerCamera.transform.localPosition = originalCameraPosition + currentBobOffset + shakePositionOffset;
         }
 
         private void HandleRecoil()
@@ -238,6 +243,16 @@ namespace FPSGame.Player
             if (!isOwned)
                 return;
             targetRecoil += new Vector3(-recoilAmount.y, recoilAmount.x, 0);
+        }
+
+        // Additive camera shake, refreshed every frame by an external driver. Position offset is
+        // applied to the camera child; rotation offset feeds pitch (x) and roll (z).
+        public void SetShakeOffsets(Vector3 positionOffset, Vector3 rotationOffset)
+        {
+            if (!isOwned)
+                return;
+            shakePositionOffset = positionOffset;
+            shakeRotationOffset = rotationOffset;
         }
 
         public void SetLookInput(Vector2 input)

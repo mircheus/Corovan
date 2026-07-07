@@ -1479,6 +1479,7 @@ GameObject:
   - component: {fileID: 8613390522727669663}
   - component: {fileID: 5944533771368176222}
   - component: {fileID: 6220710440049244997}
+  - component: {fileID: 4264097504728581935}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -1906,7 +1907,28 @@ MonoBehaviour:
   pushScale: 3
   carryMultiplier: 1.8
   stayGrace: 0.25
-  debugLog: 0
+--- !u!114 &4264097504728581935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0287230e5d1047f4a89837af556d9e8f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  positionShake: 0.03
+  rotationShake: 0.8
+  jitterFrequency: 18
+  leanIntoSwerve: 3
+  bumpKick: 0.05
+  telegraphRumble: 0.3
+  gateFade: 0.2
 --- !u!1 &5430647513219006457
 GameObject:
   m_ObjectHideFlags: 0
