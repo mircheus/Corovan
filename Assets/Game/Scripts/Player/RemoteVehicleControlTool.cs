@@ -92,7 +92,12 @@ namespace FPSGame.Player
 
             if (!RaycastAim(out RaycastHit hit)) return;
 
-            CmdCommandAutopilot(boundCar.netId, hit.point);
+            // Soft-clamp instead of rejecting: a target "ahead" of the player (higher Z) is pulled
+            // back to the player's Z line. Avoids pixel-hunting for a valid spot below the player.
+            Vector3 target = hit.point;
+            target.z = Mathf.Min(target.z, transform.position.z);
+
+            CmdCommandAutopilot(boundCar.netId, target);
             cooldownRemaining = cooldownSeconds;
         }
 
@@ -107,6 +112,10 @@ namespace FPSGame.Player
             if (car == null) return;
             if (car.HasDriver) return;
             if (!car.VehicleIsAlive) return;
+
+            // Authoritative soft-clamp: pull targets ahead of the player back to the player's Z line
+            // instead of rejecting them (mirrors the client-side clamp in TryFire).
+            worldPoint.z = Mathf.Min(worldPoint.z, transform.position.z);
 
             car.ServerStartAutopilot(worldPoint);
         }
@@ -135,8 +144,11 @@ namespace FPSGame.Player
             EnsurePathLine();
 
             Vector3 carPos = boundCar.transform.position;
+            // Clamp the drawn destination so the line never extends past the player's Z,
+            // matching the summon restriction in TryFire / CmdCommandAutopilot.
+            float clampedZ = Mathf.Min(hit.point.z, transform.position.z);
             Vector3 corner = new Vector3(hit.point.x, carPos.y, carPos.z);
-            Vector3 end = new Vector3(hit.point.x, carPos.y, hit.point.z);
+            Vector3 end = new Vector3(hit.point.x, carPos.y, clampedZ);
             Vector3 yOff = Vector3.up * lineYOffset;
 
             activePathLine.SetPosition(0, carPos + yOff);
