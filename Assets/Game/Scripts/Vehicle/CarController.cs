@@ -5,6 +5,15 @@ using FPSGame.Networking;
 
 namespace FPSGame.Vehicle
 {
+    /// <summary>Strategy for how the car behaves after its driver leaves the seat.</summary>
+    public enum DriverlessBehavior
+    {
+        /// <summary>The car slowly rolls backward along its local -Z (original behavior).</summary>
+        RollBackward,
+        /// <summary>The car stays exactly where the driver left it.</summary>
+        StayInPlace
+    }
+
     public class CarController : NetworkBehaviour
     {
         [Header("References: ")]
@@ -16,8 +25,10 @@ namespace FPSGame.Vehicle
         [SerializeField] private float acceleration = 8f;
         [SerializeField] private float deceleration = 12f;
 
-        [Header("Driverless Drift")]
-        [Tooltip("Speed at which the car slowly rolls backward (local -Z) once a driver has gotten out.")]
+        [Header("Driverless Behavior")]
+        [Tooltip("What the car does once a driver has gotten out: roll backward, or stay put.")]
+        [SerializeField] private DriverlessBehavior driverlessBehavior = DriverlessBehavior.RollBackward;
+        [Tooltip("Speed at which the car slowly rolls backward (local -Z) once a driver has gotten out. Only used when Driverless Behavior is RollBackward.")]
         [SerializeField] private float driverlessReverseSpeed = 2f;
 
         [Header("Driver")]
@@ -113,6 +124,13 @@ namespace FPSGame.Vehicle
         {
             get => enableChaoticMovement;
             set => enableChaoticMovement = value;
+        }
+
+        /// <summary>Strategy applied once the driver leaves the seat. Can be changed at runtime.</summary>
+        public DriverlessBehavior DriverlessMode
+        {
+            get => driverlessBehavior;
+            set => driverlessBehavior = value;
         }
 
         private void Awake()
@@ -281,10 +299,13 @@ namespace FPSGame.Vehicle
             {
                 ServerTickAutopilot();
             }
-            else if (isServer && hasBeenDriven && vehicleIsAlive && driverlessReverseSpeed > 0f)
+            else if (isServer && hasBeenDriven && vehicleIsAlive
+                     && driverlessBehavior == DriverlessBehavior.RollBackward
+                     && driverlessReverseSpeed > 0f)
             {
                 // After a driver has left, the car slowly rolls backward (its local -Z) on the server.
                 // Pre-driven cars stay still; new driver entering halts the drift via HasDriver branch.
+                // StayInPlace does nothing here, so the car remains where the driver left it.
                 Vector3 step = -transform.forward * (driverlessReverseSpeed * Time.fixedDeltaTime);
                 rb.MovePosition(rb.position + step);
             }
