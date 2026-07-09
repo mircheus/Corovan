@@ -48,6 +48,7 @@ namespace FPSGame.Player
         private bool fireHeld;
         private bool isAiming;
         private bool isCarrying;
+        private bool isDowned;
         private float reloadTimer;
 
         public Transform WeaponHolder => weaponHolder;
@@ -160,7 +161,7 @@ namespace FPSGame.Player
 
         private void HandleFiring()
         {
-            if (currentWeapon == null || isReloading || isCarrying)
+            if (currentWeapon == null || isReloading || isCarrying || isDowned)
                 return;
 
             if (IsToolSlot(currentWeaponIndex))
@@ -364,7 +365,7 @@ namespace FPSGame.Player
 
         public void StartReload()
         {
-            if (!isOwned || currentWeapon == null || currentWeapon.IsMelee)
+            if (!isOwned || isDowned || currentWeapon == null || currentWeapon.IsMelee)
                 return;
 
             CmdStartReload();
@@ -413,7 +414,7 @@ namespace FPSGame.Player
 
         public void SetFiring(bool firing)
         {
-            if (!isOwned)
+            if (!isOwned || (isDowned && firing))
                 return;
 
             fireHeld = firing;
@@ -425,7 +426,7 @@ namespace FPSGame.Player
 
         public void SetAiming(bool aiming)
         {
-            if (!isOwned)
+            if (!isOwned || (isDowned && aiming))
                 return;
 
             isAiming = aiming;
@@ -439,19 +440,40 @@ namespace FPSGame.Player
 
             isCarrying = carrying;
             if (carrying)
+                StowWeapons();
+            else if (!isDowned)
+                ActivateWeaponModel(currentWeaponIndex);
+        }
+
+        // Bleeding out on the floor: the weapon goes away and stays away until a teammate
+        // gets this player back up.
+        public void SetDowned(bool downed)
+        {
+            if (!isOwned)
+                return;
+
+            isDowned = downed;
+            if (downed)
             {
-                fireHeld = false;
-                if (weaponModels != null)
-                    foreach (var model in weaponModels)
-                        if (model != null) model.SetActive(false);
-                if (weaponTools != null)
-                    foreach (var tool in weaponTools)
-                        if (tool != null) tool.enabled = false;
+                isAiming = false;
+                playerCamera?.SetAiming(false);
+                StowWeapons();
             }
-            else
+            else if (!isCarrying)
             {
                 ActivateWeaponModel(currentWeaponIndex);
             }
+        }
+
+        private void StowWeapons()
+        {
+            fireHeld = false;
+            if (weaponModels != null)
+                foreach (var model in weaponModels)
+                    if (model != null) model.SetActive(false);
+            if (weaponTools != null)
+                foreach (var tool in weaponTools)
+                    if (tool != null) tool.enabled = false;
         }
 
         [Server]
@@ -536,7 +558,7 @@ namespace FPSGame.Player
 
         public void SelectWeaponSlot(int index)
         {
-            if (!isOwned || availableWeapons == null)
+            if (!isOwned || isDowned || availableWeapons == null)
                 return;
             if (index < 0 || index >= availableWeapons.Length || index == currentWeaponIndex)
                 return;

@@ -44,6 +44,7 @@ namespace FPSGame.Player
         private bool isSprinting;
         private bool isCrouching;
         private bool jumpRequested;
+        private bool isDowned;
         private float targetHeight;
         private Vector3 groundNormal = Vector3.up;
         private float airTime;
@@ -61,6 +62,7 @@ namespace FPSGame.Player
         private MotionPlatform currentMotionPlatform;
 
         public bool IsGrounded => isGrounded;
+        public bool IsDowned => isDowned;
         public bool OnMotionPlatform => currentMotionPlatform != null;
         public bool IsSprinting => isSprinting && !isCrouching && moveInput.y > 0;
         public bool IsCrouching => isCrouching;
@@ -304,14 +306,14 @@ namespace FPSGame.Player
 
         public void SetMoveInput(Vector2 input)
         {
-            if (!isOwned)
+            if (!isOwned || isDowned)
                 return;
             moveInput = input;
         }
 
         public void Jump()
         {
-            if (!isOwned)
+            if (!isOwned || isDowned)
                 return;
             if (isGrounded)
             {
@@ -321,14 +323,14 @@ namespace FPSGame.Player
 
         public void SetSprinting(bool sprinting)
         {
-            if (!isOwned)
+            if (!isOwned || isDowned)
                 return;
             isSprinting = sprinting;
         }
 
         public void ToggleCrouch()
         {
-            if (!isOwned)
+            if (!isOwned || isDowned)
                 return;
             if (!isCrouching)
             {
@@ -350,6 +352,31 @@ namespace FPSGame.Player
                 groundMask,
                 QueryTriggerInteraction.Ignore
             );
+        }
+
+        // A downed player is pinned where they fell but keeps their CharacterController: gravity
+        // still settles them onto the ground and the convoy platform still carries them along.
+        // Only the input is taken away — the collapsed pose is the crouch height.
+        public void SetDownedMode(bool downed)
+        {
+            if (!isOwned)
+                return;
+
+            isDowned = downed;
+
+            if (downed)
+            {
+                moveInput = Vector2.zero;
+                velocity.x = 0f;
+                velocity.z = 0f;
+                isSprinting = false;
+                jumpRequested = false;
+                isCrouching = true;
+            }
+            else
+            {
+                isCrouching = !CanStand();
+            }
         }
 
         public void SetVehicleMode(bool inVehicle)

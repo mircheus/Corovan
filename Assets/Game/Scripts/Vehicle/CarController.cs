@@ -201,7 +201,7 @@ namespace FPSGame.Vehicle
             {
                 var health = driverIdentity.GetComponent<FPSGame.Player.PlayerHealth>();
                 if (health != null)
-                    health.SetHealth(0);
+                    health.ServerKillInstant();
             }
 
             RpcPlayExplosion();

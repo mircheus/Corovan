@@ -167,7 +167,7 @@ namespace FPSGame.Enemies
 
         private void ValidateTargets()
         {
-            if (currentPlayerTarget != null && currentPlayerTarget.IsDead)
+            if (currentPlayerTarget != null && !currentPlayerTarget.IsTargetable)
                 currentPlayerTarget = null;
             if (currentCarTarget != null && (!currentCarTarget.HasDriver || !currentCarTarget.VehicleIsAlive))
                 currentCarTarget = null;
@@ -181,7 +181,7 @@ namespace FPSGame.Enemies
             foreach (var hit in hits)
             {
                 var ph = hit.GetComponentInParent<PlayerHealth>();
-                if (ph != null && !ph.IsDead)
+                if (ph != null && ph.IsTargetable)
                 {
                     float d = HorizontalDistance(transform.position, ph.transform.position);
                     if (d < bestDist)

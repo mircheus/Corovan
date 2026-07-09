@@ -140,7 +140,7 @@ namespace FPSGame.Environment
 
         private bool HasValidTarget()
         {
-            if (currentPlayerTarget != null && !currentPlayerTarget.IsDead)
+            if (currentPlayerTarget != null && currentPlayerTarget.IsTargetable)
                 return true;
             if (currentCarTarget != null && currentCarTarget.VehicleIsAlive)
             {
@@ -185,7 +185,7 @@ namespace FPSGame.Environment
                 {
                     // ShootPlayer mode: target the player who was driving.
                     lastDriverByCar.TryGetValue(car, out var driver);
-                    if (driver == null || driver.IsDead)
+                    if (driver == null || !driver.IsTargetable)
                         continue;
                     playerPick = driver;
                     effective = driver.transform;

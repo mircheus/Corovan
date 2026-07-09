@@ -3,7 +3,8 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(python *)",
-      "Bash(git -C \"M:/02_Projects/01_Unity/Corovan\" log --oneline -20)"
+      "Bash(git -C \"M:/02_Projects/01_Unity/Corovan\" log --oneline -20)",
+      "Bash(dotnet build *)"
     ]
   }
 }

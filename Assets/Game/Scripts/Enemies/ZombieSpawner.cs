@@ -171,7 +171,7 @@ namespace FPSGame.Environment
             foreach (var hit in hits)
             {
                 var ph = hit.GetComponentInParent<PlayerHealth>();
-                if (ph == null || ph.IsDead)
+                if (ph == null || !ph.IsTargetable)
                     continue;
 
                 Vector3 p = ph.transform.position;

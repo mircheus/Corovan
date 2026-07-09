@@ -17,6 +17,9 @@ namespace FPSGame.Environment
         [SerializeField] private float rotationSpeed = 5f;
         [SerializeField] private bool keepAttackAfterTriggerExit;
         [SerializeField] private Collider detectionCollider;
+        [Tooltip("How often the turret re-sweeps its detection volume while it has no target. " +
+                 "Catches players who were already inside it — a revived teammate never re-enters the trigger.")]
+        [SerializeField] private float retargetInterval = 0.5f;
         [Tooltip("Child object (the gun/turret) that rotates to face the target. Falls back to this transform if unset.")]
         [SerializeField] private Transform rotatingPart;
 
@@ -48,6 +51,8 @@ namespace FPSGame.Environment
         private int health;
 
         private float fireCooldown;
+        private float retargetTimer;
+        private static readonly Collider[] retargetBuffer = new Collider[16];
         private PlayerHealth currentPlayerTarget;
         private CarController currentCarTarget;
         private Renderer detectionRenderer;
@@ -84,7 +89,7 @@ namespace FPSGame.Environment
                 return;
 
             // Validate and clear stale targets.
-            if (currentPlayerTarget != null && currentPlayerTarget.IsDead)
+            if (currentPlayerTarget != null && !currentPlayerTarget.IsTargetable)
             {
                 ClearTarget();
                 return;
@@ -96,7 +101,17 @@ namespace FPSGame.Environment
             }
 
             if (currentPlayerTarget == null && currentCarTarget == null)
-                return;
+            {
+                retargetTimer -= Time.deltaTime;
+                if (retargetTimer > 0f)
+                    return;
+
+                retargetTimer = retargetInterval;
+                ReacquireTarget();
+
+                if (currentPlayerTarget == null && currentCarTarget == null)
+                    return;
+            }
 
             RotateTowardsTarget();
 
@@ -133,13 +148,54 @@ namespace FPSGame.Environment
             rotatingPart.rotation = Quaternion.Euler(initialRotX, newY, initialRotZ);
         }
 
+        // Acquisition normally rides on OnTriggerEnter, which only fires when something crosses the
+        // boundary. A player who went down inside the volume stops being a target, and once a
+        // teammate picks them back up they never re-enter — so sweep the volume periodically too.
+        [Server]
+        private void ReacquireTarget()
+        {
+            if (detectionCollider == null)
+                return;
+
+            // The AABB is a superset of the trigger; ClosestPoint then rejects anything that is
+            // inside the box but outside the actual shape.
+            Bounds bounds = detectionCollider.bounds;
+            int count = Physics.OverlapBoxNonAlloc(
+                bounds.center, bounds.extents, retargetBuffer, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+
+            for (int i = 0; i < count; i++)
+            {
+                var ph = retargetBuffer[i].GetComponentInParent<PlayerHealth>();
+                if (ph == null || !ph.IsTargetable || !IsInsideDetection(ph.transform.position))
+                    continue;
+
+                currentPlayerTarget = ph;
+                return;
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                var car = retargetBuffer[i].GetComponentInParent<CarController>();
+                if (car == null || !car.HasDriver || !car.VehicleIsAlive || !IsInsideDetection(car.transform.position))
+                    continue;
+
+                currentCarTarget = car;
+                return;
+            }
+        }
+
+        private bool IsInsideDetection(Vector3 worldPosition)
+        {
+            return (detectionCollider.ClosestPoint(worldPosition) - worldPosition).sqrMagnitude < 0.01f;
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             if (!isServer || !isAlive || currentPlayerTarget != null || currentCarTarget != null)
                 return;
 
             var ph = other.GetComponentInParent<PlayerHealth>();
-            if (ph != null && !ph.IsDead)
+            if (ph != null && ph.IsTargetable)
             {
                 currentPlayerTarget = ph;
                 // detectionRenderer.material = attacking;

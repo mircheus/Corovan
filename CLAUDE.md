@@ -22,7 +22,9 @@ Assets/Game/
 │   │   ├── PlayerController.cs      # CharacterController FPS movement, crouch, sprint, jump
 │   │   ├── PlayerCamera.cs          # First-person mouse look, ADS FOV, recoil
 │   │   ├── PlayerShooting.cs        # Multi-weapon system, ammo, reload, melee/ranged
-│   │   ├── PlayerHealth.cs          # SyncVar health, death/respawn, optional regen
+│   │   ├── PlayerHealth.cs          # SyncVar LifeState (Alive/Downed/Dead), bleedout, optional regen
+│   │   ├── PlayerRevive.cs          # Hold-E revive of a downed teammate; server-validated
+│   │   ├── PlayerDownedVisual.cs    # Standing/lying model swap + downed marker on all clients
 │   │   └── PlayerCarry.cs           # Pick up, drop, throw CarryableObjects
 │   ├── Vehicle/
 │   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
@@ -77,6 +79,17 @@ Assets/Game/
 
 ### Namespace Convention
 All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `FPSGame.Environment`, `FPSGame.Hazards`, `FPSGame.Networking`, `FPSGame.Weapons`, `FPSGame.UI`, `FPSGame.Config`
+
+### Down / Revive System
+- `PlayerHealth` holds a single `[SyncVar] LifeState { Alive, Downed, Dead }` — never two bools. Hook order can't then report "revived" for a player who was finished off while down.
+- Damage that empties health calls `GoDown()` instead of dying. While `Downed`, `TakeDamage` is a no-op — the bleedout timer is the only thing that kills.
+- `ServerKillInstant()` skips the downed state. Use it wherever a revive makes no sense: `KillVolume`, `PlayerFallHazard` instant-kill volumes, `CarController.ServerExplode`.
+- Bleedout is synced as a deadline (`bleedoutEndTime`, a `NetworkTime.time` double) plus a pause flag — never as a per-frame countdown. Clients derive the remaining seconds themselves via `BleedoutRemaining`.
+- `PlayerRevive` on the player prefab owns the hold. The reviving client times it (reusing `PlayerInputHandler`'s hold machinery and `OnInteractProgress`), but the server re-validates the reviver, the range, and that the hold really lasted `reviveHoldDuration`. A server-side watchdog in `PlayerRevive.Update` cancels the revive if the reviver dies, goes down, walks off, or disconnects.
+- Only the first reviver owns a hold; a second player can't stack onto it to speed it up.
+- Enemies filter targets on `IsTargetable` (alive only), so a downed player is ignored. `IsIncapacitated` (down **or** dead) is the check for "can this player still act / hold a console".
+- `Enemy` re-sweeps its detection volume on `retargetInterval` while it has no target — `OnTriggerEnter` alone would never re-acquire a revived player who never left the trigger.
+- A downed player keeps `PlayerInput` enabled (they still look around) and keeps their `CharacterController` (gravity + `MotionPlatform` ride still apply). Movement is blocked inside `PlayerController`'s setters, not by disabling components.
 
 ### Damage & Health Values
 - All damage and health values are `int` — damage fields, `health`/`maxHealth` fields, `TakeDamage(int)` parameters, projectile/weapon damage. Never use `float` for a damage or health value.
@@ -153,6 +166,7 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 ### Working
 - Core gameplay loop: join → drive convoy car → carry loot into cargo (`CargoTrigger`) → `ScoreManager` updates
 - FPS player: movement/crouch/sprint/jump, camera (ADS FOV, recoil, head bob), multi-weapon shooting (ranged + melee, per-slot ammo, reload, optimistic switch), health/damage/regen/death
+- Downed state + teammate revive (hold E): bleedout deadline paused during a revive, enemies ignore downed players, collapsed pose + marker synced to all clients
 - Carry/throw loot props (client-authority pickup)
 - Vehicle: arcade driving, authority transfer on enter/exit, vehicle health → destruction (fire + explosion FX, kills driver), collision damage, driverless backward drift
 - Enemy turrets shoot at players and driven vehicles; barrel hazard spawner (server pool) on Road scene

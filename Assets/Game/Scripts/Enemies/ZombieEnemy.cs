@@ -183,7 +183,7 @@ namespace FPSGame.Environment
         [Server]
         public void ServerSetTarget(PlayerHealth target)
         {
-            if (!isAlive || target == null || target.IsDead)
+            if (!isAlive || target == null || !target.IsTargetable)
                 return;
             currentTarget = target;
             targetCommanded = true;
@@ -193,7 +193,7 @@ namespace FPSGame.Environment
 
         private void ValidateTarget()
         {
-            if (currentTarget != null && currentTarget.IsDead)
+            if (currentTarget != null && !currentTarget.IsTargetable)
             {
                 currentTarget = null;
                 targetCommanded = false;
@@ -209,7 +209,7 @@ namespace FPSGame.Environment
             foreach (var hit in hits)
             {
                 var ph = hit.GetComponentInParent<PlayerHealth>();
-                if (ph == null || ph.IsDead)
+                if (ph == null || !ph.IsTargetable)
                     continue;
 
                 float dist = Vector3.Distance(transform.position, ph.transform.position);
@@ -245,7 +245,7 @@ namespace FPSGame.Environment
         [Server]
         private void DealDamage()
         {
-            if (currentTarget == null || currentTarget.IsDead)
+            if (currentTarget == null || !currentTarget.IsTargetable)
                 return;
 
             // Re-validate distance — player may have moved away during the animation delay.

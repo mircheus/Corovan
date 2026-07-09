@@ -69,7 +69,7 @@ namespace FPSGame.Environment
                 return;
 
             var health = player.GetComponent<PlayerHealth>();
-            if (health != null && health.IsDead)
+            if (health != null && health.IsIncapacitated)
                 return;
 
             if (!InRange(player.transform.position))
@@ -112,7 +112,7 @@ namespace FPSGame.Environment
 
             // Operator down.
             var health = operatorIdentity.GetComponent<PlayerHealth>();
-            if (health != null && health.IsDead)
+            if (health != null && health.IsIncapacitated)
             {
                 ServerPullOut();
                 return;

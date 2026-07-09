@@ -17,6 +17,7 @@ namespace FPSGame.Player
         private PlayerShooting playerShooting;
         private PlayerCarry playerCarry;
         private PlayerKeycardHand playerKeycardHand;
+        private PlayerHealth playerHealth;
         private PlayerInput playerInput;
         private InputAction aimAction;
         private InputAction attackAction;
@@ -34,7 +35,14 @@ namespace FPSGame.Player
         private float interactHoldTimer;
         private bool isInteractHeld;
 
+        // Reviving a downed teammate runs its own hold, separate from InteractableObject's,
+        // but reports through the same progress events so the HUD bar works unchanged.
+        private PlayerRevive currentReviveTarget;
+        private float reviveHoldTimer;
+        private bool isReviveHeld;
+
         public bool IsInVehicle => currentVehicle != null;
+        private bool IsDowned => playerHealth != null && playerHealth.IsDowned;
 
         // Subscribe to these in HUD scripts for progress bar / cancel feedback.
         public event System.Action<float> OnInteractProgress;  // 0–1
@@ -48,6 +56,7 @@ namespace FPSGame.Player
             playerShooting = GetComponent<PlayerShooting>();
             playerCarry = GetComponent<PlayerCarry>();
             playerKeycardHand = GetComponent<PlayerKeycardHand>();
+            playerHealth = GetComponent<PlayerHealth>();
             playerInput = GetComponent<PlayerInput>();
         }
 
@@ -65,15 +74,31 @@ namespace FPSGame.Player
                 interactAction = playerInput.actions["Interact"];
             }
 
-            var health = GetComponent<PlayerHealth>();
-            if (health != null)
-                health.OnDeath += OnPlayerDied;
+            if (playerHealth != null)
+            {
+                playerHealth.OnDeath += OnPlayerDied;
+                playerHealth.OnDowned += OnPlayerDowned;
+                playerHealth.OnRevived += OnPlayerRevived;
+            }
 
             isInitialized = true;
         }
 
+        private void OnDestroy()
+        {
+            if (playerHealth != null)
+            {
+                playerHealth.OnDeath -= OnPlayerDied;
+                playerHealth.OnDowned -= OnPlayerDowned;
+                playerHealth.OnRevived -= OnPlayerRevived;
+            }
+        }
+
         private void OnPlayerDied()
         {
+            // An instant kill skips the downed state entirely, so a hold may still be in flight.
+            AbandonHolds();
+
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
             playerShooting?.SetFiring(false);
@@ -85,6 +110,47 @@ namespace FPSGame.Player
                 CmdExitVehicle(currentVehicle.netIdentity);
                 ExitVehicle();
             }
+        }
+
+        // Unlike death, the downed player keeps their PlayerInput: they still get to look around
+        // while waiting for a teammate. Everything else is taken away here.
+        private void OnPlayerDowned()
+        {
+            AbandonHolds();
+
+            if (currentVehicle != null)
+            {
+                CmdExitVehicle(currentVehicle.netIdentity);
+                ExitVehicle();
+            }
+
+            playerCarry?.ForceDrop();
+            playerKeycardHand?.Unequip();
+
+            playerShooting?.SetFiring(false);
+            playerShooting?.SetAiming(false);
+            playerShooting?.SetDowned(true);
+
+            playerController?.SetSprinting(false);
+            playerController?.SetDownedMode(true);
+
+            fireBlockedAfterCarry = false;
+            aimBlockedAfterCarry = false;
+        }
+
+        private void OnPlayerRevived()
+        {
+            playerShooting?.SetDowned(false);
+            playerController?.SetDownedMode(false);
+        }
+
+        // Drops whatever hold was in flight — revive or interactable.
+        private void AbandonHolds()
+        {
+            if (isReviveHeld)
+                CancelRevive();
+            if (isInteractHeld)
+                CancelInteraction();
         }
 
         public override void OnStartClient()
@@ -107,6 +173,10 @@ namespace FPSGame.Player
         private void Update()
         {
             if (!isOwned || !isInitialized)
+                return;
+
+            // Down on the floor: PlayerCamera still runs the look, nothing else is available.
+            if (IsDowned)
                 return;
 
             if (currentVehicle != null && currentVehicle.DriverSeat != null)
@@ -164,6 +234,30 @@ namespace FPSGame.Player
                 var kb = Keyboard.current;
                 if (kb != null && kb[Key.G].wasPressedThisFrame)
                     CmdDetachSafe(currentVehicle.netIdentity);
+            }
+
+            // Advance the revive hold. The server re-checks all of this before it lets the
+            // teammate back up; this side only drives the timer and the progress bar.
+            if (isReviveHeld)
+            {
+                bool reviveLost = currentReviveTarget == null ||
+                    currentReviveTarget.Health == null ||
+                    !currentReviveTarget.Health.IsDowned ||
+                    Vector3.Distance(transform.position, currentReviveTarget.transform.position)
+                        > currentReviveTarget.ReviveRange;
+
+                if (reviveLost)
+                {
+                    CancelRevive();
+                }
+                else
+                {
+                    reviveHoldTimer += Time.deltaTime;
+                    OnInteractProgress?.Invoke(reviveHoldTimer / currentReviveTarget.ReviveHoldDuration);
+
+                    if (reviveHoldTimer >= currentReviveTarget.ReviveHoldDuration)
+                        CompleteRevive();
+                }
             }
 
             // Advance hold-interaction timer.
@@ -295,7 +389,7 @@ namespace FPSGame.Player
 
         public void OnInteract(InputValue value)
         {
-            if (!isOwned)
+            if (!isOwned || IsDowned)
                 return;
 
             if (value.isPressed)
@@ -313,6 +407,19 @@ namespace FPSGame.Player
                     return;
                 if (playerKeycardHand != null && playerKeycardHand.IsEquipped)
                     return;
+
+                // Picking a teammate up outranks everything else on foot — a body dropped next to
+                // the car or a crate must not be shadowed by boarding or looting.
+                PlayerRevive downedTeammate = FindNearbyDownedPlayer();
+                if (downedTeammate != null)
+                {
+                    currentReviveTarget = downedTeammate;
+                    reviveHoldTimer = 0f;
+                    isReviveHeld = true;
+                    CmdBeginRevive(downedTeammate.netIdentity);
+                    OnInteractProgress?.Invoke(0f);
+                    return;
+                }
 
                 // Vehicle enter next.
                 CarController car = FindNearbyCar();
@@ -356,6 +463,8 @@ namespace FPSGame.Player
             else
             {
                 // Key released before hold completed — cancel.
+                if (isReviveHeld)
+                    CancelRevive();
                 if (isInteractHeld)
                     CancelInteraction();
             }
@@ -471,6 +580,84 @@ namespace FPSGame.Player
             }
 
             return closest;
+        }
+
+        private PlayerRevive FindNearbyDownedPlayer()
+        {
+            // Broad-phase overlap, then filter by each player's own ReviveRange.
+            Collider[] hits = new Collider[10];
+            var size = Physics.OverlapSphereNonAlloc(transform.position, 10f, hits);
+            PlayerRevive closest = null;
+            float closestDist = float.MaxValue;
+
+            for (int i = 0; i < size; i++)
+            {
+                var candidate = hits[i].GetComponentInParent<PlayerRevive>();
+                if (candidate == null || candidate.gameObject == gameObject)
+                    continue;
+                if (candidate.Health == null || !candidate.Health.IsDowned)
+                    continue;
+
+                float dist = Vector3.Distance(transform.position, candidate.transform.position);
+                if (dist <= candidate.ReviveRange && dist < closestDist)
+                {
+                    closest = candidate;
+                    closestDist = dist;
+                }
+            }
+
+            return closest;
+        }
+
+        private void CancelRevive()
+        {
+            if (currentReviveTarget != null)
+                CmdCancelRevive(currentReviveTarget.netIdentity);
+
+            isReviveHeld = false;
+            reviveHoldTimer = 0f;
+            currentReviveTarget = null;
+            OnInteractCancelled?.Invoke();
+        }
+
+        private void CompleteRevive()
+        {
+            isReviveHeld = false;
+            reviveHoldTimer = 0f;
+            var target = currentReviveTarget;
+            currentReviveTarget = null;
+            CmdCompleteRevive(target.netIdentity);
+            OnInteractFinished?.Invoke();
+        }
+
+        [Command]
+        private void CmdBeginRevive(NetworkIdentity targetIdentity)
+        {
+            if (targetIdentity == null)
+                return;
+
+            var revive = targetIdentity.GetComponent<PlayerRevive>();
+            revive?.ServerBeginRevive(gameObject);
+        }
+
+        [Command]
+        private void CmdCancelRevive(NetworkIdentity targetIdentity)
+        {
+            if (targetIdentity == null)
+                return;
+
+            var revive = targetIdentity.GetComponent<PlayerRevive>();
+            revive?.ServerCancelRevive(gameObject);
+        }
+
+        [Command]
+        private void CmdCompleteRevive(NetworkIdentity targetIdentity)
+        {
+            if (targetIdentity == null)
+                return;
+
+            var revive = targetIdentity.GetComponent<PlayerRevive>();
+            revive?.ServerCompleteRevive(gameObject);
         }
 
         private BreachConsoleSlot FindNearbyConsoleSlot()

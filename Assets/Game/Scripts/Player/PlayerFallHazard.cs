@@ -132,7 +132,7 @@ namespace FPSGame.Player
                 return;
 
             if (instantKill)
-                health.SetHealth(0);
+                health.ServerKillInstant();
             else
                 health.TakeDamage(Mathf.Clamp(damage, 0, health.MaxHealth));
         }

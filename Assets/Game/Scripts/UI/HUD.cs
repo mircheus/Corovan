@@ -12,6 +12,8 @@ namespace FPSGame.UI
         [SerializeField] private PlayerHealth playerHealth;
         [SerializeField] private PlayerShooting playerShooting;
         [SerializeField] private PlayerInputHandler playerInputHandler;
+        [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
+        [SerializeField] private PlayerRevive playerRevive;
 
         [Header("Health UI")]
         [SerializeField] private Slider healthBar;
@@ -35,6 +37,15 @@ namespace FPSGame.UI
         [Header("Interact Progress")]
         [SerializeField] private GameObject interactProgressRoot;
         [SerializeField] private Slider interactProgressBar;
+
+        [Header("Downed")]
+        [Tooltip("Shown to this player while they are bleeding out.")]
+        [SerializeField] private GameObject downedRoot;
+        [SerializeField] private Slider bleedoutBar;
+        [SerializeField] private TextMeshProUGUI bleedoutText;
+        [Tooltip("Shown on top of the downed overlay while a teammate is picking this player up.")]
+        [SerializeField] private GameObject beingRevivedRoot;
+        [SerializeField] private Slider reviveProgressBar;
 
         [Header("Hit Marker")]
         [SerializeField] private GameObject hitMarker;
@@ -62,6 +73,8 @@ namespace FPSGame.UI
                 UpdateHealthUI(playerHealth.CurrentHealth, playerHealth.CurrentHealth);
             }
 
+            ResolvePlayerRevive();
+
             if (playerShooting != null)
             {
                 playerShooting.OnAmmoChangedEvent += UpdateAmmoUI;
@@ -83,6 +96,13 @@ namespace FPSGame.UI
                 reloadingIndicator.SetActive(false);
 
             HideInteractProgress();
+            UpdateDownedUI();
+        }
+
+        private void ResolvePlayerRevive()
+        {
+            if (playerRevive == null && playerHealth != null)
+                playerRevive = playerHealth.GetComponent<PlayerRevive>();
         }
 
         private void OnScoreChanged(int amount)
@@ -94,6 +114,46 @@ namespace FPSGame.UI
         {
             UpdateHitMarker();
             UpdateCrosshair();
+            UpdateDownedUI();
+        }
+
+        // The bleedout countdown is derived from a synced deadline rather than streamed, so it is
+        // recomputed here every frame. It simply stops moving while a revive holds it paused.
+        private void UpdateDownedUI()
+        {
+            if (playerHealth == null)
+                return;
+
+            bool downed = playerHealth.IsDowned;
+
+            if (downedRoot != null && downedRoot.activeSelf != downed)
+                downedRoot.SetActive(downed);
+
+            if (!downed)
+            {
+                if (beingRevivedRoot != null && beingRevivedRoot.activeSelf)
+                    beingRevivedRoot.SetActive(false);
+                return;
+            }
+
+            float remaining = playerHealth.BleedoutRemaining;
+
+            if (bleedoutText != null)
+                bleedoutText.text = Mathf.CeilToInt(remaining).ToString();
+
+            if (bleedoutBar != null)
+            {
+                float duration = playerHealth.BleedoutDuration;
+                bleedoutBar.value = duration > 0f ? remaining / duration : 0f;
+            }
+
+            bool beingRevived = playerRevive != null && playerRevive.IsBeingRevived;
+
+            if (beingRevivedRoot != null && beingRevivedRoot.activeSelf != beingRevived)
+                beingRevivedRoot.SetActive(beingRevived);
+
+            if (beingRevived && reviveProgressBar != null)
+                reviveProgressBar.value = playerRevive.ReviveProgress;
         }
 
         private void UpdateHealthUI(int previousHealth, int currentHealth)
@@ -199,6 +259,8 @@ namespace FPSGame.UI
 
             if (playerHealth != null)
                 playerHealth.OnHealthChanged += UpdateHealthUI;
+
+            ResolvePlayerRevive();
 
             if (playerShooting != null)
             {

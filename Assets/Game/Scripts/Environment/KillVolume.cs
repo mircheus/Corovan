@@ -17,7 +17,8 @@ namespace FPSGame.Environment
             var health = other.GetComponentInParent<PlayerHealth>();
             if (health != null)
             {
-                health.SetHealth(0);
+                // No being revived at the bottom of a kill volume.
+                health.ServerKillInstant();
                 return;
             }
 

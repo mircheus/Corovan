@@ -4,6 +4,15 @@ using Mirror;
 
 namespace FPSGame.Player
 {
+    // Alive -> Downed -> Dead. A player whose health reaches zero goes down instead of dying:
+    // a teammate can revive them (PlayerRevive) until the bleedout timer runs out.
+    public enum LifeState : byte
+    {
+        Alive = 0,
+        Downed = 1,
+        Dead = 2
+    }
+
     public class PlayerHealth : NetworkBehaviour
     {
         [Header("Health Settings")]
@@ -12,8 +21,30 @@ namespace FPSGame.Player
         [SyncVar(hook = nameof(OnHealthChangedHook))]
         private int currentHealth;
 
+        // Single source of truth for alive/downed/dead. One SyncVar (rather than two bools) keeps
+        // the client-side transitions unambiguous — hook order can never report "revived" when the
+        // player was actually finished off while down.
+        [SyncVar(hook = nameof(OnLifeStateChangedHook))]
+        private LifeState lifeState = LifeState.Alive;
+
+        [Header("Downed State")]
+        [Tooltip("Seconds a downed player survives before dying for good. Zero or less = no downed state, damage kills outright.")]
+        [SerializeField] private float bleedoutDuration = 30f;
+        [Tooltip("Fraction of max health restored on revive.")]
+        [Range(0.05f, 1f)]
+        [SerializeField] private float reviveHealthPercent = 0.5f;
+
+        // NetworkTime.time at which bleedout kills the player. Synced once per transition rather
+        // than ticking a float every frame; clients derive the countdown themselves.
         [SyncVar]
-        private bool isDead;
+        private double bleedoutEndTime;
+
+        // A revive in progress freezes the countdown. The frozen remainder lives here.
+        [SyncVar]
+        private bool bleedoutPaused;
+
+        [SyncVar]
+        private float bleedoutRemaining;
 
         [Header("Regeneration")]
         [SerializeField] private bool enableRegeneration = false;
@@ -26,9 +57,36 @@ namespace FPSGame.Player
         public int MaxHealth => maxHealth;
         public int CurrentHealth => currentHealth;
         public float HealthPercentage => (float)currentHealth / maxHealth;
-        public bool IsDead => isDead;
+
+        public LifeState State => lifeState;
+        public bool IsDead => lifeState == LifeState.Dead;
+        public bool IsDowned => lifeState == LifeState.Downed;
+
+        /// <summary>Down or dead — out of the fight either way. Use for "can this player act / hold a console" checks.</summary>
+        public bool IsIncapacitated => lifeState != LifeState.Alive;
+
+        /// <summary>Enemies only acquire and keep targets that are alive on their feet.</summary>
+        public bool IsTargetable => lifeState == LifeState.Alive;
+
+        public float BleedoutDuration => bleedoutDuration;
+        public bool BleedoutPaused => bleedoutPaused;
+
+        /// <summary>Seconds left before a downed player dies. Zero when not downed.</summary>
+        public float BleedoutRemaining
+        {
+            get
+            {
+                if (lifeState != LifeState.Downed)
+                    return 0f;
+                if (bleedoutPaused)
+                    return Mathf.Max(0f, bleedoutRemaining);
+                return Mathf.Max(0f, (float)(bleedoutEndTime - NetworkTime.time));
+            }
+        }
 
         public event Action<int, int> OnHealthChanged;
+        public event Action OnDowned;
+        public event Action OnRevived;
         public event Action OnDeath;
         public event Action OnRespawn;
 
@@ -36,13 +94,15 @@ namespace FPSGame.Player
         {
             base.OnStartServer();
             currentHealth = maxHealth;
-            isDead = false;
+            lifeState = LifeState.Alive;
         }
 
         public override void OnStartClient()
         {
             base.OnStartClient();
             OnHealthChanged?.Invoke(currentHealth, currentHealth);
+            // Life-state listeners subscribe after this runs, so a client that joins while someone
+            // is already down reads IsDowned directly instead of waiting for a transition event.
         }
 
         private void Update()
@@ -50,10 +110,26 @@ namespace FPSGame.Player
             if (!isServer)
                 return;
 
-            if (enableRegeneration && !isDead)
+            if (lifeState == LifeState.Downed)
+            {
+                TickBleedout();
+                return;
+            }
+
+            if (enableRegeneration && lifeState == LifeState.Alive)
             {
                 HandleRegeneration();
             }
+        }
+
+        [Server]
+        private void TickBleedout()
+        {
+            if (bleedoutPaused)
+                return;
+
+            if (NetworkTime.time >= bleedoutEndTime)
+                Die();
         }
 
         private void HandleRegeneration()
@@ -78,17 +154,56 @@ namespace FPSGame.Player
         private void OnHealthChangedHook(int oldHealth, int newHealth)
         {
             OnHealthChanged?.Invoke(oldHealth, newHealth);
+        }
 
-            if (newHealth <= 0 && oldHealth > 0)
+        private void OnLifeStateChangedHook(LifeState oldState, LifeState newState)
+        {
+            RaiseLifeStateEvents(oldState, newState);
+        }
+
+        // Hooks run on clients (host included). A dedicated server has no hook, so the setter
+        // raises the events there instead — exactly once, either way.
+        private void RaiseLifeStateEvents(LifeState oldState, LifeState newState)
+        {
+            if (oldState == newState)
+                return;
+
+            switch (newState)
             {
-                OnDeath?.Invoke();
+                case LifeState.Downed:
+                    OnDowned?.Invoke();
+                    break;
+                case LifeState.Dead:
+                    OnDeath?.Invoke();
+                    break;
+                case LifeState.Alive:
+                    if (oldState == LifeState.Downed)
+                        OnRevived?.Invoke();
+                    else
+                        OnRespawn?.Invoke();
+                    break;
             }
+        }
+
+        [Server]
+        private void SetLifeState(LifeState newState)
+        {
+            LifeState oldState = lifeState;
+            if (oldState == newState)
+                return;
+
+            lifeState = newState;
+
+            if (isServerOnly)
+                RaiseLifeStateEvents(oldState, newState);
         }
 
         [Server]
         public void TakeDamage(int damage)
         {
-            if (isDead || damage <= 0)
+            // A downed player's fate is the bleedout timer alone — stray splash damage from barrels
+            // and projectiles must not shorten it.
+            if (lifeState != LifeState.Alive || damage <= 0)
                 return;
 
             lastDamageTime = Time.time;
@@ -96,7 +211,7 @@ namespace FPSGame.Player
 
             if (currentHealth <= 0)
             {
-                Die();
+                GoDown();
             }
         }
 
@@ -109,7 +224,7 @@ namespace FPSGame.Player
         [Server]
         public void Heal(int amount)
         {
-            if (isDead || amount <= 0)
+            if (lifeState != LifeState.Alive || amount <= 0)
                 return;
 
             currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
@@ -118,50 +233,118 @@ namespace FPSGame.Player
         [Server]
         public void SetHealth(int health)
         {
+            if (lifeState != LifeState.Alive)
+                return;
+
             currentHealth = Mathf.Clamp(health, 0, maxHealth);
 
-            if (currentHealth <= 0 && !isDead)
+            if (currentHealth <= 0)
+            {
+                GoDown();
+            }
+        }
+
+        // Enters the downed state, or dies outright when the downed state is switched off.
+        [Server]
+        private void GoDown()
+        {
+            if (lifeState != LifeState.Alive)
+                return;
+
+            if (bleedoutDuration <= 0f)
             {
                 Die();
+                return;
             }
+
+            regenBuffer = 0f;
+            bleedoutPaused = false;
+            bleedoutRemaining = bleedoutDuration;
+            bleedoutEndTime = NetworkTime.time + bleedoutDuration;
+            SetLifeState(LifeState.Downed);
+
+            Debug.Log($"{gameObject.name} is down.");
+        }
+
+        /// <summary>
+        /// Kills the player outright, skipping the downed state. For hazards where being revived
+        /// makes no sense — kill volumes, bottomless falls, dying inside an exploding car.
+        /// </summary>
+        [Server]
+        public void ServerKillInstant()
+        {
+            if (lifeState == LifeState.Dead)
+                return;
+
+            Die();
         }
 
         [Server]
         private void Die()
         {
-            if (isDead)
+            if (lifeState == LifeState.Dead)
                 return;
 
-            isDead = true;
-            RpcOnDeath();
+            currentHealth = 0;
+            bleedoutPaused = false;
+            bleedoutRemaining = 0f;
+            SetLifeState(LifeState.Dead);
+
             Debug.Log($"{gameObject.name} has died.");
         }
 
-        [ClientRpc]
-        private void RpcOnDeath()
+        /// <summary>Called by PlayerRevive once a teammate finishes the hold. Restores a fraction of max health.</summary>
+        [Server]
+        public void ServerRevive()
         {
-            OnDeath?.Invoke();
+            if (lifeState != LifeState.Downed)
+                return;
+
+            bleedoutPaused = false;
+            bleedoutRemaining = 0f;
+            currentHealth = Mathf.Max(1, Mathf.RoundToInt(maxHealth * reviveHealthPercent));
+            lastDamageTime = Time.time;
+            SetLifeState(LifeState.Alive);
+        }
+
+        /// <summary>
+        /// Freezes / resumes the bleedout countdown while a revive is being held, so a player can't
+        /// die in the last moments of a hold that was going to save them.
+        /// </summary>
+        [Server]
+        public void ServerSetBleedoutPaused(bool paused)
+        {
+            if (lifeState != LifeState.Downed || bleedoutPaused == paused)
+                return;
+
+            if (paused)
+            {
+                bleedoutRemaining = Mathf.Max(0f, (float)(bleedoutEndTime - NetworkTime.time));
+            }
+            else
+            {
+                bleedoutEndTime = NetworkTime.time + bleedoutRemaining;
+            }
+
+            bleedoutPaused = paused;
         }
 
         [Server]
         public void Respawn()
         {
-            isDead = false;
             currentHealth = maxHealth;
-            RpcOnRespawn();
-        }
-
-        [ClientRpc]
-        private void RpcOnRespawn()
-        {
-            OnRespawn?.Invoke();
+            bleedoutPaused = false;
+            bleedoutRemaining = 0f;
+            SetLifeState(LifeState.Alive);
         }
 
         [Server]
         public void ResetHealth()
         {
             currentHealth = maxHealth;
-            isDead = false;
+            bleedoutPaused = false;
+            bleedoutRemaining = 0f;
+            SetLifeState(LifeState.Alive);
         }
 
         [Command]
