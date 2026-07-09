@@ -4,7 +4,10 @@
       "Bash(tree:*)",
       "Bash(python *)",
       "Bash(git -C \"M:/02_Projects/01_Unity/Corovan\" log --oneline -20)",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(grep -n 'public static\\\\|class ClonesManager\\\\|namespace' __TRACKED_VAR__/Editor/ClonesManager.cs)",
+      "PowerShell($r = Test-Connection -ComputerName 10.195.66.21 -Count 2 -Quiet -ErrorAction SilentlyContinue; \"Ping 10.195.66.21 \\(hardcoded\\): $r\"; \"This machine's ZT IP: 10.195.66.46\")",
+      "Bash(cd *)"
     ]
   }
 }
