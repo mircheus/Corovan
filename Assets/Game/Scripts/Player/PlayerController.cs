@@ -232,6 +232,22 @@ namespace FPSGame.Player
             externalVelocity += worldVelocity;
         }
 
+        // Owner-side teleport. Disabling the CharacterController lets us hard-set the transform
+        // without the controller fighting the move; velocities are cleared so the player doesn't
+        // keep the momentum that threw them off. Replicates to others via NetworkTransform.
+        public void TeleportTo(Vector3 worldPosition)
+        {
+            if (!isOwned)
+                return;
+
+            bool wasEnabled = characterController.enabled;
+            characterController.enabled = false;
+            transform.position = worldPosition;
+            velocity = Vector3.zero;
+            externalVelocity = Vector3.zero;
+            characterController.enabled = wasEnabled;
+        }
+
         private float GetCurrentSpeed()
         {
             float baseSpeed;

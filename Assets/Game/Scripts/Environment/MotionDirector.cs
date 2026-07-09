@@ -51,6 +51,14 @@ namespace FPSGame.Environment
         [Tooltip("Force scale applied to registered loot Rigidbodies from the lateral signal.")]
         [SerializeField] private float lootForceScale = 8f;
 
+        [Header("Fall recovery")]
+        [Tooltip("Scene Transform players teleport to when a FallHazardVolume is set to the " +
+                 "FixedPoint recovery mode. Assign a spawn marker in the scene.")]
+        [SerializeField] private Transform fallRespawnPoint;
+
+        // Shared scene respawn marker read by PlayerFallHazard in FixedPoint mode. Null when unset.
+        public Transform FallRespawnPoint => fallRespawnPoint;
+
         [Header("Telegraph audio (optional, local)")]
         [Tooltip("Played on every client the moment a swerve is scheduled — the warning siren.")]
         [SerializeField] private AudioSource telegraphAudio;

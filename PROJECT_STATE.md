@@ -2,6 +2,7 @@
 
 > Snapshot of implemented systems and mechanics. Last reviewed: **2026-05-12**.
 > For architecture conventions and lessons, see `CLAUDE.md`. This doc focuses on *what exists right now*.
+> Convoy motion/physics system: design in `convoy_raid_physics_v0.md`, scripts + prefab setup in `convoy_raid_physics_setup.md`.
 
 ---
 
@@ -46,6 +47,7 @@ Corovan is a **multiplayer convoy FPS** on Unity 6 with Mirror networking. Playe
 | Cargo / scoring | ✅ Working | `CargoTrigger` → `ScoreManager` SyncVar |
 | Turret enemies | ✅ Working | Detect player/car, rotate, fire projectiles — no death visuals |
 | Barrel hazards | ✅ Working | Server pool + timed spawn, curve bounce, damages car/player |
+| Convoy motion / physics | ✅ Working | Single `MotionDirector` signal → platform tilt, camera shake, player sway, loot force, swerve telegraph, fall hazard + respawn. Setup: `convoy_raid_physics_setup.md` |
 | Destruction objective | ✅ Working | `DestructionObjective` tracks `DestructionTarget`s |
 | Interactables (hold-E) | ✅ Working | Generic; binds UnityEvents (doors etc.) |
 | Wind zones / kill volumes | ✅ Working | Trigger-based push / instant kill |

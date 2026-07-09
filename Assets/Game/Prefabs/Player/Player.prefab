@@ -1480,6 +1480,7 @@ GameObject:
   - component: {fileID: 5944533771368176222}
   - component: {fileID: 6220710440049244997}
   - component: {fileID: 4264097504728581935}
+  - component: {fileID: 5450698106968124653}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -1929,6 +1930,25 @@ MonoBehaviour:
   bumpKick: 0.05
   telegraphRumble: 0.3
   gateFade: 0.2
+--- !u!114 &5450698106968124653
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27403115a60d8304fb1436da7a71b5ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  recoveryMode: 1
+  respawnHeightOffset: 0.5
+  sampleDistance: 0.5
+  cooldown: 1
 --- !u!1 &5430647513219006457
 GameObject:
   m_ObjectHideFlags: 0

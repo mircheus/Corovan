@@ -49,7 +49,17 @@ namespace FPSGame.Player
         // Called from PlayerInputHandler when RMB is pressed while carrying.
         public void TryDrop()
         {
-            if (!isOwned || carriedObject == null || !allowDrop)
+            if (!allowDrop)
+                return;
+
+            ForceDrop();
+        }
+
+        // Drop the carried object regardless of the allowDrop toggle. Used by fall recovery so
+        // the ride can knock loot out of the player's hands even when manual drop is disabled.
+        public void ForceDrop()
+        {
+            if (!isOwned || carriedObject == null)
                 return;
 
             DetachFromCarryPoint();
