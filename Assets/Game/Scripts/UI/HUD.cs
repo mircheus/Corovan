@@ -1,4 +1,5 @@
 using FPSGame.Networking;
+using Mirror;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -57,8 +58,27 @@ namespace FPSGame.UI
         private float hitMarkerTimer;
         private ScoreManager _scoreManager;
 
+        // This canvas is part of the player prefab, so every spawned player brings a full-screen
+        // overlay along. Only the owner's may live: otherwise a teammate's health bar is drawn
+        // pixel-for-pixel on top of yours, and their damage reads as yours.
+        private bool BelongsToLocalPlayer()
+        {
+            NetworkIdentity identity = GetComponentInParent<NetworkIdentity>();
+
+            // A HUD placed directly in the scene has no identity above it — leave it alone.
+            return identity == null || identity.isOwned;
+        }
+
         private void Start()
         {
+            // Mirror assigns ownership while handling the spawn message, which always completes
+            // before Unity gets around to Start. Bail out before subscribing to anything.
+            if (!BelongsToLocalPlayer())
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             _scoreManager = ScoreManager.Instance;
 
             if (_scoreManager != null)

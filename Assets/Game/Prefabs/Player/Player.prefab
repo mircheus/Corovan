@@ -7275,7 +7275,7 @@ MonoBehaviour:
   playerHealth: {fileID: 8541688203613394244}
   playerShooting: {fileID: 3963791266296128923}
   playerInputHandler: {fileID: 3054014159549820376}
-  playerRevive: {fileID: 0}
+  playerRevive: {fileID: 4323429178011855023}
   healthBar: {fileID: 3824561139651249321}
   healthText: {fileID: 0}
   healthFill: {fileID: 7788650408036367459}
