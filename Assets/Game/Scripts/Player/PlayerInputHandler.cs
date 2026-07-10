@@ -4,6 +4,7 @@ using UnityEngine.InputSystem.Controls;
 using Mirror;
 using FPSGame.Vehicle;
 using FPSGame.Environment;
+using FPSGame.Networking;
 
 namespace FPSGame.Player
 {
@@ -81,7 +82,14 @@ namespace FPSGame.Player
                 playerHealth.OnRevived += OnPlayerRevived;
             }
 
+            if (GameStateManager.Instance != null)
+                GameStateManager.Instance.OnMatchEnded += OnMatchEnded;
+
             isInitialized = true;
+
+            // Spawned into a match that is already decided — late join, or a respawn after the wipe.
+            if (GameStateManager.Instance != null && GameStateManager.Instance.IsMatchOver)
+                OnMatchEnded(GameStateManager.Instance.Result);
         }
 
         private void OnDestroy()
@@ -92,6 +100,32 @@ namespace FPSGame.Player
                 playerHealth.OnDowned -= OnPlayerDowned;
                 playerHealth.OnRevived -= OnPlayerRevived;
             }
+
+            if (GameStateManager.Instance != null)
+                GameStateManager.Instance.OnMatchEnded -= OnMatchEnded;
+        }
+
+        // Win or lose, the match is over for everyone at once: stop routing input and hand the
+        // mouse back so the end screen is clickable. The world keeps running around them.
+        private void OnMatchEnded(MatchResult result)
+        {
+            AbandonHolds();
+
+            isInitialized = false;
+            if (playerInput != null) playerInput.enabled = false;
+
+            if (currentVehicle != null)
+            {
+                CmdExitVehicle(currentVehicle.netIdentity);
+                ExitVehicle();
+            }
+
+            playerShooting?.SetFiring(false);
+            playerShooting?.SetAiming(false);
+            playerController?.SetSprinting(false);
+            playerController?.SetMoveInput(Vector2.zero);
+
+            playerCamera?.UnlockCursor();
         }
 
         private void OnPlayerDied()

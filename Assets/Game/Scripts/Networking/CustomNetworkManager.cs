@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using FPSGame.Player;
 
 namespace FPSGame.Networking
 {
@@ -53,11 +54,20 @@ namespace FPSGame.Networking
             Transform spawnPoint = GetNextSpawnPoint();
             GameObject player = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
             NetworkServer.AddPlayerForConnection(conn, player);
+
+            // The match watches every player's life state to know when the squad has wiped.
+            if (GameStateManager.Instance != null)
+                GameStateManager.Instance.ServerRegisterPlayer(player.GetComponent<PlayerHealth>());
+
             Debug.Log($"Player spawned at: {spawnPoint.position}");
         }
 
         public override void OnServerDisconnect(NetworkConnectionToClient conn)
         {
+            // Before base(), which destroys the player object we still need to read.
+            if (GameStateManager.Instance != null && conn.identity != null)
+                GameStateManager.Instance.ServerUnregisterPlayer(conn.identity.GetComponent<PlayerHealth>());
+
             base.OnServerDisconnect(conn);
             Debug.Log("Player disconnected from server");
         }

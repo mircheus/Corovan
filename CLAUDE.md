@@ -43,7 +43,9 @@ Assets/Game/
 │   │   ├── Barrel.cs                # Pooled kinematic barrel; bounces on AnimationCurve, damages car/player
 │   │   └── BarrelSpawner.cs         # Server-side object pool + timed spawn loop
 │   ├── Networking/
-│   │   ├── CustomNetworkManager.cs  # Spawn point rotation
+│   │   ├── CustomNetworkManager.cs  # Spawn point rotation; registers players with GameStateManager
+│   │   ├── GameStateManager.cs      # Singleton NetworkBehaviour; SyncVar MatchResult, defeat on squad wipe
+│   │   ├── IWinCondition.cs         # Server-polled win requirement (stub — no implementors yet)
 │   │   ├── PlayerSpawnManager.cs
 │   │   ├── NetworkMessages.cs
 │   │   ├── NetworkDebugUI.cs        # Runtime connection info overlay
@@ -55,6 +57,7 @@ Assets/Game/
 │   │   └── WheelAnimation.cs
 │   ├── UI/
 │   │   ├── HUD.cs
+│   │   ├── MatchEndUI.cs            # Victory/defeat screen + host-only restart
 │   │   ├── ScoreboardUI.cs
 │   │   ├── PauseMenu.cs
 │   │   └── SettingsMenu.cs
@@ -90,6 +93,16 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - Enemies filter targets on `IsTargetable` (alive only), so a downed player is ignored. `IsIncapacitated` (down **or** dead) is the check for "can this player still act / hold a console".
 - `Enemy` re-sweeps its detection volume on `retargetInterval` while it has no target — `OnTriggerEnter` alone would never re-acquire a revived player who never left the trigger.
 - A downed player keeps `PlayerInput` enabled (they still look around) and keeps their `CharacterController` (gravity + `MotionPlatform` ride still apply). Movement is blocked inside `PlayerController`'s setters, not by disabling components.
+
+### Match State (Win / Lose)
+- `GameStateManager` is a scene singleton `NetworkBehaviour` (same shape as `ScoreManager`) holding a single `[SyncVar] MatchResult { InProgress, Victory, Defeat }` — one enum, not a phase bool plus a result bool, for the same hook-ordering reason as `LifeState`.
+- **Defeat** = no registered player is `Alive`. `IsIncapacitated` is the test, so a mix of downed and dead players still loses — a dead teammate can't revive anyone either. Evaluated on `OnDowned`/`OnDeath` and on disconnect, never polled.
+- The roster is owned by `CustomNetworkManager` (`OnServerAddPlayer` / `OnServerDisconnect` → `ServerRegisterPlayer` / `ServerUnregisterPlayer`), not by `PlayerHealth` registering itself — a player who never finished spawning can't leave a dangling subscription.
+- An empty roster never loses: `ServerReevaluateDefeat` returns early on `serverPlayers.Count == 0`, covering both the gap before the first join and the last disconnect.
+- **Victory** is stubbed: `GameStateManager` polls a serialized `MonoBehaviour[]` of `IWinCondition` on `winCheckInterval` (`requireAllWinConditions` = all vs any). The array is empty, so victory currently never fires. `ServerEndMatch` / `ServerTriggerVictory` are public for an objective to force an outcome directly.
+- Ending the match **does not stop the world** — turrets keep firing, `BarrelSpawner` keeps spawning, bleedout keeps ticking. It only flips the SyncVar. Clients react in `PlayerInputHandler.OnMatchEnded` (disable `PlayerInput`, drop holds, exit vehicle, unlock cursor) and `MatchEndUI`.
+- Restart reloads the active scene via `ServerRestartMatch`; the button is only shown when `NetworkServer.active`. `GameStateManager` is a scene object, so the roster and result reset themselves.
+- `MatchEndUI` is separate from `GameOverUI` — the latter still reacts to the local player's own death while the match may well still be running.
 
 ### Damage & Health Values
 - All damage and health values are `int` — damage fields, `health`/`maxHealth` fields, `TakeDamage(int)` parameters, projectile/weapon damage. Never use `float` for a damage or health value.
@@ -167,6 +180,7 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 - Core gameplay loop: join → drive convoy car → carry loot into cargo (`CargoTrigger`) → `ScoreManager` updates
 - FPS player: movement/crouch/sprint/jump, camera (ADS FOV, recoil, head bob), multi-weapon shooting (ranged + melee, per-slot ammo, reload, optimistic switch), health/damage/regen/death
 - Downed state + teammate revive (hold E): bleedout deadline paused during a revive, enemies ignore downed players, collapsed pose + marker synced to all clients
+- Match defeat when the whole squad is down/dead (`GameStateManager`): input locked on every client, `MatchEndUI` with a host-only restart
 - Carry/throw loot props (client-authority pickup)
 - Vehicle: arcade driving, authority transfer on enter/exit, vehicle health → destruction (fire + explosion FX, kills driver), collision damage, driverless backward drift
 - Enemy turrets shoot at players and driven vehicles; barrel hazard spawner (server pool) on Road scene
@@ -187,7 +201,7 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 
 ### Known gaps
 - No respawn flow (`PlayerHealth.Respawn` exists server-side, no caller)
-- No match win/lose conditions (`MatchStateMessage` unused)
+- Win condition unimplemented — `GameStateManager.winConditionSources` is empty, so only defeat can fire. `MatchStateMessage` / `MatchState` in `NetworkMessages.cs` remain unused (`GameStateManager` uses its own `MatchResult`)
 - Vehicle destruction has no wreck/persistent state beyond explosion FX + `vehicleIsAlive`
 - `Enemy.OnAliveChanged` hook empty (no turret death visuals)
 - `Safe` has no loot drop / visual change on destruction
