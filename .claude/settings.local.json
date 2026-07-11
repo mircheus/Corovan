@@ -10,7 +10,10 @@
       "Bash(cd *)",
       "Bash(awk '/^--- !u!/{blk=$0; id=$3} /m_Script: .*1119a7d4a8b816f4e8dc24f15f65d192/{print NR\": HUD MonoBehaviour block \"blk}' Assets/Game/Prefabs/Player/Player.prefab)",
       "Bash(sed -n '/1119a7d4a8b816f4e8dc24f15f65d192/,/^--- /p' Assets/Game/Prefabs/Player/Player.prefab)",
-      "Bash(awk 'BEGIN{RS=\"--- \"} /6741172468331343892/ && /^!u!1 &/ {print \"=== GO block:\"; print substr\\($0,1,1200\\)}' Assets/Game/Prefabs/Player/Player.prefab)"
+      "Bash(awk 'BEGIN{RS=\"--- \"} /6741172468331343892/ && /^!u!1 &/ {print \"=== GO block:\"; print substr\\($0,1,1200\\)}' Assets/Game/Prefabs/Player/Player.prefab)",
+      "Bash(grep -nA6 \"guid: 2f69c316a0e3430c8e2b128a80430e14\" Assets/Game/Prefabs/UI/GameOverUI.prefab)",
+      "Bash(ls -la Assets/Game/Scenes/)",
+      "Bash(find Assets -iname \"*Hardcode*\")"
     ]
   }
 }

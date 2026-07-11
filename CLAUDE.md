@@ -60,6 +60,7 @@ Assets/Game/
 │   │   ├── HUD.cs
 │   │   ├── MatchEndUI.cs            # Victory/defeat screen + host-only restart
 │   │   ├── ExtractionUI.cs          # Progress bar while the car is held in the ExtractionZone
+│   │   ├── LocalPlayerDeadUI.cs     # "You died" overlay while the match is still running
 │   │   ├── ScoreboardUI.cs
 │   │   ├── PauseMenu.cs
 │   │   └── SettingsMenu.cs
@@ -105,7 +106,7 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - `ExtractionZone` (scene `NetworkBehaviour`, needs a `NetworkIdentity`): tracks overlapping car colliders in a `Dictionary<Collider,CarController>` (per-collider, so a partial exit doesn't drop a car still inside); `HasQualifyingCar` re-checks `HasDriver`/`VehicleIsAlive` each server tick. Capture is all-or-nothing — the deadline resets the instant the car stops qualifying. Countdown synced as a deadline (`captureEndTime`) + `capturing` flag, like bleedout; `CaptureProgress` (0–1) and `OnCapturingChanged` drive `ExtractionUI` (scene-level progress bar, shown only while capturing). `MatchEndUI` shows `ScoreManager.TotalScore` on victory only.
 - Ending the match **does not stop the world** — turrets keep firing, `BarrelSpawner` keeps spawning, bleedout keeps ticking. It only flips the SyncVar. Clients react in `PlayerInputHandler.OnMatchEnded` (disable `PlayerInput`, drop holds, exit vehicle, unlock cursor) and `MatchEndUI`.
 - Restart reloads the active scene via `ServerRestartMatch`; the button is only shown when `NetworkServer.active`. `GameStateManager` is a scene object, so the roster and result reset themselves.
-- `MatchEndUI` is separate from `GameOverUI` — the latter still reacts to the local player's own death while the match may well still be running.
+- `MatchEndUI` is separate from `LocalPlayerDeadUI` — the latter reacts to the local player's own death while the match is still running (a teammate may still win or lose it), and hides itself when the match ends so `MatchEndUI` owns the screen. It binds to the runtime local player via `NetworkClient.localPlayer` (no serialized player reference is possible on a scene object).
 
 ### Damage & Health Values
 - All damage and health values are `int` — damage fields, `health`/`maxHealth` fields, `TakeDamage(int)` parameters, projectile/weapon damage. Never use `float` for a damage or health value.
@@ -209,7 +210,7 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 - Vehicle destruction has no wreck/persistent state beyond explosion FX + `vehicleIsAlive`
 - `Enemy.OnAliveChanged` hook empty (no turret death visuals)
 - `Safe` has no loot drop / visual change on destruction
-- UI stubs: `PauseMenu.OpenSettings`/`Disconnect`, `GameOverUI.OnRestartButtonClick`
+- UI stubs: `PauseMenu.OpenSettings`/`Disconnect`
 - `GameSettings` not networked / not persisted per client
 - `PlayerSpawnManager.FurthestFromPlayers` ignores `minSpawnDistance`
 - WIP scenes (untracked): `Test.unity`, `WagonsConstruct.unity`, `Wall Laser.unity`, `GrapplingHook_Test.unity`

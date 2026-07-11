@@ -7,8 +7,8 @@ using UnityEngine.UI;
 namespace FPSGame.UI
 {
     /// <summary>
-    /// Victory / defeat screen, driven by <see cref="GameStateManager"/>. Distinct from GameOverUI,
-    /// which reacts to this player's own death while the match may well still be running.
+    /// Victory / defeat screen, driven by <see cref="GameStateManager"/>. Distinct from
+    /// LocalPlayerDeadUI, which reacts to this player's own death while the match may still be running.
     /// </summary>
     public class MatchEndUI : MonoBehaviour
     {

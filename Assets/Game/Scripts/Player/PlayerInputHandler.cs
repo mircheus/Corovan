@@ -616,20 +616,26 @@ namespace FPSGame.Player
             return closest;
         }
 
+        // Revive targets are found by walking the spawned players, NOT by a physics overlap: a
+        // downed teammate is a remote player on the reviver's client, and remote players have their
+        // CharacterController — the only body collider on the prefab — disabled, so OverlapSphere
+        // never sees them.
         private PlayerRevive FindNearbyDownedPlayer()
         {
-            // Broad-phase overlap, then filter by each player's own ReviveRange.
-            Collider[] hits = new Collider[10];
-            var size = Physics.OverlapSphereNonAlloc(transform.position, 10f, hits);
             PlayerRevive closest = null;
             float closestDist = float.MaxValue;
 
-            for (int i = 0; i < size; i++)
+            foreach (NetworkIdentity identity in NetworkClient.spawned.Values)
             {
-                var candidate = hits[i].GetComponentInParent<PlayerRevive>();
+                if (identity == null)
+                    continue;
+
+                var candidate = identity.GetComponent<PlayerRevive>();
                 if (candidate == null || candidate.gameObject == gameObject)
                     continue;
-                if (candidate.Health == null || !candidate.Health.IsDowned)
+
+                bool downed = candidate.Health != null && candidate.Health.IsDowned;
+                if (!downed)
                     continue;
 
                 float dist = Vector3.Distance(transform.position, candidate.transform.position);
