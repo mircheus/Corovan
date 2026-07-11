@@ -39,6 +39,13 @@ namespace FPSGame.UI
         [SerializeField] private GameObject interactProgressRoot;
         [SerializeField] private Slider interactProgressBar;
 
+        [Header("Interact Prompt")]
+        [Tooltip("Shown while a nearby object can be interacted with; hidden otherwise.")]
+        [SerializeField] private GameObject interactPromptRoot;
+        [SerializeField] private TextMeshProUGUI interactPromptText;
+        [Tooltip("{0} is replaced by the action verb, e.g. \"Взять\".")]
+        [SerializeField] private string interactPromptFormat = "[E] {0}";
+
         [Header("Downed")]
         [Tooltip("Shown to this player while they are bleeding out.")]
         [SerializeField] private GameObject downedRoot;
@@ -107,6 +114,7 @@ namespace FPSGame.UI
                 playerInputHandler.OnInteractProgress += UpdateInteractProgress;
                 playerInputHandler.OnInteractCancelled += HideInteractProgress;
                 playerInputHandler.OnInteractFinished += HideInteractProgress;
+                playerInputHandler.OnInteractPromptChanged += UpdateInteractPrompt;
             }
 
             if (hitMarker != null)
@@ -116,6 +124,7 @@ namespace FPSGame.UI
                 reloadingIndicator.SetActive(false);
 
             HideInteractProgress();
+            UpdateInteractPrompt("");
             UpdateDownedUI();
         }
 
@@ -227,6 +236,18 @@ namespace FPSGame.UI
                 interactProgressBar.value = 0f;
         }
 
+        // Empty verb hides the prompt; otherwise show "[E] <verb>".
+        private void UpdateInteractPrompt(string verb)
+        {
+            bool show = !string.IsNullOrEmpty(verb);
+
+            if (interactPromptRoot != null)
+                interactPromptRoot.SetActive(show);
+
+            if (show && interactPromptText != null)
+                interactPromptText.text = string.Format(interactPromptFormat, verb);
+        }
+
         private void ShowReloading()
         {
             if (reloadingIndicator != null)
@@ -294,6 +315,7 @@ namespace FPSGame.UI
                 playerInputHandler = inputHandler;
                 playerInputHandler.OnInteractProgress += UpdateInteractProgress;
                 playerInputHandler.OnInteractCancelled += HideInteractProgress;
+                playerInputHandler.OnInteractPromptChanged += UpdateInteractPrompt;
             }
         }
 
@@ -319,6 +341,7 @@ namespace FPSGame.UI
                 playerInputHandler.OnInteractProgress -= UpdateInteractProgress;
                 playerInputHandler.OnInteractCancelled -= HideInteractProgress;
                 playerInputHandler.OnInteractFinished -= HideInteractProgress;
+                playerInputHandler.OnInteractPromptChanged -= UpdateInteractPrompt;
             }
         }
     }

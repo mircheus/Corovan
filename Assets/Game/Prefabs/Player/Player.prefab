@@ -2342,6 +2342,8 @@ MonoBehaviour:
   vehicleLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  promptScanInterval: 0.1
+  lookAngleThreshold: 40
 --- !u!114 &8119119459039292421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5756,6 +5758,14 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 3963791266296128923}
     - target: {fileID: 6871024178182289115, guid: 7bc4734d0e99fd3429ce800b2c4c9139, type: 3}
+      propertyPath: interactPromptRoot
+      value: 
+      objectReference: {fileID: 7329710278259051128}
+    - target: {fileID: 6871024178182289115, guid: 7bc4734d0e99fd3429ce800b2c4c9139, type: 3}
+      propertyPath: interactPromptText
+      value: 
+      objectReference: {fileID: 6231805708794732509}
+    - target: {fileID: 6871024178182289115, guid: 7bc4734d0e99fd3429ce800b2c4c9139, type: 3}
       propertyPath: playerInputHandler
       value: 
       objectReference: {fileID: 3054014159549820376}
@@ -5848,6 +5858,22 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7bc4734d0e99fd3429ce800b2c4c9139, type: 3}
+--- !u!114 &6231805708794732509 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6101373604242561298, guid: 7bc4734d0e99fd3429ce800b2c4c9139, type: 3}
+  m_PrefabInstance: {fileID: 204839777523238607}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!1 &7329710278259051128 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7453422305713949879, guid: 7bc4734d0e99fd3429ce800b2c4c9139, type: 3}
+  m_PrefabInstance: {fileID: 204839777523238607}
+  m_PrefabAsset: {fileID: 0}
 --- !u!224 &9141578705003307955 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 8938191520651797884, guid: 7bc4734d0e99fd3429ce800b2c4c9139, type: 3}

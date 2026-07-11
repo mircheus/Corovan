@@ -28,14 +28,20 @@ namespace FPSGame.Player
             playerController = GetComponent<PlayerController>();
         }
 
-        // Called from PlayerInputHandler when E is pressed.
+        // Picks up whatever is nearest. Kept for callers that don't do their own target selection.
         public void TryPickup()
         {
             if (!isOwned || carriedObject != null)
                 return;
 
-            CarryableObject target = FindNearbyCarryable();
-            if (target == null)
+            TryPickupTarget(FindNearbyCarryable());
+        }
+
+        // Picks up a specific object. PlayerInputHandler resolves and view-checks the target itself,
+        // so the "[E] Взять" prompt and the actual pickup agree on what's in reach.
+        public void TryPickupTarget(CarryableObject target)
+        {
+            if (!isOwned || carriedObject != null || target == null || target.IsCarried)
                 return;
 
             carriedObject = target;

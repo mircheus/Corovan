@@ -3009,6 +3009,10 @@ PrefabInstance:
       propertyPath: zone
       value: 
       objectReference: {fileID: 145541996}
+    - target: {fileID: 7601388894283643553, guid: 87a6b6702a1deed49afe010b07cd7780, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8431488177940417346, guid: 87a6b6702a1deed49afe010b07cd7780, type: 3}
       propertyPath: m_Name
       value: ExtractionUI

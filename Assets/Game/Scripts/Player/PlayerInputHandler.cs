@@ -12,6 +12,12 @@ namespace FPSGame.Player
     {
         [SerializeField] private float vehicleSearchRadius = 5f;
         [SerializeField] private LayerMask vehicleLayerMask = ~0;
+        [Tooltip("How often (seconds) to re-scan for a nearby interactable to drive the \"[E] …\" prompt.")]
+        [SerializeField] private float promptScanInterval = 0.1f;
+        [Tooltip("Half-angle (deg) of the cone in front of the camera a world object must sit in to be " +
+                 "interactable. Wider = more forgiving. Car entry/exit and reviving ignore this.")]
+        [Range(5f, 90f)]
+        [SerializeField] private float lookAngleThreshold = 40f;
 
         private PlayerController playerController;
         private PlayerCamera playerCamera;
@@ -45,10 +51,18 @@ namespace FPSGame.Player
         public bool IsInVehicle => currentVehicle != null;
         private bool IsDowned => playerHealth != null && playerHealth.IsDowned;
 
+        // Throttled scan for whatever E would act on right now, so the HUD can show a prompt
+        // before the player even presses the key.
+        private float promptScanTimer;
+        private string currentPrompt = "";
+
         // Subscribe to these in HUD scripts for progress bar / cancel feedback.
         public event System.Action<float> OnInteractProgress;  // 0–1
         public event System.Action OnInteractCancelled;
         public event System.Action OnInteractFinished;
+        // Fires with the verb for whatever E would do right now ("Взять", "Сесть в машину"…),
+        // or an empty string when nothing is in reach. Drives the HUD "[E] …" prompt.
+        public event System.Action<string> OnInteractPromptChanged;
 
         private void Awake()
         {
@@ -110,6 +124,7 @@ namespace FPSGame.Player
         private void OnMatchEnded(MatchResult result)
         {
             AbandonHolds();
+            ClearInteractPrompt();
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
@@ -132,6 +147,7 @@ namespace FPSGame.Player
         {
             // An instant kill skips the downed state entirely, so a hold may still be in flight.
             AbandonHolds();
+            ClearInteractPrompt();
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
@@ -208,6 +224,9 @@ namespace FPSGame.Player
         {
             if (!isOwned || !isInitialized)
                 return;
+
+            // Runs even while downed so the prompt clears itself when the player goes down.
+            UpdateInteractPrompt();
 
             // Down on the floor: PlayerCamera still runs the look, nothing else is available.
             if (IsDowned)
@@ -464,12 +483,16 @@ namespace FPSGame.Player
                     return;
                 }
 
-                // Try to pick up a carryable object.
+                // Try to pick up a carryable object — must be roughly looked at, like other world objects.
                 if (playerCarry != null)
                 {
-                    playerCarry.TryPickup();
-                    if (playerCarry.IsCarrying)
-                        return;
+                    CarryableObject carryTarget = playerCarry.FindNearbyCarryable();
+                    if (carryTarget != null && IsInView(InteractionCenter(carryTarget)))
+                    {
+                        playerCarry.TryPickupTarget(carryTarget);
+                        if (playerCarry.IsCarrying)
+                            return;
+                    }
                 }
 
                 // Toggle a nearby breach-console key-card slot (insert / pull out).
@@ -590,6 +613,98 @@ namespace FPSGame.Player
             playerController?.SetVehicleMode(false);
         }
 
+        // Throttled: re-scans for the best interaction target and pushes its verb to the HUD only
+        // when it changes. Mirrors the priority order in OnInteract so the prompt never promises
+        // something a press wouldn't actually do.
+        private void UpdateInteractPrompt()
+        {
+            promptScanTimer -= Time.deltaTime;
+            if (promptScanTimer > 0f)
+                return;
+            promptScanTimer = promptScanInterval;
+
+            string prompt = ComputeInteractPrompt();
+            if (prompt == currentPrompt)
+                return;
+
+            currentPrompt = prompt;
+            OnInteractPromptChanged?.Invoke(prompt);
+        }
+
+        private string ComputeInteractPrompt()
+        {
+            // Downed, or a hold already in flight (the progress bar owns the screen then).
+            if (IsDowned || isInteractHeld || isReviveHeld)
+                return "";
+
+            // In a vehicle E only exits.
+            if (currentVehicle != null)
+                return "Выйти из машины";
+
+            // Hands full — E does nothing until the loot/keycard is put down.
+            bool isCarrying = playerCarry != null && playerCarry.IsCarrying;
+            bool cardInHand = playerKeycardHand != null && playerKeycardHand.IsEquipped;
+            if (isCarrying || cardInHand)
+                return "";
+
+            if (FindNearbyDownedPlayer() != null)
+                return "Поднять напарника";
+
+            CarController car = FindNearbyCar();
+            if (car != null && !car.HasDriver)
+                return "Сесть в машину";
+
+            if (playerCarry != null)
+            {
+                CarryableObject carry = playerCarry.FindNearbyCarryable();
+                if (carry != null && IsInView(InteractionCenter(carry)))
+                    return "Взять";
+            }
+
+            if (FindNearbyConsoleSlot() != null)
+                return "Использовать консоль";
+
+            InteractableObject interactable = FindNearbyInteractable();
+            if (interactable != null)
+                return interactable.PromptText;
+
+            return "";
+        }
+
+        private void ClearInteractPrompt()
+        {
+            if (currentPrompt == "")
+                return;
+
+            currentPrompt = "";
+            OnInteractPromptChanged?.Invoke("");
+        }
+
+        // A world object counts as "looked at" when it sits within lookAngleThreshold degrees of the
+        // camera's forward. This is a forgiving cone, not a pixel-precise ray — no pixel-hunting — and
+        // it aims at the collider's bounds centre, not the pivot, so tall crates don't fall out of it.
+        private bool IsInView(Vector3 targetCenter)
+        {
+            if (playerCamera == null)
+                return true;
+
+            Ray aim = playerCamera.GetAimRay();
+            Vector3 toTarget = targetCenter - aim.origin;
+            if (toTarget.sqrMagnitude < 0.0001f)
+                return true;
+
+            float dot = Vector3.Dot(aim.direction, toTarget.normalized);
+            return dot >= Mathf.Cos(lookAngleThreshold * Mathf.Deg2Rad);
+        }
+
+        // Bounds centre of the object's collider if it has one, else its pivot. Keeps the view check
+        // stable for objects whose pivot sits at the floor.
+        private static Vector3 InteractionCenter(Component c)
+        {
+            var col = c.GetComponentInChildren<Collider>();
+            return col != null ? col.bounds.center : c.transform.position;
+        }
+
         private InteractableObject FindNearbyInteractable()
         {
             // Broad-phase: grab everything in a generous radius, then filter
@@ -606,7 +721,7 @@ namespace FPSGame.Player
                     continue;
 
                 float dist = Vector3.Distance(transform.position, interactable.transform.position);
-                if (dist <= interactable.InteractRange && dist < closestDist)
+                if (dist <= interactable.InteractRange && dist < closestDist && IsInView(hits[i].bounds.center))
                 {
                     closest = interactable;
                     closestDist = dist;
@@ -715,7 +830,7 @@ namespace FPSGame.Player
                     continue;
 
                 float dist = Vector3.Distance(transform.position, candidate.transform.position);
-                if (dist <= candidate.InteractRange && dist < closestDist)
+                if (dist <= candidate.InteractRange && dist < closestDist && IsInView(hits[i].bounds.center))
                 {
                     closest = candidate;
                     closestDist = dist;

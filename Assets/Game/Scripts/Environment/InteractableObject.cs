@@ -17,6 +17,9 @@ namespace FPSGame.Environment
         [Tooltip("If true, the object is active only while the player holds the button and stays in range. Standard hold-to-complete is disabled.")]
         [SerializeField] private bool holdToActivate = false;
 
+        [Tooltip("Verb shown in the \"[E] …\" prompt when a player is in range, e.g. \"Открыть\".")]
+        [SerializeField] private string promptText = "Взаимодействовать";
+
         [Space]
         [SerializeField] private UnityEvent onInteracted;
         [SerializeField] private UnityEvent onActivated;
@@ -29,6 +32,7 @@ namespace FPSGame.Environment
         public float InteractRange => interactRange;
         public bool HoldToActivate => holdToActivate;
         public bool IsActive => isActive;
+        public string PromptText => promptText;
 
         // Server-side events. InteractObjective and other listeners subscribe in OnStartServer.
         public event Action<GameObject> OnInteracted;
