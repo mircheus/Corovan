@@ -45,6 +45,10 @@ namespace FPSGame.UI
         [SerializeField] private TextMeshProUGUI interactPromptText;
         [Tooltip("{0} is replaced by the action verb, e.g. \"Взять\".")]
         [SerializeField] private string interactPromptFormat = "[E] {0}";
+        [Tooltip("Colour for an actionable \"[E] …\" prompt.")]
+        [SerializeField] private Color promptActionColor = Color.white;
+        [Tooltip("Colour for a blocked-requirement warning, e.g. \"Требуется красная карта\".")]
+        [SerializeField] private Color promptBlockedColor = new Color(1f, 0.55f, 0.2f);
 
         [Header("Downed")]
         [Tooltip("Shown to this player while they are bleeding out.")]
@@ -124,7 +128,7 @@ namespace FPSGame.UI
                 reloadingIndicator.SetActive(false);
 
             HideInteractProgress();
-            UpdateInteractPrompt("");
+            UpdateInteractPrompt(InteractPrompt.None);
             UpdateDownedUI();
         }
 
@@ -236,16 +240,20 @@ namespace FPSGame.UI
                 interactProgressBar.value = 0f;
         }
 
-        // Empty verb hides the prompt; otherwise show "[E] <verb>".
-        private void UpdateInteractPrompt(string verb)
+        // No prompt hides the line; an action shows "[E] <verb>"; a blocked requirement shows its
+        // text as-is in the warning colour.
+        private void UpdateInteractPrompt(InteractPrompt prompt)
         {
-            bool show = !string.IsNullOrEmpty(verb);
-
             if (interactPromptRoot != null)
-                interactPromptRoot.SetActive(show);
+                interactPromptRoot.SetActive(prompt.HasValue);
 
-            if (show && interactPromptText != null)
-                interactPromptText.text = string.Format(interactPromptFormat, verb);
+            if (!prompt.HasValue || interactPromptText == null)
+                return;
+
+            interactPromptText.text = prompt.Blocked
+                ? prompt.Text
+                : string.Format(interactPromptFormat, prompt.Text);
+            interactPromptText.color = prompt.Blocked ? promptBlockedColor : promptActionColor;
         }
 
         private void ShowReloading()

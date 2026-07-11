@@ -24,6 +24,7 @@ namespace FPSGame.Player
         private PlayerShooting playerShooting;
         private PlayerCarry playerCarry;
         private PlayerKeycardHand playerKeycardHand;
+        private PlayerKeyring playerKeyring;
         private PlayerHealth playerHealth;
         private PlayerInput playerInput;
         private InputAction aimAction;
@@ -54,15 +55,15 @@ namespace FPSGame.Player
         // Throttled scan for whatever E would act on right now, so the HUD can show a prompt
         // before the player even presses the key.
         private float promptScanTimer;
-        private string currentPrompt = "";
+        private InteractPrompt currentPrompt = InteractPrompt.None;
 
         // Subscribe to these in HUD scripts for progress bar / cancel feedback.
         public event System.Action<float> OnInteractProgress;  // 0–1
         public event System.Action OnInteractCancelled;
         public event System.Action OnInteractFinished;
-        // Fires with the verb for whatever E would do right now ("Взять", "Сесть в машину"…),
-        // or an empty string when nothing is in reach. Drives the HUD "[E] …" prompt.
-        public event System.Action<string> OnInteractPromptChanged;
+        // Fires with whatever E would do right now (an action verb, or a "requirement not met"
+        // warning), or InteractPrompt.None when nothing is in reach. Drives the HUD prompt line.
+        public event System.Action<InteractPrompt> OnInteractPromptChanged;
 
         private void Awake()
         {
@@ -71,6 +72,7 @@ namespace FPSGame.Player
             playerShooting = GetComponent<PlayerShooting>();
             playerCarry = GetComponent<PlayerCarry>();
             playerKeycardHand = GetComponent<PlayerKeycardHand>();
+            playerKeyring = GetComponent<PlayerKeyring>();
             playerHealth = GetComponent<PlayerHealth>();
             playerInput = GetComponent<PlayerInput>();
         }
@@ -623,7 +625,7 @@ namespace FPSGame.Player
                 return;
             promptScanTimer = promptScanInterval;
 
-            string prompt = ComputeInteractPrompt();
+            InteractPrompt prompt = ComputeInteractPrompt();
             if (prompt == currentPrompt)
                 return;
 
@@ -631,53 +633,61 @@ namespace FPSGame.Player
             OnInteractPromptChanged?.Invoke(prompt);
         }
 
-        private string ComputeInteractPrompt()
+        private InteractPrompt ComputeInteractPrompt()
         {
             // Downed, or a hold already in flight (the progress bar owns the screen then).
             if (IsDowned || isInteractHeld || isReviveHeld)
-                return "";
+                return InteractPrompt.None;
 
             // In a vehicle E only exits.
             if (currentVehicle != null)
-                return "Выйти из машины";
+                return InteractPrompt.Action("Выйти из машины");
 
             // Hands full — E does nothing until the loot/keycard is put down.
             bool isCarrying = playerCarry != null && playerCarry.IsCarrying;
             bool cardInHand = playerKeycardHand != null && playerKeycardHand.IsEquipped;
             if (isCarrying || cardInHand)
-                return "";
+                return InteractPrompt.None;
 
             if (FindNearbyDownedPlayer() != null)
-                return "Поднять напарника";
+                return InteractPrompt.Action("Поднять напарника");
 
             CarController car = FindNearbyCar();
             if (car != null && !car.HasDriver)
-                return "Сесть в машину";
+                return InteractPrompt.Action("Сесть в машину");
 
             if (playerCarry != null)
             {
                 CarryableObject carry = playerCarry.FindNearbyCarryable();
                 if (carry != null && IsInView(InteractionCenter(carry)))
-                    return "Взять";
+                    return InteractPrompt.Action("Взять");
             }
 
-            if (FindNearbyConsoleSlot() != null)
-                return "Использовать консоль";
+            BreachConsoleSlot slot = FindNearbyConsoleSlot();
+            if (slot != null)
+            {
+                // Missing the required key → tell the player which one, instead of a dead "[E]".
+                // (The current operator still holds the key, so pulling their own card out isn't blocked.)
+                if (playerKeyring != null && !playerKeyring.HasKey(slot.RequiredKey))
+                    return InteractPrompt.Warn($"Требуется {KeycardNames.DisplayName(slot.RequiredKey)}");
+
+                return InteractPrompt.Action("Использовать консоль");
+            }
 
             InteractableObject interactable = FindNearbyInteractable();
             if (interactable != null)
-                return interactable.PromptText;
+                return InteractPrompt.Action(interactable.PromptText);
 
-            return "";
+            return InteractPrompt.None;
         }
 
         private void ClearInteractPrompt()
         {
-            if (currentPrompt == "")
+            if (!currentPrompt.HasValue)
                 return;
 
-            currentPrompt = "";
-            OnInteractPromptChanged?.Invoke("");
+            currentPrompt = InteractPrompt.None;
+            OnInteractPromptChanged?.Invoke(InteractPrompt.None);
         }
 
         // A world object counts as "looked at" when it sits within lookAngleThreshold degrees of the

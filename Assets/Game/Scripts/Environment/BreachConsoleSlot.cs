@@ -27,6 +27,7 @@ namespace FPSGame.Environment
         private NetworkIdentity operatorIdentity;
 
         public float InteractRange => interactRange;
+        public KeycardId RequiredKey => requiredKey;
 
         private void Awake()
         {
