@@ -15,6 +15,8 @@ namespace FPSGame.UI
         [SerializeField] private PlayerInputHandler playerInputHandler;
         [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
         [SerializeField] private PlayerRevive playerRevive;
+        [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
+        [SerializeField] private PlayerCarry playerCarry;
 
         [Header("Health UI")]
         [SerializeField] private Slider healthBar;
@@ -49,6 +51,13 @@ namespace FPSGame.UI
         [SerializeField] private Color promptActionColor = Color.white;
         [Tooltip("Colour for a blocked-requirement warning, e.g. \"Требуется красная карта\".")]
         [SerializeField] private Color promptBlockedColor = new Color(1f, 0.55f, 0.2f);
+
+        [Header("Carry Hint")]
+        [Tooltip("Shown while carrying loot; lists the available drop/throw controls.")]
+        [SerializeField] private GameObject carryHintRoot;
+        [SerializeField] private TextMeshProUGUI carryHintText;
+        [SerializeField] private string carryDropHint = "ПКМ — положить";
+        [SerializeField] private string carryThrowHint = "ЛКМ — бросить";
 
         [Header("Downed")]
         [Tooltip("Shown to this player while they are bleeding out.")]
@@ -121,6 +130,15 @@ namespace FPSGame.UI
                 playerInputHandler.OnInteractPromptChanged += UpdateInteractPrompt;
             }
 
+            ResolvePlayerCarry();
+
+            if (playerCarry != null)
+                playerCarry.OnCarryingChanged += UpdateCarryHint;
+
+            // Instant death doesn't force-drop loot, so hide the hint on death as well.
+            if (playerHealth != null)
+                playerHealth.OnDeath += HideCarryHint;
+
             if (hitMarker != null)
                 hitMarker.SetActive(false);
 
@@ -129,6 +147,7 @@ namespace FPSGame.UI
 
             HideInteractProgress();
             UpdateInteractPrompt(InteractPrompt.None);
+            UpdateCarryHint(false);
             UpdateDownedUI();
         }
 
@@ -136,6 +155,12 @@ namespace FPSGame.UI
         {
             if (playerRevive == null && playerHealth != null)
                 playerRevive = playerHealth.GetComponent<PlayerRevive>();
+        }
+
+        private void ResolvePlayerCarry()
+        {
+            if (playerCarry == null && playerHealth != null)
+                playerCarry = playerHealth.GetComponent<PlayerCarry>();
         }
 
         private void OnScoreChanged(int amount)
@@ -256,6 +281,26 @@ namespace FPSGame.UI
             interactPromptText.color = prompt.Blocked ? promptBlockedColor : promptActionColor;
         }
 
+        // While carrying, list whichever controls this carrier allows (drop / throw).
+        private void UpdateCarryHint(bool carrying)
+        {
+            if (carryHintRoot != null)
+                carryHintRoot.SetActive(carrying);
+
+            if (!carrying || carryHintText == null || playerCarry == null)
+                return;
+
+            string text = "";
+            if (playerCarry.AllowDrop)
+                text = carryDropHint;
+            if (playerCarry.AllowThrow)
+                text = string.IsNullOrEmpty(text) ? carryThrowHint : text + "\n" + carryThrowHint;
+
+            carryHintText.text = text;
+        }
+
+        private void HideCarryHint() => UpdateCarryHint(false);
+
         private void ShowReloading()
         {
             if (reloadingIndicator != null)
@@ -335,7 +380,13 @@ namespace FPSGame.UI
             }
             
             if (playerHealth != null)
+            {
                 playerHealth.OnHealthChanged -= UpdateHealthUI;
+                playerHealth.OnDeath -= HideCarryHint;
+            }
+
+            if (playerCarry != null)
+                playerCarry.OnCarryingChanged -= UpdateCarryHint;
 
             if (playerShooting != null)
             {

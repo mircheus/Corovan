@@ -20,6 +20,11 @@ namespace FPSGame.Player
         private CarryableObject carriedObject;
 
         public bool IsCarrying => carriedObject != null;
+        public bool AllowDrop => allowDrop;
+        public bool AllowThrow => allowThrow;
+
+        // Fires on the owning client when carrying starts (true) / ends (false). Drives the HUD hint.
+        public event System.Action<bool> OnCarryingChanged;
 
         private void Awake()
         {
@@ -50,6 +55,7 @@ namespace FPSGame.Player
             playerShooting?.SetCarryingMode(true);
             playerController?.SetCarrySpeedMultiplier(target.MovementSpeedMultiplier);
             CmdPickup(target.netIdentity);
+            OnCarryingChanged?.Invoke(true);
         }
 
         // Called from PlayerInputHandler when RMB is pressed while carrying.
@@ -74,6 +80,7 @@ namespace FPSGame.Player
             carriedObject = null;
             playerShooting?.SetCarryingMode(false);
             playerController?.SetCarrySpeedMultiplier(1f);
+            OnCarryingChanged?.Invoke(false);
         }
 
         // Called from PlayerInputHandler when LMB is pressed while carrying.
@@ -90,6 +97,7 @@ namespace FPSGame.Player
             carriedObject = null;
             playerShooting?.SetCarryingMode(false);
             playerController?.SetCarrySpeedMultiplier(1f);
+            OnCarryingChanged?.Invoke(false);
         }
 
         private void AttachToCarryPoint()
