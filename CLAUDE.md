@@ -37,6 +37,7 @@ Assets/Game/
 │   │   ├── DestroyableObject.cs     # Hit-count destruction (SyncVar)
 │   │   ├── DestructionTarget.cs     # Single destructible tracked by DestructionObjective
 │   │   ├── DestructionObjective.cs  # Tracks N targets; fires UnityEvent when complete
+│   │   ├── ExtractionZone.cs        # Win condition: hold the driven car in the zone N seconds (IWinCondition)
 │   │   ├── DoorOpener.cs
 │   │   └── InfiniteRoad.cs          # Client-side scrolling tile recycler (no networking)
 │   ├── Hazards/
@@ -58,6 +59,7 @@ Assets/Game/
 │   ├── UI/
 │   │   ├── HUD.cs
 │   │   ├── MatchEndUI.cs            # Victory/defeat screen + host-only restart
+│   │   ├── ExtractionUI.cs          # Progress bar while the car is held in the ExtractionZone
 │   │   ├── ScoreboardUI.cs
 │   │   ├── PauseMenu.cs
 │   │   └── SettingsMenu.cs
@@ -99,7 +101,8 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - **Defeat** = no registered player is `Alive`. `IsIncapacitated` is the test, so a mix of downed and dead players still loses — a dead teammate can't revive anyone either. Evaluated on `OnDowned`/`OnDeath` and on disconnect, never polled.
 - The roster is owned by `CustomNetworkManager` (`OnServerAddPlayer` / `OnServerDisconnect` → `ServerRegisterPlayer` / `ServerUnregisterPlayer`), not by `PlayerHealth` registering itself — a player who never finished spawning can't leave a dangling subscription.
 - An empty roster never loses: `ServerReevaluateDefeat` returns early on `serverPlayers.Count == 0`, covering both the gap before the first join and the last disconnect.
-- **Victory** is stubbed: `GameStateManager` polls a serialized `MonoBehaviour[]` of `IWinCondition` on `winCheckInterval` (`requireAllWinConditions` = all vs any). The array is empty, so victory currently never fires. `ServerEndMatch` / `ServerTriggerVictory` are public for an objective to force an outcome directly.
+- **Victory**: `GameStateManager` polls a serialized `MonoBehaviour[]` of `IWinCondition` on `winCheckInterval` (`requireAllWinConditions` = all vs any). `ExtractionZone` is the first implementor — hold the driven, alive car inside its trigger for `captureDuration` continuous seconds; it latches `IsMet` and the poll flips the SyncVar. `ServerEndMatch` / `ServerTriggerVictory` remain public for an objective to force an outcome directly.
+- `ExtractionZone` (scene `NetworkBehaviour`, needs a `NetworkIdentity`): tracks overlapping car colliders in a `Dictionary<Collider,CarController>` (per-collider, so a partial exit doesn't drop a car still inside); `HasQualifyingCar` re-checks `HasDriver`/`VehicleIsAlive` each server tick. Capture is all-or-nothing — the deadline resets the instant the car stops qualifying. Countdown synced as a deadline (`captureEndTime`) + `capturing` flag, like bleedout; `CaptureProgress` (0–1) and `OnCapturingChanged` drive `ExtractionUI` (scene-level progress bar, shown only while capturing). `MatchEndUI` shows `ScoreManager.TotalScore` on victory only.
 - Ending the match **does not stop the world** — turrets keep firing, `BarrelSpawner` keeps spawning, bleedout keeps ticking. It only flips the SyncVar. Clients react in `PlayerInputHandler.OnMatchEnded` (disable `PlayerInput`, drop holds, exit vehicle, unlock cursor) and `MatchEndUI`.
 - Restart reloads the active scene via `ServerRestartMatch`; the button is only shown when `NetworkServer.active`. `GameStateManager` is a scene object, so the roster and result reset themselves.
 - `MatchEndUI` is separate from `GameOverUI` — the latter still reacts to the local player's own death while the match may well still be running.
@@ -181,6 +184,7 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 - FPS player: movement/crouch/sprint/jump, camera (ADS FOV, recoil, head bob), multi-weapon shooting (ranged + melee, per-slot ammo, reload, optimistic switch), health/damage/regen/death
 - Downed state + teammate revive (hold E): bleedout deadline paused during a revive, enemies ignore downed players, collapsed pose + marker synced to all clients
 - Match defeat when the whole squad is down/dead (`GameStateManager`): input locked on every client, `MatchEndUI` with a host-only restart
+- Match victory: drive the car into `ExtractionZone` and hold it there for `captureDuration` seconds; `MatchEndUI` shows the collected loot score
 - Carry/throw loot props (client-authority pickup)
 - Vehicle: arcade driving, authority transfer on enter/exit, vehicle health → destruction (fire + explosion FX, kills driver), collision damage, driverless backward drift
 - Enemy turrets shoot at players and driven vehicles; barrel hazard spawner (server pool) on Road scene
@@ -201,7 +205,7 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 
 ### Known gaps
 - No respawn flow (`PlayerHealth.Respawn` exists server-side, no caller)
-- Win condition unimplemented — `GameStateManager.winConditionSources` is empty, so only defeat can fire. `MatchStateMessage` / `MatchState` in `NetworkMessages.cs` remain unused (`GameStateManager` uses its own `MatchResult`)
+- `MatchStateMessage` / `MatchState` in `NetworkMessages.cs` remain unused (`GameStateManager` uses its own `MatchResult`)
 - Vehicle destruction has no wreck/persistent state beyond explosion FX + `vehicleIsAlive`
 - `Enemy.OnAliveChanged` hook empty (no turret death visuals)
 - `Safe` has no loot drop / visual change on destruction

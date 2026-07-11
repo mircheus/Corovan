@@ -19,6 +19,13 @@ namespace FPSGame.UI
         [SerializeField] private string victoryMessage = "VICTORY";
         [SerializeField] private string defeatMessage = "DEFEAT";
 
+        [Header("Score")]
+        [Tooltip("Optional — score readout shown on victory (hidden on defeat).")]
+        [SerializeField] private GameObject scoreRoot;
+        [SerializeField] private TextMeshProUGUI scoreText;
+        [Tooltip("{0} is replaced by the collected loot score.")]
+        [SerializeField] private string scoreFormat = "Loot collected: {0}";
+
         [Header("Restart")]
         [Tooltip("Restarting reloads the scene for everyone, so only the host gets the button.")]
         [SerializeField] private Button restartButton;
@@ -66,6 +73,16 @@ namespace FPSGame.UI
 
             if (outcomeText != null)
                 outcomeText.text = result == MatchResult.Victory ? victoryMessage : defeatMessage;
+
+            // The loot tally is a reward for winning; there's nothing to celebrate on a defeat.
+            bool showScore = result == MatchResult.Victory;
+            if (scoreRoot != null)
+                scoreRoot.SetActive(showScore);
+            if (showScore && scoreText != null)
+            {
+                int score = ScoreManager.Instance != null ? ScoreManager.Instance.TotalScore : 0;
+                scoreText.text = string.Format(scoreFormat, score);
+            }
 
             bool isHost = NetworkServer.active;
 
