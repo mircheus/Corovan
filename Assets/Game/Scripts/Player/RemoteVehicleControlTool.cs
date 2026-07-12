@@ -29,13 +29,26 @@ namespace FPSGame.Player
         private float cooldownRemaining;
         private LineRenderer activePathLine;
 
+        // DIAGNOSTIC: remembers the last logged preview reason so we log only on change (no per-frame spam).
+        private string lastPreviewReason;
+
         private void Awake()
         {
             if (cam == null) cam = Camera.main;
         }
 
+        // DIAGNOSTIC: component-enabled lifecycle. If the line stops after a vehicle enter/exit and
+        // you see an OnDisable here WITHOUT a matching OnEnable, the tool slot was never re-activated
+        // (ActivateWeaponTool not called) — hence Update() stops running and no preview is drawn.
+        private void OnEnable()
+        {
+            Debug.Log($"[RemoteVehicleTool] OnEnable  (component enabled).  isOwned={isOwned}, boundCarNetId={boundCarNetId}", this);
+        }
+
         private void OnDisable()
         {
+            Debug.Log($"[RemoteVehicleTool] OnDisable (component disabled). isOwned={isOwned}, boundCarNetId={boundCarNetId}", this);
+            lastPreviewReason = null; // so the first preview outcome after re-enable always logs
             DestroyPathLine();
         }
 
@@ -56,7 +69,12 @@ namespace FPSGame.Player
         private void Update()
         {
             if (!isOwned) return;
-            if (cam == null || Mouse.current == null) return;
+            if (cam == null || Mouse.current == null)
+            {
+                // DIAGNOSTIC: without a camera or mouse device the whole tool is inert.
+                DiagPreview($"aborted: cam={(cam == null ? "NULL" : "ok")}, mouse={(Mouse.current == null ? "NULL" : "ok")}");
+                return;
+            }
 
             if (cooldownRemaining > 0f)
                 cooldownRemaining -= Time.deltaTime;
@@ -131,15 +149,22 @@ namespace FPSGame.Player
             CarController boundCar = GetBoundCar();
             if (boundCar == null || pathLineTemplate == null)
             {
+                // DIAGNOSTIC: most common causes — no car driven yet (boundCarNetId==0) or the
+                // pathLineTemplate reference is missing on Player.prefab.
+                DiagPreview($"no line: boundCar={(boundCar == null ? $"NULL (boundCarNetId={boundCarNetId})" : "ok")}, template={(pathLineTemplate == null ? "NULL" : "ok")}");
                 DestroyPathLine();
                 return;
             }
 
             if (!RaycastAim(out RaycastHit hit))
             {
+                // DIAGNOSTIC: aim ray hit nothing within maxRange on aimMask (aiming at sky/void, or mask excludes the floor layer).
+                DiagPreview("no line: aim raycast hit nothing (check aimMask / maxRange / where you're aiming)");
                 DestroyPathLine();
                 return;
             }
+
+            DiagPreview($"drawing line: car@{boundCar.transform.position}, hit={hit.point} on '{hit.collider.name}'");
 
             EnsurePathLine();
 
@@ -163,6 +188,18 @@ namespace FPSGame.Player
             activePathLine.gameObject.SetActive(true);
             activePathLine.useWorldSpace = true;
             activePathLine.positionCount = 3;
+
+            // DIAGNOSTIC: a null/deleted material renders the line invisible (or magenta) even though it "draws".
+            var mat = activePathLine.sharedMaterial;
+            Debug.Log($"[RemoteVehicleTool] Instantiated path line. material={(mat == null ? "NULL (invisible!)" : mat.name)}, width={activePathLine.startWidth}->{activePathLine.endWidth}, enabled={activePathLine.enabled}", activePathLine);
+        }
+
+        // DIAGNOSTIC: logs the preview outcome only when the reason string changes, to avoid per-frame console spam.
+        private void DiagPreview(string reason)
+        {
+            if (reason == lastPreviewReason) return;
+            lastPreviewReason = reason;
+            Debug.Log($"[RemoteVehicleTool] preview -> {reason}");
         }
 
         private void DestroyPathLine()

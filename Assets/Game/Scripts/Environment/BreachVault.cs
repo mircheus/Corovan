@@ -31,6 +31,16 @@ namespace FPSGame.Environment
         [Tooltip("Easing: maps normalized time (0..1) to progress (0..1).")]
         [SerializeField] private AnimationCurve swingCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
+        [Header("Indicator Lights")]
+        [Tooltip("Lights that signal vault state: red while closed, green while open.")]
+        [SerializeField] private Light[] indicatorLights;
+
+        [Tooltip("Color shown while the vault is closed.")]
+        [SerializeField] private Color closedColor = Color.red;
+
+        [Tooltip("Color shown while the vault is open.")]
+        [SerializeField] private Color openColor = Color.green;
+
         [SyncVar(hook = nameof(OnOpenChanged))]
         private bool isOpen;
 
@@ -77,6 +87,7 @@ namespace FPSGame.Environment
             clientStarted = true;
             // Late joiners: snap to the current pose with no animation.
             ApplyRotation(isOpen ? openRot : closedRot);
+            ApplyIndicatorLights(isOpen);
         }
 
         // §5: open at Open, closed otherwise. IsVaultOpen already encodes that.
@@ -96,6 +107,9 @@ namespace FPSGame.Environment
 
         private void OnOpenChanged(bool oldValue, bool newValue)
         {
+            // Lights flip instantly with state, independent of the door's swing animation.
+            ApplyIndicatorLights(newValue);
+
             // Hook can fire during initial spawn (before OnStartClient) for late joiners —
             // snap in that case rather than animating from an unset pose.
             if (!clientStarted)
@@ -131,6 +145,19 @@ namespace FPSGame.Environment
         {
             if (doorPivot != null)
                 doorPivot.localRotation = rot;
+        }
+
+        private void ApplyIndicatorLights(bool open)
+        {
+            if (indicatorLights == null)
+                return;
+
+            Color color = open ? openColor : closedColor;
+            foreach (Light light in indicatorLights)
+            {
+                if (light != null)
+                    light.color = color;
+            }
         }
     }
 }
