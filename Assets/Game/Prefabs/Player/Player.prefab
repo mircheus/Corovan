@@ -2389,7 +2389,7 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   carryPoint: {fileID: 2246118536426932298}
-  allowThrow: 0
+  allowThrow: 1
   allowDrop: 1
 --- !u!114 &3654276019762407944
 MonoBehaviour:
