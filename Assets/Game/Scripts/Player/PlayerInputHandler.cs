@@ -610,6 +610,14 @@ namespace FPSGame.Player
             if (currentVehicle != null)
             {
                 currentVehicle.SetMoveInput(Vector2.zero);
+
+                // Drop the owner at the car's exit point while the CharacterController is still
+                // disabled (vehicle mode). SetVehicleMode(false) below re-enables it and it adopts
+                // this spot. Enabling the CC first and moving after would let it snap the player
+                // back to where it was disabled (the entry point) — a teleport off the car.
+                Transform exit = currentVehicle.ExitPoint;
+                if (exit != null)
+                    transform.position = exit.position;
             }
             currentVehicle = null;
             playerController?.SetVehicleMode(false);

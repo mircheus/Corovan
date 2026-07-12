@@ -487,16 +487,18 @@ namespace FPSGame.Vehicle
                 // Driver exited
                 if (NetworkClient.spawned.TryGetValue(oldId, out NetworkIdentity driverIdentity))
                 {
-                    SetDriverVisible(driverIdentity.gameObject, true);
+                    // Place the driver at the exit point BEFORE re-enabling its CharacterController.
+                    // An enabled CharacterController caches its own position and overrides transform
+                    // writes on its next internal step, snapping the player back to wherever the CC
+                    // was disabled (the spot they entered the car) — a teleport to the entry point.
+                    // Setting the position while the CC is still off (vehicle mode) makes it adopt
+                    // the new spot when SetDriverVisible re-enables it.
                     if (exitPoint != null)
-                    {
-                        driverIdentity.transform.position = exitPoint.position;
-                        driverIdentity.transform.rotation = exitPoint.rotation;
-                    }
+                        driverIdentity.transform.SetPositionAndRotation(exitPoint.position, exitPoint.rotation);
                     else
-                    {
                         driverIdentity.transform.position = transform.position + transform.right * 2.5f;
-                    }
+
+                    SetDriverVisible(driverIdentity.gameObject, true);
                 }
             }
         }
