@@ -262,9 +262,9 @@ namespace FPSGame.Player
                 if (targetHealth != null && targetHealth.gameObject != gameObject)
                     targetHealth.TakeDamage(currentWeapon.Damage, hit.point, -hit.normal);
 
-                FPSGame.Environment.Enemy enemy = hit.collider.GetComponentInParent<FPSGame.Environment.Enemy>();
-                if (enemy != null)
-                    enemy.TakeDamage(currentWeapon.Damage);
+                FPSGame.Environment.EnemyTurret enemyTurret = hit.collider.GetComponentInParent<FPSGame.Environment.EnemyTurret>();
+                if (enemyTurret != null)
+                    enemyTurret.TakeDamage(currentWeapon.Damage);
 
                 FPSGame.Environment.ZombieEnemy zombie = hit.collider.GetComponentInParent<FPSGame.Environment.ZombieEnemy>();
                 if (zombie != null)

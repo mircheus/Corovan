@@ -6,7 +6,7 @@ using Unity.VisualScripting;
 
 namespace FPSGame.Environment
 {
-    public class Enemy : NetworkBehaviour
+    public class EnemyTurret : NetworkBehaviour
     {
         [Header("Combat")]
         [SerializeField] private GameObject projectilePrefab;
