@@ -3304,14 +3304,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  mu: 1.5
-  maxAngularVelocity: 20
-  angularDamping: 0.1
-  bumpImpulseScale: 2
-  dragCoefficient: 0.02
-  settleEpsilon: 0.35
-  settleFrames: 10
-  despawnZ: -160
+  profile: {fileID: 0}
   startDetached: 1
 --- !u!1 &505543001 stripped
 GameObject:
@@ -15937,14 +15930,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  mu: 3
-  maxAngularVelocity: 45
-  angularDamping: 0.03
-  bumpImpulseScale: 1
-  dragCoefficient: 0.02
-  settleEpsilon: 0.35
-  settleFrames: 10
-  despawnZ: -160
+  profile: {fileID: 0}
   startDetached: 1
 --- !u!1 &1623911938
 GameObject:
@@ -16261,14 +16247,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  mu: 1.5
-  maxAngularVelocity: 20
-  angularDamping: 0.1
-  bumpImpulseScale: 2
-  dragCoefficient: 0.02
-  settleEpsilon: 0.35
-  settleFrames: 10
-  despawnZ: -160
+  profile: {fileID: 0}
   startDetached: 1
 --- !u!1 &1655648459
 GameObject:
@@ -17248,14 +17227,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  mu: 1.5
-  maxAngularVelocity: 20
-  angularDamping: 0.1
-  bumpImpulseScale: 2
-  dragCoefficient: 0.02
-  settleEpsilon: 0.35
-  settleFrames: 10
-  despawnZ: -160
+  profile: {fileID: 0}
   startDetached: 1
 --- !u!1001 &1915578781
 PrefabInstance:
