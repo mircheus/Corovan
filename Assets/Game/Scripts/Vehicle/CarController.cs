@@ -18,6 +18,8 @@ namespace FPSGame.Vehicle
     {
         [Header("References: ")]
         [SerializeField] private Rigidbody rb;
+        [Tooltip("The car's NetworkTransform. Its sync direction is flipped at runtime: ClientToServer while a driver holds authority, ServerToClient while the server drives it (idle / driverless drift / autopilot). Auto-resolved from this GameObject if left empty.")]
+        [SerializeField] private NetworkTransformBase networkTransform;
         
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 15f;
@@ -138,6 +140,9 @@ namespace FPSGame.Vehicle
             // rb = GetComponent<Rigidbody>();/**/
             rb.freezeRotation = true;
 
+            if (networkTransform == null)
+                networkTransform = GetComponent<NetworkTransformBase>();
+
             chaosSeedX = Random.value * 1000f;
             chaosSeedZ = Random.value * 1000f;
         }
@@ -147,6 +152,28 @@ namespace FPSGame.Vehicle
             base.OnStartServer();
             vehicleHealth = maxVehicleHealth;
             vehicleIsAlive = true;
+
+            // Server owns the car until a driver takes the seat. ServerToClient lets the
+            // server broadcast its own movement (driverless drift, autopilot) to all clients.
+            ServerSetClientDriven(false);
+        }
+
+        /// <summary>
+        /// Server-only: switches the NetworkTransform between client-authoritative driving and
+        /// server-authoritative movement. Without this, a driverless car moved by the server
+        /// (RollBackward drift, autopilot) never broadcasts its position — Mirror's
+        /// NetworkTransform only sends server movement in ServerToClient mode — so remote
+        /// clients see the car frozen while the host sees it move.
+        /// </summary>
+        [Server]
+        private void ServerSetClientDriven(bool clientDriven)
+        {
+            if (networkTransform == null)
+                return;
+
+            networkTransform.syncDirection = clientDriven
+                ? SyncDirection.ClientToServer
+                : SyncDirection.ServerToClient;
         }
 
         [Server]
@@ -414,6 +441,7 @@ namespace FPSGame.Vehicle
 
             ServerStopAutopilot();
             netIdentity.AssignClientAuthority(conn);
+            ServerSetClientDriven(true);
             driverNetId = player.netId;
             hasBeenDriven = true;
 
@@ -437,6 +465,9 @@ namespace FPSGame.Vehicle
             moveInput = Vector2.zero;
             currentVelocity = Vector3.zero;
             netIdentity.RemoveClientAuthority();
+            // Hand movement authority back to the server so the driverless drift / autopilot
+            // it performs from here on actually broadcasts to remote clients.
+            ServerSetClientDriven(false);
 
             ServerOnDriverExited?.Invoke(this, exitingDriver);
         }
