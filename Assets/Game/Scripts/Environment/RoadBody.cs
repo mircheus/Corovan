@@ -33,10 +33,14 @@ namespace FPSGame.Environment
     /// Feel parameters live in a shared <see cref="RoadBodyData"/> profile so a family of
     /// props can be tuned in one place.
     ///
-    /// This is the "feel first" pass (road-physics-spec.md steps 1–4): server physics, phase
-    /// machine, and Settled extrapolation via SyncVars. The two-mode replication toggle
-    /// (NetworkRigidbodyUnreliable on/off) and pooling come in the networking pass — see the
-    /// TODOs in <see cref="SetPhase"/> / <see cref="OnPhaseChanged"/> / <see cref="Despawn"/>.
+    /// Networking (road-physics-spec.md §6.2, the main optimisation): a single
+    /// <see cref="NetworkTransformBase"/> (a NetworkRigidbody/NetworkTransform Unreliable
+    /// component on this same object) is switched OFF while the prop is Settled and back ON in
+    /// every other phase. In this Mirror build all of that component's sending and interpolation
+    /// runs from Unity's Update/LateUpdate/FixedUpdate, so disabling the behaviour cleanly stops
+    /// the traffic; the client then drives position analytically from <see cref="RoadScroll"/>
+    /// (see the Settled branch of <see cref="Update"/>). Pooling (§6.4) and interest management
+    /// (§6.5) are deferred until a runtime spawner actually churns many of these props.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class RoadBody : NetworkBehaviour
@@ -52,12 +56,27 @@ namespace FPSGame.Environment
                  "(road-physics-spec.md step 2). Leave off for real trailer-launched props.")]
         [SerializeField] private bool startDetached = false;
 
-        [SyncVar(hook = nameof(OnPhaseChanged))] private RoadPhase _phase = RoadPhase.OnTruck;
+        [Header("Networking")]
+        [Tooltip("The NetworkTransform/NetworkRigidbody (Unreliable) on this object. Enabled " +
+                 "during the tumble (InAir/OnRoad), disabled while Settled so clients extrapolate " +
+                 "from RoadScroll instead of receiving snapshots. Auto-grabbed in Awake if empty.")]
+        [SerializeField] private NetworkTransformBase netSync;
 
-        // Analytic extrapolation data for the Settled phase.
+        [Header("VFX (played locally on every client, no RPC)")]
+        [Tooltip("Optional. Spawned once when the prop first slams onto the road. Should " +
+                 "self-destroy (e.g. a one-shot ParticleSystem). road-physics-spec.md §6.3.")]
+        [SerializeField] private GameObject landingEffectPrefab;
+        [Tooltip("Optional. Spawned once when the prop settles onto the belt. Should self-destroy.")]
+        [SerializeField] private GameObject settleEffectPrefab;
+
+        // Analytic extrapolation data for the Settled phase. Declared BEFORE _phase so that, in a
+        // batched SyncVar update, clients deserialize the settled pose/distance first and the
+        // _phase hook (which flips replication) fires with the pose already in place.
         [SyncVar] private Vector3 _settledPos;
         [SyncVar] private Quaternion _settledRot;
         [SyncVar] private double _settledDistance;
+
+        [SyncVar(hook = nameof(OnPhaseChanged))] private RoadPhase _phase = RoadPhase.OnTruck;
 
         // Cached from the profile in Awake (defaults apply when no profile is assigned).
         private float _mu = 0.6f;
@@ -79,6 +98,7 @@ namespace FPSGame.Environment
         private void Awake()
         {
             _rb = GetComponent<Rigidbody>();
+            if (netSync == null) netSync = GetComponent<NetworkTransformBase>();
             CacheProfile();
 
             _rb.maxAngularVelocity = _maxAngularVelocity;
@@ -117,6 +137,7 @@ namespace FPSGame.Environment
             base.OnStartServer();
             if (startDetached)
                 SetPhase(RoadPhase.InAir);   // step-2 editor drop-test: tumble without a trailer
+            ApplyReplicationMode(_phase);    // seed the initial mode (SetPhase already did it if we launched)
         }
 
         public override void OnStartClient()
@@ -124,6 +145,9 @@ namespace FPSGame.Environment
             base.OnStartClient();
             if (!isServer)
                 _rb.isKinematic = true;   // remote clients are pure proxies
+            // Match the sync component to whatever phase we spawned in — a prop that spawns
+            // already Settled must not have its transform fought over by an enabled NetworkTransform.
+            ApplyReplicationMode(_phase);
         }
 
         // ---------- SERVER ----------
@@ -242,24 +266,50 @@ namespace FPSGame.Environment
         {
             _phase = p;
             _settleCounter = 0;
-            // TODO (networking pass): enable NetworkRigidbodyUnreliable for InAir/OnRoad and
-            // disable it for Settled — see road-physics-spec.md §6.2.
+            ApplyReplicationMode(p);   // server stops/starts its own broadcast; §6.2
         }
 
         [Server]
         private void Despawn()
         {
-            // TODO (networking pass): return to the server pool instead of destroying —
-            // see road-physics-spec.md §6.4.
+            // TODO (networking pass): once a runtime spawner exists, return to the server pool
+            // instead of destroying (RegisterSpawnHandler + a pool) — see road-physics-spec.md §6.4.
             NetworkServer.Destroy(gameObject);
+        }
+
+        // ---------- SHARED ----------
+
+        /// <summary>
+        /// The §6.2 two-mode toggle. Every phase but Settled replicates the transform normally;
+        /// Settled disables the sync component so no snapshots flow and the client extrapolates
+        /// analytically. Runs on the server (from <see cref="SetPhase"/>) and on every client
+        /// (from <see cref="OnPhaseChanged"/> and the OnStart* seeds) — it just sets a bool, so
+        /// calling it from several entry points is harmless and idempotent.
+        /// </summary>
+        private void ApplyReplicationMode(RoadPhase p)
+        {
+            if (netSync == null) return;
+            netSync.enabled = p != RoadPhase.Settled;
         }
 
         // ---------- CLIENT ----------
 
-        private void OnPhaseChanged(RoadPhase _, RoadPhase now)
+        private void OnPhaseChanged(RoadPhase previous, RoadPhase now)
         {
-            // TODO (networking pass): spawn dust / sparks / grind SFX locally from RoadScroll.Speed
-            // (no per-effect RPC — see road-physics-spec.md §6.3), and switch replication mode.
+            ApplyReplicationMode(now);   // §6.2: flip snapshot replication on/off for this client
+            PlayPhaseVfx(previous, now); // §6.3: clients play their own effects, no per-effect RPC
+        }
+
+        /// <summary>
+        /// Local, un-networked effects driven purely off the phase transition (road-physics-spec.md
+        /// §6.3 — no RPC). Prefabs are optional; each should manage its own lifetime.
+        /// </summary>
+        private void PlayPhaseVfx(RoadPhase previous, RoadPhase now)
+        {
+            if (previous == RoadPhase.InAir && now == RoadPhase.OnRoad && landingEffectPrefab != null)
+                Instantiate(landingEffectPrefab, transform.position, transform.rotation);
+            else if (now == RoadPhase.Settled && settleEffectPrefab != null)
+                Instantiate(settleEffectPrefab, transform.position, transform.rotation);
         }
 
         // ---------- EDITOR ----------
