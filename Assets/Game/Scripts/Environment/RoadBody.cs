@@ -237,7 +237,10 @@ namespace FPSGame.Environment
         {
             bool isRoad = c.collider.GetComponent<RoadSurface>() != null;
 
-            if (_phase == RoadPhase.InAir && isRoad)
+            // Touching the RoadSurface means the prop is on the road by definition — no matter
+            // how it got here. A launched prop arrives via InAir; one that simply slid/fell off
+            // the bed (or a standalone editor test prop) is still OnTruck. Both become OnRoad.
+            if ((_phase == RoadPhase.InAir || _phase == RoadPhase.OnTruck) && isRoad)
             {
                 SetPhase(RoadPhase.OnRoad);
             }
