@@ -96,7 +96,7 @@ namespace FPSGame.Environment
         {
             ServerSetOpen(console.IsVaultOpen);
         }
-
+        
         [Server]
         private void ServerSetOpen(bool open)
         {
@@ -104,7 +104,7 @@ namespace FPSGame.Environment
                 return;
             isOpen = open; // hook drives the swing on every client (host included)
         }
-
+        
         private void OnOpenChanged(bool oldValue, bool newValue)
         {
             // Lights flip instantly with state, independent of the door's swing animation.

@@ -124,6 +124,18 @@ namespace FPSGame.Environment
             }
         }
 
+        // Debug/test entry: force the breach without a key-card, slot or operator (bypasses
+        // BreachConsoleSlot entirely). Toggles the card state so a second call pulls it back
+        // out. Blocked during overheat, same as the real slot. Server-only — call from a
+        // host-side debug hotkey. Remove with the rest of the debug scaffolding before ship.
+        [Server]
+        public void DebugToggleBreach()
+        {
+            if (state == ConsoleState.Overheat)
+                return; // slot blocked, mirror SetCardInSlot
+            cardInSlot = !cardInSlot;
+        }
+
         private void EnterBreaching()
         {
             warmupTimer = warmupDuration;

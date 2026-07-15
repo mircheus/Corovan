@@ -1,3 +1,4 @@
+using Mirror;
 using UnityEngine;
 
 namespace FPSGame.Environment
@@ -13,6 +14,8 @@ namespace FPSGame.Environment
         [SerializeField] private Vector2 screenOffset = new Vector2(16f, 16f);
         [Tooltip("Also print each state transition to the Console log.")]
         [SerializeField] private bool logTransitions = true;
+        [Tooltip("Hotkey that force-breaches the console with no key-card (server/host only).")]
+        [SerializeField] private KeyCode debugBreachKey = KeyCode.F8;
 
         private static readonly Color IdleColor = new Color(0.6f, 0.6f, 0.6f);
         private static readonly Color BreachingColor = new Color(1f, 0.85f, 0.2f);
@@ -40,6 +43,23 @@ namespace FPSGame.Environment
         {
             if (console != null)
                 console.OnStateChanged -= HandleStateChanged;
+        }
+
+        private void Update()
+        {
+            if (console == null || !Input.GetKeyDown(debugBreachKey))
+                return;
+
+            // SetCardInSlot / DebugToggleBreach are server-authoritative, so this only bites
+            // on the host or a headless server. Warn instead of silently doing nothing on a
+            // pure client.
+            if (!NetworkServer.active)
+            {
+                Debug.LogWarning($"[BreachConsole] {name}: {debugBreachKey} test-breach ignored — not the server/host.", this);
+                return;
+            }
+
+            console.DebugToggleBreach();
         }
 
         private void HandleStateChanged(ConsoleState state)
