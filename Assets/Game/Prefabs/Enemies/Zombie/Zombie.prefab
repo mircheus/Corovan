@@ -85,7 +85,7 @@ MonoBehaviour:
   playerLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  moveSpeed: 4
+  moveSpeed: 6
   rotationSpeed: 10
   attackDamage: 15
   attackCooldown: 1.5
@@ -189,11 +189,12 @@ MonoBehaviour:
   syncInterval: 0
   floorMask:
     serializedVersion: 2
-    m_Bits: 1024
+    m_Bits: 1025
   groundCheckDistance: 0.5
   groundCheckUpOffset: 0.3
   groundCheckRadius: 0.25
   gravity: 25
+  fallGraceTime: 0.35
 --- !u!54 &6419120519246709666
 Rigidbody:
   m_ObjectHideFlags: 0

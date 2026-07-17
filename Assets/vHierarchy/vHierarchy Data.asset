@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a9752b0c8e144801967e6897679604b, type: 3}
+  m_Name: vHierarchy Data
+  m_EditorClassIdentifier: 
+  sceneDatas_byGuid:
+    keys:
+    - f6020d4ff575d1645aed042bf9439161
+    - 1e81198417c41ea41bb0ec89e310edeb
+    - cce2f2aa98148da46be381bfc60b59b9
+    - 5ae6622334f869b4c962d162684e0872
+    - 7f256cb9c9090444d938446d0d550c68
+    - a5cfbd2501736344b877fa552a262dce
+    values:
+    - goDatas_byGlobalId:
+        keys: []
+        values: []
+    - goDatas_byGlobalId:
+        keys: []
+        values: []
+    - goDatas_byGlobalId:
+        keys: []
+        values: []
+    - goDatas_byGlobalId:
+        keys: []
+        values: []
+    - goDatas_byGlobalId:
+        keys: []
+        values: []
+    - goDatas_byGlobalId:
+        keys:
+        - globalObjectIdString: GlobalObjectId_V1-2-a5cfbd2501736344b877fa552a262dce-441759085-0
+        - globalObjectIdString: GlobalObjectId_V1-2-a5cfbd2501736344b877fa552a262dce-1918764089-0
+        values:
+        - colorIndex: 4
+          iconNameOrGuid: BoxCollider Icon
+        - colorIndex: 8
+          iconNameOrGuid: 

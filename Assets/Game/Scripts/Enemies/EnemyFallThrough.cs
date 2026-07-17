@@ -42,11 +42,15 @@ namespace FPSGame.Enemies
 
         [Header("Fall")]
         [SerializeField] private float gravity = 25f;
+        [Tooltip("How long the floor must be continuously missing before committing to a fall. " +
+                 "Filters out the momentary gaps between stair steps; a real hole persists.")]
+        [SerializeField] private float fallGraceTime = 0.35f;
 
         private NavMeshAgent agent;
         private ZombieEnemy zombie;
         private bool falling;
         private float fallVelocity;
+        private float noFloorTimer;
 
         private void Awake()
         {
@@ -71,8 +75,16 @@ namespace FPSGame.Enemies
             if (!agent.enabled || !agent.isOnNavMesh)
                 return;
 
-            if (!HasFloorBelow())
-                BeginFall();
+            // A single missed cast happens between stair steps; only a hole keeps the floor
+            // missing for longer than fallGraceTime.
+            if (HasFloorBelow())
+                noFloorTimer = 0f;
+            else
+            {
+                noFloorTimer += Time.deltaTime;
+                if (noFloorTimer >= fallGraceTime)
+                    BeginFall();
+            }
         }
 
         private bool HasFloorBelow()

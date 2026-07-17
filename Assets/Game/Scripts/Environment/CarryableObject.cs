@@ -24,6 +24,7 @@ namespace FPSGame.Environment
 
         private Rigidbody rb;
         private BoxCollider[] colliders;
+        private NetworkTransformBase netTransform;
 
         public bool IsCarried => isCarried;
         public float PickupRange => pickupRange;
@@ -38,6 +39,21 @@ namespace FPSGame.Environment
         {
             rb = GetComponent<Rigidbody>();
             colliders = GetComponentsInChildren<BoxCollider>();
+            netTransform = GetComponent<NetworkTransformBase>();
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            // Sync the physics/authority state to whatever the object spawned in as, so a
+            // late-joining client sets kinematic + syncDirection correctly for free/carried loot.
+            ApplyCarriedState(isCarried);
+        }
+
+        public override void OnStartServer()
+        {
+            base.OnStartServer();
+            ApplyCarriedState(isCarried);
         }
 
         private void OnCarriedChanged(bool oldValue, bool newValue)
@@ -54,9 +70,20 @@ namespace FPSGame.Environment
 
         private void ApplyCarriedState(bool carried)
         {
-            rb.isKinematic = carried;
+            // Physics authority: the server simulates free loot (so MotionDirector's lateral
+            // push is real and replicates), while every non-server peer keeps it kinematic and
+            // just follows the NetworkTransform. Carried loot is kinematic everywhere — it rides
+            // the carrier's hand and its world position is streamed by the owner.
+            rb.isKinematic = carried || !isServer;
+
             foreach (var col in colliders)
                 col.enabled = !carried;
+
+            // While carried, the owning client drives the transform (ClientToServer). While free,
+            // the server drives it (ServerToClient) so server-side physics reaches all clients.
+            if (netTransform != null)
+                netTransform.syncDirection = carried ? SyncDirection.ClientToServer
+                                                     : SyncDirection.ServerToClient;
         }
 
         [Server]
@@ -66,8 +93,8 @@ namespace FPSGame.Environment
                 return;
 
             isCarried = true;
-            rb.isKinematic = true;
             netIdentity.AssignClientAuthority(conn);
+            ApplyCarriedState(true);
         }
 
         [Server]
@@ -75,7 +102,7 @@ namespace FPSGame.Environment
         {
             netIdentity.RemoveClientAuthority();
             isCarried = false;
-            rb.isKinematic = false;
+            ApplyCarriedState(false);
         }
 
         [Server]
@@ -83,7 +110,7 @@ namespace FPSGame.Environment
         {
             netIdentity.RemoveClientAuthority();
             isCarried = false;
-            rb.isKinematic = false;
+            ApplyCarriedState(false);
             rb.AddForce(impulse, ForceMode.Impulse);
         }
     }
