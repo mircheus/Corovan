@@ -69,6 +69,7 @@ namespace FPSGame.Environment
         private bool targetCommanded;
         private float attackTimer;
         private int stateParamHash;
+        private bool isFalling;
 
         // ── Public accessors ──────────────────────────────────────────────
 
@@ -117,6 +118,11 @@ namespace FPSGame.Environment
         private void Update()
         {
             if (!isServer || !isAlive)
+                return;
+
+            // While falling through a hole the agent is disabled and gravity drives the
+            // transform (see EnemyFallThrough) — don't steer or touch the agent.
+            if (isFalling || !agent.enabled || !agent.isOnNavMesh)
                 return;
 
             ValidateTarget();
@@ -187,6 +193,21 @@ namespace FPSGame.Environment
                 return;
             currentTarget = target;
             targetCommanded = true;
+        }
+
+        // Called by EnemyFallThrough the moment the zombie starts falling through a hole.
+        // The agent is already disabled by then; here we just stop the AI acting so it can't
+        // attack or re-acquire a target mid-air.
+        [Server]
+        public void ServerBeginFall()
+        {
+            if (isFalling)
+                return;
+            isFalling = true;
+            currentTarget = null;
+            targetCommanded = false;
+            CancelInvoke(nameof(DealDamage));
+            TransitionTo(ZombieState.Idle);
         }
 
         // ── Server helpers ────────────────────────────────────────────────
