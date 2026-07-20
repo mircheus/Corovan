@@ -13,7 +13,9 @@
       "Bash(awk 'BEGIN{RS=\"--- \"} /6741172468331343892/ && /^!u!1 &/ {print \"=== GO block:\"; print substr\\($0,1,1200\\)}' Assets/Game/Prefabs/Player/Player.prefab)",
       "Bash(grep -nA6 \"guid: 2f69c316a0e3430c8e2b128a80430e14\" Assets/Game/Prefabs/UI/GameOverUI.prefab)",
       "Bash(ls -la Assets/Game/Scenes/)",
-      "Bash(find Assets -iname \"*Hardcode*\")"
+      "Bash(find Assets -iname \"*Hardcode*\")",
+      "Bash(powershell.exe *)",
+      "Bash(git checkout *)"
     ]
   }
 }

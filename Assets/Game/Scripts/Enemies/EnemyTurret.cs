@@ -2,7 +2,6 @@ using Mirror;
 using UnityEngine;
 using FPSGame.Player;
 using FPSGame.Vehicle;
-using Unity.VisualScripting;
 
 namespace FPSGame.Environment
 {
@@ -15,21 +14,16 @@ namespace FPSGame.Environment
         [SerializeField] private int projectileDamage = 10;
         [SerializeField] private float projectileSpeed = 20f;
         [SerializeField] private float rotationSpeed = 5f;
-        [SerializeField] private bool keepAttackAfterTriggerExit;
-        [SerializeField] private Collider detectionCollider;
-        [Tooltip("How often the turret re-sweeps its detection volume while it has no target. " +
-                 "Catches players who were already inside it — a revived teammate never re-enters the trigger.")]
-        [SerializeField] private float retargetInterval = 0.5f;
         [Tooltip("Child object (the gun/turret) that rotates to face the target. Falls back to this transform if unset.")]
         [SerializeField] private Transform rotatingPart;
 
         [Header("Health")]
         [SerializeField] private int maxHealth = 100;
-        
+
         [Header("Materials")]
         [SerializeField] private Material attacking;
         [SerializeField] private Material neutral;
-        
+
         [Header("Animation")]
         [SerializeField] private Animator animator;
 
@@ -51,25 +45,25 @@ namespace FPSGame.Environment
         private int health;
 
         private float fireCooldown;
-        private float retargetTimer;
-        private static readonly Collider[] retargetBuffer = new Collider[16];
         private PlayerHealth currentPlayerTarget;
         private CarController currentCarTarget;
-        private Renderer detectionRenderer;
         private float initialRotX;
         private float initialRotZ;
-        
+
         private int _shot = Animator.StringToHash("Shot");
 
         public bool IsAlive => isAlive;
         public int Health => health;
         public int MaxHealth => maxHealth;
 
+        // Target ownership is exposed to EnemyTurretTrigger, which owns all detection and
+        // pushes acquire/clear here. The turret itself only tracks, aims and fires.
+        public bool HasTarget => currentPlayerTarget != null || currentCarTarget != null;
+        public PlayerHealth CurrentPlayerTarget => currentPlayerTarget;
+        public CarController CurrentCarTarget => currentCarTarget;
+
         private void Awake()
         {
-            detectionCollider.isTrigger = true;
-            // detectionRenderer = GetComponent<Renderer>();
-            // detectionRenderer.material = neutral;
             if (rotatingPart == null)
                 rotatingPart = transform;
             initialRotX = rotatingPart.eulerAngles.x;
@@ -88,29 +82,29 @@ namespace FPSGame.Environment
             if (!isServer || !isAlive)
                 return;
 
-            // Validate and clear stale targets.
-            if (currentPlayerTarget != null && !currentPlayerTarget.IsTargetable)
+            // Detection (enter/exit/re-sweep) lives in EnemyTurretTrigger. Here we only drop a
+            // target that stopped being valid without ever leaving the volume — e.g. a player who
+            // goes down inside it (no OnTriggerExit fires). The trigger's periodic sweep re-acquires
+            // them once revived.
+            if (currentPlayerTarget != null)
             {
-                ClearTarget();
-                return;
-            }
-            if (currentCarTarget != null && (!currentCarTarget.HasDriver || !currentCarTarget.VehicleIsAlive))
-            {
-                ClearTarget();
-                return;
-            }
-
-            if (currentPlayerTarget == null && currentCarTarget == null)
-            {
-                retargetTimer -= Time.deltaTime;
-                if (retargetTimer > 0f)
+                if (!currentPlayerTarget.IsTargetable)
+                {
+                    ServerClearTarget();
                     return;
-
-                retargetTimer = retargetInterval;
-                ReacquireTarget();
-
-                if (currentPlayerTarget == null && currentCarTarget == null)
+                }
+            }
+            else if (currentCarTarget != null)
+            {
+                if (!currentCarTarget.HasDriver || !currentCarTarget.VehicleIsAlive)
+                {
+                    ServerClearTarget();
                     return;
+                }
+            }
+            else
+            {
+                return;
             }
 
             RotateTowardsTarget();
@@ -123,18 +117,39 @@ namespace FPSGame.Environment
             fireCooldown = 1f / fireRate;
         }
 
+        [Server]
+        public void ServerAcquireTarget(PlayerHealth player)
+        {
+            if (player == null)
+                return;
+            currentPlayerTarget = player;
+            currentCarTarget = null;
+            // detectionRenderer.material = attacking;
+        }
+
+        [Server]
+        public void ServerAcquireTarget(CarController car)
+        {
+            if (car == null)
+                return;
+            currentCarTarget = car;
+            currentPlayerTarget = null;
+            // detectionRenderer.material = attacking;
+        }
+
+        [Server]
+        public void ServerClearTarget()
+        {
+            currentPlayerTarget = null;
+            currentCarTarget = null;
+            // detectionRenderer.material = neutral;
+        }
+
         private Vector3 GetTargetPosition()
         {
             if (currentPlayerTarget != null)
                 return currentPlayerTarget.transform.position + Vector3.up;
             return currentCarTarget.transform.position + Vector3.up;
-        }
-
-        private void ClearTarget()
-        {
-            currentPlayerTarget = null;
-            currentCarTarget = null;
-            // detectionRenderer.material = neutral;
         }
 
         private void RotateTowardsTarget()
@@ -146,96 +161,6 @@ namespace FPSGame.Environment
             float targetAngle = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
             float newY = Mathf.LerpAngle(rotatingPart.eulerAngles.y, targetAngle, rotationSpeed * Time.deltaTime);
             rotatingPart.rotation = Quaternion.Euler(initialRotX, newY, initialRotZ);
-        }
-
-        // Acquisition normally rides on OnTriggerEnter, which only fires when something crosses the
-        // boundary. A player who went down inside the volume stops being a target, and once a
-        // teammate picks them back up they never re-enter — so sweep the volume periodically too.
-        [Server]
-        private void ReacquireTarget()
-        {
-            if (detectionCollider == null)
-                return;
-
-            // The AABB is a superset of the trigger; ClosestPoint then rejects anything that is
-            // inside the box but outside the actual shape.
-            Bounds bounds = detectionCollider.bounds;
-            int count = Physics.OverlapBoxNonAlloc(
-                bounds.center, bounds.extents, retargetBuffer, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
-
-            for (int i = 0; i < count; i++)
-            {
-                var ph = retargetBuffer[i].GetComponentInParent<PlayerHealth>();
-                if (ph == null || !ph.IsTargetable || !IsInsideDetection(ph.transform.position))
-                    continue;
-
-                currentPlayerTarget = ph;
-                return;
-            }
-
-            for (int i = 0; i < count; i++)
-            {
-                var car = retargetBuffer[i].GetComponentInParent<CarController>();
-                if (car == null || !car.HasDriver || !car.VehicleIsAlive || !IsInsideDetection(car.transform.position))
-                    continue;
-
-                currentCarTarget = car;
-                return;
-            }
-        }
-
-        private bool IsInsideDetection(Vector3 worldPosition)
-        {
-            return (detectionCollider.ClosestPoint(worldPosition) - worldPosition).sqrMagnitude < 0.01f;
-        }
-
-        private void OnTriggerEnter(Collider other)
-        {
-            if (!isServer || !isAlive || currentPlayerTarget != null || currentCarTarget != null)
-                return;
-
-            var ph = other.GetComponentInParent<PlayerHealth>();
-            if (ph != null && ph.IsTargetable)
-            {
-                currentPlayerTarget = ph;
-                // detectionRenderer.material = attacking;
-                Debug.Log($"[Enemy] {name}: player detected — {ph.name}");
-                return;
-            }
-
-            var car = other.GetComponentInParent<CarController>();
-            if (car != null && car.HasDriver && car.VehicleIsAlive)
-            {
-                currentCarTarget = car;
-                // detectionRenderer.material = attacking;
-                Debug.Log($"[Enemy] {name}: vehicle detected — {car.name}");
-            }
-        }
-
-        private void OnTriggerExit(Collider other)
-        {
-            if (!isServer)
-                return;
-
-            if (keepAttackAfterTriggerExit)
-            {
-                return;
-            }
-
-            var ph = other.GetComponentInParent<PlayerHealth>();
-            if (ph != null && ph == currentPlayerTarget)
-            {
-                ClearTarget();
-                Debug.Log($"[Enemy] {name}: player left range — {ph.name}");
-                return;
-            }
-
-            var car = other.GetComponentInParent<CarController>();
-            if (car != null && car == currentCarTarget)
-            {
-                ClearTarget();
-                Debug.Log($"[Enemy] {name}: vehicle left range — {car.name}");
-            }
         }
 
         private void FireAt(Vector3 targetPos)
@@ -328,17 +253,6 @@ namespace FPSGame.Environment
         {
             if (deathEffect != null)
                 deathEffect.SetActive(false);
-        }
-
-        private void OnDrawGizmosSelected()
-        {
-            var col = GetComponent<SphereCollider>();
-            if (col == null) return;
-
-            Gizmos.color = new Color(1f, 0.2f, 0.2f, 0.25f);
-            Gizmos.DrawSphere(transform.position, col.radius);
-            Gizmos.color = new Color(1f, 0.2f, 0.2f, 1f);
-            Gizmos.DrawWireSphere(transform.position, col.radius);
         }
     }
 }

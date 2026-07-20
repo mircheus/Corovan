@@ -38,10 +38,7 @@ MonoBehaviour:
         values: []
     - goDatas_byGlobalId:
         keys:
-        - globalObjectIdString: GlobalObjectId_V1-2-a5cfbd2501736344b877fa552a262dce-441759085-0
         - globalObjectIdString: GlobalObjectId_V1-2-a5cfbd2501736344b877fa552a262dce-1918764089-0
         values:
-        - colorIndex: 4
-          iconNameOrGuid: BoxCollider Icon
         - colorIndex: 8
           iconNameOrGuid: 
