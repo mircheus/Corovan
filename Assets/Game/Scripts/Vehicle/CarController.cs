@@ -228,7 +228,12 @@ namespace FPSGame.Vehicle
             {
                 var health = driverIdentity.GetComponent<FPSGame.Player.PlayerHealth>();
                 if (health != null)
+                {
+                    // The seat is gone with the car; clear the flag so a future respawn doesn't come
+                    // back permanently untargetable.
+                    health.ServerSetDriving(false);
                     health.ServerKillInstant();
+                }
             }
 
             RpcPlayExplosion();
@@ -445,6 +450,12 @@ namespace FPSGame.Vehicle
             driverNetId = player.netId;
             hasBeenDriven = true;
 
+            // Enemies must stop treating the driver as a target on foot the moment they take the
+            // seat — see PlayerHealth.IsTargetable.
+            var driverHealth = player.GetComponent<FPSGame.Player.PlayerHealth>();
+            if (driverHealth != null)
+                driverHealth.ServerSetDriving(true);
+
             var tool = player.GetComponent<FPSGame.Player.RemoteVehicleControlTool>();
             if (tool != null)
                 tool.ServerSetBoundCar(netId);
@@ -461,6 +472,8 @@ namespace FPSGame.Vehicle
 
             uint oldDriverId = driverNetId;
             var exitingDriver = GetCurrentDriverServer();
+            if (exitingDriver != null)
+                exitingDriver.ServerSetDriving(false);
             driverNetId = 0;
             moveInput = Vector2.zero;
             currentVelocity = Vector3.zero;

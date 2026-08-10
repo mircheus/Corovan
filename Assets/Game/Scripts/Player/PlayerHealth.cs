@@ -46,6 +46,11 @@ namespace FPSGame.Player
         [SyncVar]
         private float bleedoutRemaining;
 
+        // Owned by CarController on the server (not by the client-side visual swap in
+        // SetDriverVisible), so enemy targeting reads the same truth as HasDriver does.
+        [SyncVar]
+        private bool isDriving;
+
         [Header("Regeneration")]
         [SerializeField] private bool enableRegeneration = false;
         [SerializeField] private float regenerationRate = 5f;
@@ -65,8 +70,23 @@ namespace FPSGame.Player
         /// <summary>Down or dead — out of the fight either way. Use for "can this player act / hold a console" checks.</summary>
         public bool IsIncapacitated => lifeState != LifeState.Alive;
 
-        /// <summary>Enemies only acquire and keep targets that are alive on their feet.</summary>
-        public bool IsTargetable => lifeState == LifeState.Alive;
+        /// <summary>
+        /// Enemies only acquire and keep targets that are alive and on their feet — a driver is
+        /// neither. While driving, the player object is frozen at the spot they entered the car with
+        /// its renderers and CharacterController off; an enemy locked onto it would shoot a ghost and,
+        /// worse, never go idle again, so it would never re-acquire the car the player is actually in.
+        /// The car is the target instead.
+        /// </summary>
+        public bool IsTargetable => lifeState == LifeState.Alive && !isDriving;
+
+        /// <summary>Server-authoritative seat state, set by <c>CarController.ServerEnter/ServerExit</c>.</summary>
+        public bool IsDriving => isDriving;
+
+        [Server]
+        public void ServerSetDriving(bool driving)
+        {
+            isDriving = driving;
+        }
 
         public float BleedoutDuration => bleedoutDuration;
         public bool BleedoutPaused => bleedoutPaused;

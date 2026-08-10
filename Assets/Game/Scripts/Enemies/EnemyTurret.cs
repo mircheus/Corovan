@@ -5,8 +5,29 @@ using FPSGame.Vehicle;
 
 namespace FPSGame.Environment
 {
+    /// <summary>
+    /// What a turret is allowed to shoot at. A mask rather than two bools so the inspector shows a
+    /// single checkbox dropdown and the "targets nothing" case is representable (and warned about).
+    /// </summary>
+    [System.Flags]
+    public enum TurretTargets
+    {
+        None = 0,
+        Players = 1 << 0,
+        Vehicles = 1 << 1
+    }
+
     public class EnemyTurret : NetworkBehaviour
     {
+        [Header("Targeting")]
+        [Tooltip("Which kinds of target this turret will engage. Detection is shared by EnemyTurretTrigger, " +
+                 "so one sensor can feed a mixed battery of anti-personnel and anti-vehicle turrets.")]
+        [SerializeField] private TurretTargets targetKinds = TurretTargets.Players | TurretTargets.Vehicles;
+
+        [Tooltip("After the driver leaves the seat: ShootPlayer drops the car (the driver on foot becomes " +
+                 "a normal target), ShootCar keeps hammering the abandoned vehicle.")]
+        [SerializeField] private DriverExitBehavior onDriverExit = DriverExitBehavior.ShootPlayer;
+
         [Header("Combat")]
         [SerializeField] private GameObject projectilePrefab;
         [SerializeField] private Transform firePoint;
@@ -62,6 +83,24 @@ namespace FPSGame.Environment
         public PlayerHealth CurrentPlayerTarget => currentPlayerTarget;
         public CarController CurrentCarTarget => currentCarTarget;
 
+        /// <summary>True if any bit of <paramref name="kind"/> is engageable by this turret.</summary>
+        public bool Targets(TurretTargets kind) => (targetKinds & kind) != 0;
+
+        // Single source of truth for "is this a legal target for me", used both by the sensor when it
+        // offers a candidate and by Update to decide whether to keep the current one. Splitting those
+        // two is how a target ends up stuck: acquired under one rule, never dropped under another.
+        public bool CanEngage(PlayerHealth player)
+        {
+            return player != null && player.IsTargetable && Targets(TurretTargets.Players);
+        }
+
+        public bool CanEngage(CarController car)
+        {
+            if (car == null || !car.VehicleIsAlive || !Targets(TurretTargets.Vehicles))
+                return false;
+            return car.HasDriver || onDriverExit == DriverExitBehavior.ShootCar;
+        }
+
         private void Awake()
         {
             if (rotatingPart == null)
@@ -75,6 +114,9 @@ namespace FPSGame.Environment
             base.OnStartServer();
             health = maxHealth;
             isAlive = true;
+
+            if (targetKinds == TurretTargets.None)
+                Debug.LogWarning($"[EnemyTurret] {name}: targetKinds is None — this turret will never engage anything.");
         }
 
         private void Update()
@@ -88,7 +130,7 @@ namespace FPSGame.Environment
             // them once revived.
             if (currentPlayerTarget != null)
             {
-                if (!currentPlayerTarget.IsTargetable)
+                if (!CanEngage(currentPlayerTarget))
                 {
                     ServerClearTarget();
                     return;
@@ -96,7 +138,7 @@ namespace FPSGame.Environment
             }
             else if (currentCarTarget != null)
             {
-                if (!currentCarTarget.HasDriver || !currentCarTarget.VehicleIsAlive)
+                if (!CanEngage(currentCarTarget))
                 {
                     ServerClearTarget();
                     return;
@@ -117,10 +159,12 @@ namespace FPSGame.Environment
             fireCooldown = 1f / fireRate;
         }
 
+        // The target-kind filter is enforced here, not only in the sensor: the turret is the
+        // authority on what it shoots, so a mis-wired trigger can't push a forbidden target onto it.
         [Server]
         public void ServerAcquireTarget(PlayerHealth player)
         {
-            if (player == null)
+            if (!CanEngage(player))
                 return;
             currentPlayerTarget = player;
             currentCarTarget = null;
@@ -130,7 +174,7 @@ namespace FPSGame.Environment
         [Server]
         public void ServerAcquireTarget(CarController car)
         {
-            if (car == null)
+            if (!CanEngage(car))
                 return;
             currentCarTarget = car;
             currentPlayerTarget = null;

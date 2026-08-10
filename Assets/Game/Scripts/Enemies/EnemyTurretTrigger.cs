@@ -15,6 +15,10 @@ namespace FPSGame.Environment
     /// The sensor owns acquisition entirely and pushes the result to every idle turret via
     /// <see cref="EnemyTurret.ServerAcquireTarget(PlayerHealth)"/> / clear. Each turret keeps its own
     /// target, tracking, aiming and firing — they merely share the same detection volume.
+    ///
+    /// Turrets may accept different <see cref="TurretTargets"/>, so acquisition is per kind: a player
+    /// found in the volume is offered only to the turrets that engage players, and the search for a
+    /// vehicle continues for the rest.
     /// </summary>
     [RequireComponent(typeof(Collider))]
     public class EnemyTurretTrigger : MonoBehaviour
@@ -33,7 +37,11 @@ namespace FPSGame.Environment
                  "left the volume.")]
         [SerializeField] private float retargetInterval = 0.5f;
 
-        private static readonly Collider[] overlapBuffer = new Collider[16];
+        private const TurretTargets AnyKind = TurretTargets.Players | TurretTargets.Vehicles;
+
+        // The sweep queries every layer, so the buffer competes with road tiles, walls and props: too
+        // small and the car parked in the volume simply never appears in the results.
+        private static readonly Collider[] overlapBuffer = new Collider[64];
         private float retargetTimer;
 
         private void Awake()
@@ -53,18 +61,18 @@ namespace FPSGame.Environment
         private void OnTriggerEnter(Collider other)
         {
             // Detection is a server-authoritative decision; clients only render the result.
-            if (!NetworkServer.active || !AnyTurretIdle())
+            if (!NetworkServer.active || !AnyIdleTurret(AnyKind))
                 return;
 
+            // Validity is the turret's call (EnemyTurret.CanEngage) — the sensor only offers
+            // candidates. Fall through to the vehicle check when the player was found but nobody took
+            // it: an anti-vehicle turret must still react to the car this collider may belong to.
             var ph = other.GetComponentInParent<PlayerHealth>();
-            if (ph != null && ph.IsTargetable)
-            {
-                AssignToIdleTurrets(ph);
+            if (ph != null && AssignToIdleTurrets(ph))
                 return;
-            }
 
             var car = other.GetComponentInParent<CarController>();
-            if (car != null && car.HasDriver && car.VehicleIsAlive)
+            if (car != null)
                 AssignToIdleTurrets(car);
         }
 
@@ -90,7 +98,7 @@ namespace FPSGame.Environment
             // OnTriggerEnter only fires on a boundary crossing. A player who went down inside the
             // volume stops being a target, and once revived never re-enters — so re-sweep while any
             // turret is idle to re-acquire them.
-            if (!NetworkServer.active || detectionCollider == null || !AnyTurretIdle())
+            if (!NetworkServer.active || detectionCollider == null || !AnyIdleTurret(AnyKind))
                 return;
 
             retargetTimer -= Time.deltaTime;
@@ -109,43 +117,54 @@ namespace FPSGame.Environment
             int count = Physics.OverlapBoxNonAlloc(
                 bounds.center, bounds.extents, overlapBuffer, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
 
-            for (int i = 0; i < count; i++)
+            // Both passes always run: filling the player-hunting turrets says nothing about the
+            // anti-vehicle ones, which still need a car of their own.
+            bool wantPlayer = AnyIdleTurret(TurretTargets.Players);
+            bool wantCar = AnyIdleTurret(TurretTargets.Vehicles);
+
+            for (int i = 0; i < count && wantPlayer; i++)
             {
                 var ph = overlapBuffer[i].GetComponentInParent<PlayerHealth>();
-                if (ph != null && ph.IsTargetable && IsInsideDetection(ph.transform.position))
-                {
-                    AssignToIdleTurrets(ph);
-                    return;
-                }
+                if (ph != null && IsInsideDetection(overlapBuffer[i]) && AssignToIdleTurrets(ph))
+                    wantPlayer = false;
             }
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < count && wantCar; i++)
             {
                 var car = overlapBuffer[i].GetComponentInParent<CarController>();
-                if (car != null && car.HasDriver && car.VehicleIsAlive && IsInsideDetection(car.transform.position))
+                if (car != null && IsInsideDetection(overlapBuffer[i]) && AssignToIdleTurrets(car))
+                    wantCar = false;
+            }
+        }
+
+        // Returns true if at least one turret took the target, so callers can tell "nobody engages
+        // this kind" apart from "assigned".
+        private bool AssignToIdleTurrets(PlayerHealth player)
+        {
+            bool assigned = false;
+            foreach (var turret in turrets)
+            {
+                if (turret != null && turret.IsAlive && !turret.HasTarget && turret.CanEngage(player))
                 {
-                    AssignToIdleTurrets(car);
-                    return;
+                    turret.ServerAcquireTarget(player);
+                    assigned = true;
                 }
             }
+            return assigned;
         }
 
-        private void AssignToIdleTurrets(PlayerHealth player)
+        private bool AssignToIdleTurrets(CarController car)
         {
+            bool assigned = false;
             foreach (var turret in turrets)
             {
-                if (turret != null && turret.IsAlive && !turret.HasTarget)
-                    turret.ServerAcquireTarget(player);
-            }
-        }
-
-        private void AssignToIdleTurrets(CarController car)
-        {
-            foreach (var turret in turrets)
-            {
-                if (turret != null && turret.IsAlive && !turret.HasTarget)
+                if (turret != null && turret.IsAlive && !turret.HasTarget && turret.CanEngage(car))
+                {
                     turret.ServerAcquireTarget(car);
+                    assigned = true;
+                }
             }
+            return assigned;
         }
 
         // Clears only the turrets currently locked onto the object that left the volume, so a turret
@@ -162,19 +181,24 @@ namespace FPSGame.Environment
             }
         }
 
-        private bool AnyTurretIdle()
+        // kind may be a mask: AnyKind answers "is any turret idle at all".
+        private bool AnyIdleTurret(TurretTargets kind)
         {
             foreach (var turret in turrets)
             {
-                if (turret != null && turret.IsAlive && !turret.HasTarget)
+                if (turret != null && turret.IsAlive && !turret.HasTarget && turret.Targets(kind))
                     return true;
             }
             return false;
         }
 
-        private bool IsInsideDetection(Vector3 worldPosition)
+        // Tests the found collider itself, not its owner's pivot: a car is metres long and its root
+        // transform is regularly outside a volume its body is sitting in. Takes the point on that
+        // collider nearest the volume's centre and asks whether the volume contains it.
+        private bool IsInsideDetection(Collider candidate)
         {
-            return (detectionCollider.ClosestPoint(worldPosition) - worldPosition).sqrMagnitude < 0.01f;
+            Vector3 nearest = candidate.ClosestPoint(detectionCollider.bounds.center);
+            return (detectionCollider.ClosestPoint(nearest) - nearest).sqrMagnitude < 0.01f;
         }
 
         private void OnDrawGizmosSelected()
