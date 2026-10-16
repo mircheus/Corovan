@@ -206,16 +206,18 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   rb: {fileID: 6504931864698363997}
+  networkTransform: {fileID: 0}
   moveSpeed: 15
   strafeSpeed: 10
   acceleration: 8
   deceleration: 12
+  driverlessBehavior: 0
   driverlessReverseSpeed: 2
   driverSeat: {fileID: 8196084048248129068}
   exitPoint: {fileID: 9141871698619433044}
   interactDistance: 4
   safeMount: {fileID: 4199059319566537592}
-  maxVehicleHealth: 25
+  maxVehicleHealth: 25000
   fireEffect: {fileID: 2517997970628919327}
   explosionEffect: {fileID: 2524558650587983938}
   explosionDelay: 2
@@ -226,6 +228,14 @@ MonoBehaviour:
   minImpactSpeed: 3
   damagePerImpactSpeed: 2
   collisionDamageCooldown: 0.5
+  autopilotSpeed: 8
+  autopilotArriveThreshold: 0.3
+  enableChaoticMovement: 0
+  chaosStrength: 3
+  chaosFrequency: 2
+  chaosStrafeScale: 1
+  chaosForwardScale: 0.5
+  chaosOnlyWhileMoving: 1
 --- !u!114 &2028414905989171913
 MonoBehaviour:
   m_ObjectHideFlags: 0

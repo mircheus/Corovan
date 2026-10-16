@@ -191,7 +191,7 @@ namespace FPSGame.Player
 
             // DIAGNOSTIC: a null/deleted material renders the line invisible (or magenta) even though it "draws".
             var mat = activePathLine.sharedMaterial;
-            Debug.Log($"[RemoteVehicleTool] Instantiated path line. material={(mat == null ? "NULL (invisible!)" : mat.name)}, width={activePathLine.startWidth}->{activePathLine.endWidth}, enabled={activePathLine.enabled}", activePathLine);
+            // Debug.Log($"[RemoteVehicleTool] Instantiated path line. material={(mat == null ? "NULL (invisible!)" : mat.name)}, width={activePathLine.startWidth}->{activePathLine.endWidth}, enabled={activePathLine.enabled}", activePathLine);
         }
 
         // DIAGNOSTIC: logs the preview outcome only when the reason string changes, to avoid per-frame console spam.
@@ -199,7 +199,7 @@ namespace FPSGame.Player
         {
             if (reason == lastPreviewReason) return;
             lastPreviewReason = reason;
-            Debug.Log($"[RemoteVehicleTool] preview -> {reason}");
+            // Debug.Log($"[RemoteVehicleTool] preview -> {reason}");
         }
 
         private void DestroyPathLine()

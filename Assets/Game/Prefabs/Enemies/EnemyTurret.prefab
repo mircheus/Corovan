@@ -116,15 +116,14 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+  targetKinds: 2
+  onDriverExit: 1
   projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
   firePoint: {fileID: 4363525155998438720}
   fireRate: 2
   projectileDamage: 10
   projectileSpeed: 30
   rotationSpeed: 5
-  keepAttackAfterTriggerExit: 0
-  detectionCollider: {fileID: 3480452815473532516}
-  retargetInterval: 0.5
   rotatingPart: {fileID: 4074142689471054669}
   maxHealth: 20
   attacking: {fileID: 2100000, guid: 8e83aaa94f7cd4f43b0b2f970d7d0f27, type: 2}

@@ -2273,7 +2273,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  maxHealth: 100
+  maxHealth: 10000
   bleedoutDuration: 30
   reviveHealthPercent: 0.5
   enableRegeneration: 0
