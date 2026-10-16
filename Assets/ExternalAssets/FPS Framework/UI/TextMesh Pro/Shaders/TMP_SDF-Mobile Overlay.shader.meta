@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 72a98edcd5686c14c87f250c0a3182e9
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 217379
+  packageName: FPS Framework
+  packageVersion: 1.92
+  assetPath: Assets/FPS Framework/UI/TextMesh Pro/Shaders/TMP_SDF-Mobile Overlay.shader
+  uploadId: 695196

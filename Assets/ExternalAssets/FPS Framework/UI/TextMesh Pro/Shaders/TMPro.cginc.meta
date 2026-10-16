@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8a0b6a3fbfbf1e1469e8151ad61511e8
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: Version 2.0
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 217379
+  packageName: FPS Framework
+  packageVersion: 1.92
+  assetPath: Assets/FPS Framework/UI/TextMesh Pro/Shaders/TMPro.cginc
+  uploadId: 695196

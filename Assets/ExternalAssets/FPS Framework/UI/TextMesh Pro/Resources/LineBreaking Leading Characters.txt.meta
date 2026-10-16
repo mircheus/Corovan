@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6ced450235839d944a18f2e538186f2a
+timeCreated: 1425440388
+licenseType: Store
+TextScriptImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 217379
+  packageName: FPS Framework
+  packageVersion: 1.92
+  assetPath: Assets/FPS Framework/UI/TextMesh Pro/Resources/LineBreaking Leading
+    Characters.txt
+  uploadId: 695196
