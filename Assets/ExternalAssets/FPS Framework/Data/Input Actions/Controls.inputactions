@@ -517,34 +517,12 @@
                 },
                 {
                     "name": "",
-                    "id": "322ca6b4-dea7-4d0c-8a73-8dcab35acb2b",
-                    "path": "<Keyboard>/e",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "Keyboard&Mouse",
-                    "action": "Lean Right",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "9cefc5eb-20c9-42e7-9b76-bb7c54280599",
                     "path": "<Gamepad>/dpad/right",
                     "interactions": "",
                     "processors": "",
                     "groups": "Gamepad",
                     "action": "Lean Right",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "8f74fa72-2531-4a62-89c6-b1b05d800551",
-                    "path": "<Keyboard>/q",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "Keyboard&Mouse",
-                    "action": "Lean Left",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

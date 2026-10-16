@@ -2,12 +2,16 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using Mirror;
+using Akila.FPSFramework;
 using FPSGame.Vehicle;
 using FPSGame.Environment;
 using FPSGame.Networking;
 
 namespace FPSGame.Player
 {
+    // Routes the game actions of our InputSystem_Actions (interact/hold-E, vehicle, carry, weapons).
+    // Move / look / jump / crouch / sprint live in FPSF's Controls and are read through its
+    // CharacterInput — by PlayerController / PlayerCamera on foot, and here for steering a car.
     public class PlayerInputHandler : NetworkBehaviour
     {
         [SerializeField] private float vehicleSearchRadius = 5f;
@@ -27,9 +31,9 @@ namespace FPSGame.Player
         private PlayerKeyring playerKeyring;
         private PlayerHealth playerHealth;
         private PlayerInput playerInput;
+        private CharacterInput fpsfInput;
         private InputAction aimAction;
         private InputAction attackAction;
-        private InputAction sprintAction;
         private InputAction interactAction;
         private bool isInitialized;
         // After a drop/throw the loot leaves the hands the same frame; block the button's
@@ -75,6 +79,7 @@ namespace FPSGame.Player
             playerKeyring = GetComponent<PlayerKeyring>();
             playerHealth = GetComponent<PlayerHealth>();
             playerInput = GetComponent<PlayerInput>();
+            fpsfInput = GetComponent<CharacterInput>();
         }
 
         public override void OnStartLocalPlayer()
@@ -87,9 +92,11 @@ namespace FPSGame.Player
 
                 aimAction = playerInput.actions["Aim"];
                 attackAction = playerInput.actions["Attack"];
-                sprintAction = playerInput.actions["Sprint"];
                 interactAction = playerInput.actions["Interact"];
             }
+
+            if (fpsfInput != null)
+                fpsfInput.inputBlocked = false;
 
             if (playerHealth != null)
             {
@@ -130,6 +137,7 @@ namespace FPSGame.Player
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
+            if (fpsfInput != null) fpsfInput.inputBlocked = true;
 
             if (currentVehicle != null)
             {
@@ -153,9 +161,11 @@ namespace FPSGame.Player
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
+            if (fpsfInput != null) fpsfInput.inputBlocked = true;
             playerShooting?.SetFiring(false);
             playerShooting?.SetAiming(false);
             playerController?.SetSprinting(false);
+            playerController?.SetMoveInput(Vector2.zero);
             playerKeycardHand?.Unequip();
             if (currentVehicle != null)
             {
@@ -281,11 +291,12 @@ namespace FPSGame.Player
                 }
             }
 
-            if (currentVehicle == null && sprintAction != null)
-                playerController?.SetSprinting(sprintAction.IsPressed());
-
             if (currentVehicle != null)
             {
+                // On foot PlayerController reads the move keys itself; in the car they steer.
+                if (fpsfInput != null)
+                    currentVehicle.SetMoveInput(fpsfInput.moveInput);
+
                 var kb = Keyboard.current;
                 if (kb != null && kb[Key.G].wasPressedThisFrame)
                     CmdDetachSafe(currentVehicle.netIdentity);
@@ -367,52 +378,6 @@ namespace FPSGame.Player
                         }
                     }
                 }
-            }
-        }
-
-        public void OnMove(InputValue value)
-        {
-            if (!isOwned)
-                return;
-
-            Vector2 input = value.Get<Vector2>();
-
-            if (currentVehicle != null)
-            {
-                currentVehicle.SetMoveInput(input);
-                return;
-            }
-
-            playerController?.SetMoveInput(input);
-        }
-
-        public void OnLook(InputValue value)
-        {
-            if (!isOwned)
-                return;
-            playerCamera?.SetLookInput(value.Get<Vector2>());
-        }
-
-        public void OnJump(InputValue value)
-        {
-            if (!isOwned || currentVehicle != null)
-                return;
-            // No jumping while carrying loot.
-            if (playerCarry != null && playerCarry.IsCarrying)
-                return;
-            if (value.isPressed)
-            {
-                playerController?.Jump();
-            }
-        }
-
-        public void OnCrouch(InputValue value)
-        {
-            if (!isOwned || currentVehicle != null)
-                return;
-            if (value.isPressed)
-            {
-                playerController?.ToggleCrouch();
             }
         }
 

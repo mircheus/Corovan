@@ -1,8 +1,11 @@
 using UnityEngine;
 using Mirror;
+using Akila.FPSFramework;
 
 namespace FPSGame.Player
 {
+    // Owns pitch/yaw and the cursor. Look comes from FPSF's CharacterInput (which also carries FPSF
+    // weapon recoil); FOV, sprint FOV kick, head bob and lean belong to FPSF's CameraManager.
     public class PlayerCamera : NetworkBehaviour
     {
         [Header("References")]
@@ -20,16 +23,12 @@ namespace FPSGame.Player
         [SerializeField] private float maxPitch = 85.0f;
 
         [Header("FOV Settings")]
+        [Tooltip("Resting FOV. Handed to FPSF's CameraManager, which owns the camera FOV.")]
         [SerializeField] private float baseFOV = 90.0f;
-        [SerializeField] private float sprintFOV = 100.0f;
         [SerializeField] private float adsFOV = 55.0f;
         [SerializeField] private float fovTransitionSpeed = 10.0f;
-
-        [Header("Head Bob")]
-        [SerializeField] private bool enableHeadBob = true;
-        [SerializeField] private float bobFrequency = 1.8f;
-        [SerializeField] private float bobAmplitude = 0.06f;
-        [SerializeField] private float sprintBobMultiplier = 1.4f;
+        [Tooltip("How long after releasing ADS we keep easing the FOV back before handing it to FPSF.")]
+        [SerializeField] private float adsReleaseBlendTime = 0.5f;
 
         [Header("Recoil")]
         [SerializeField] private float recoilReturnSpeed = 15.0f;
@@ -42,10 +41,7 @@ namespace FPSGame.Player
         private float pitch;
         private float yaw;
         private Vector2 lookInput;
-        private float targetFOV;
-        private float currentFOV;
-        private float bobTimer;
-        private Vector3 currentBobOffset;
+        private float adsReleaseTimer;
         private Vector3 originalCameraPosition;
         private Vector3 currentRecoil;
         private Vector3 targetRecoil;
@@ -58,10 +54,18 @@ namespace FPSGame.Player
         private bool isInitialized;
         private bool isDead;
 
-        private PlayerController playerController;
+        private CharacterInput fpsfInput;
+        private CameraManager cameraManager;
 
         public bool IsAiming => isAiming;
         public Camera Camera => playerCamera;
+        public bool IsPitchClamped => pitch <= minPitch + 1f || pitch >= maxPitch - 1f;
+
+        // FPSF scales look by FOV: delta * xMultiplier * fixedDeltaTime * (sens * fov / 179) / 50.
+        // This is the FPSF sensitivity that reproduces our sensitivityX at baseFOV; below it (ADS)
+        // the look slows down proportionally to the FOV.
+        public float FPSFSensitivity =>
+            sensitivityX * 179f * 50f / (FPSFrameworkUtility.xSensitivityMultiplier * Time.fixedDeltaTime * baseFOV);
 
         private void Awake()
         {
@@ -74,14 +78,17 @@ namespace FPSGame.Player
             if (playerBody == null)
                 playerBody = transform.parent;
 
-            playerController = GetComponentInParent<PlayerController>();
+            fpsfInput = GetComponentInParent<CharacterInput>();
+            cameraManager = GetComponentInChildren<CameraManager>();
 
             if (playerCamera != null)
             {
                 originalCameraPosition = playerCamera.transform.localPosition;
+                // CameraManager reads its default FOV from the camera in Start.
+                playerCamera.fieldOfView = baseFOV;
             }
-            targetFOV = baseFOV;
-            currentFOV = baseFOV;
+
+            ApplyFPSFSensitivityRatio();
         }
 
         public override void OnStartLocalPlayer()
@@ -151,7 +158,7 @@ namespace FPSGame.Player
 
             HandleLook();
             HandleFOV();
-            HandleHeadBob();
+            ApplyCameraOffsets();
             HandleRecoil();
         }
 
@@ -168,8 +175,19 @@ namespace FPSGame.Player
 
         private void HandleLook()
         {
-            float mouseX = lookInput.x * sensitivityX;
-            float mouseY = lookInput.y * sensitivityY * (invertY ? 1 : -1);
+            float mouseX;
+            float mouseY;
+            if (fpsfInput != null)
+            {
+                // Already in degrees: sensitivity, FOV scaling and FPSF recoil are applied upstream.
+                mouseX = fpsfInput.lookInput.x;
+                mouseY = fpsfInput.lookInput.y * (invertY ? 1 : -1);
+            }
+            else
+            {
+                mouseX = lookInput.x * sensitivityX;
+                mouseY = lookInput.y * sensitivityY * (invertY ? 1 : -1);
+            }
 
             yaw += mouseX;
             pitch += mouseY;
@@ -184,52 +202,33 @@ namespace FPSGame.Player
             }
         }
 
+        // ADS of our own weapons (PlayerShooting). CameraManager owns the FOV, so we only steer it
+        // while aiming and for a short blend after release — FPSF weapons drive it themselves.
         private void HandleFOV()
         {
-            if (playerCamera == null)
+            if (cameraManager == null)
                 return;
 
+            float t = fovTransitionSpeed * Time.deltaTime;
             if (isAiming)
             {
-                targetFOV = adsFOV;
+                cameraManager.SetFieldOfView(adsFOV, cameraManager.overlayFieldOfView, t, 0f);
+                adsReleaseTimer = adsReleaseBlendTime;
             }
-            else if (playerController != null && playerController.IsSprinting)
+            else if (adsReleaseTimer > 0f)
             {
-                targetFOV = sprintFOV;
+                adsReleaseTimer -= Time.deltaTime;
+                cameraManager.ResetFieldOfView(t);
             }
-            else
-            {
-                targetFOV = baseFOV;
-            }
-
-            currentFOV = Mathf.Lerp(currentFOV, targetFOV, fovTransitionSpeed * Time.deltaTime);
-            playerCamera.fieldOfView = currentFOV;
         }
 
-        private void HandleHeadBob()
+        // Motion shake rides on the camera's local position; head bob is CameraManager's.
+        private void ApplyCameraOffsets()
         {
             if (playerCamera == null)
                 return;
 
-            if (enableHeadBob && playerController != null &&
-                playerController.IsGrounded && playerController.Velocity.sqrMagnitude > 0.1f)
-            {
-                float bobMultiplier = playerController.IsSprinting ? sprintBobMultiplier : 1.0f;
-                bobTimer += Time.deltaTime * bobFrequency * bobMultiplier;
-
-                float bobOffsetY = Mathf.Sin(bobTimer * Mathf.PI * 2) * bobAmplitude;
-                float bobOffsetX = Mathf.Cos(bobTimer * Mathf.PI) * bobAmplitude * 0.5f;
-
-                currentBobOffset = new Vector3(bobOffsetX, bobOffsetY, 0);
-            }
-            else
-            {
-                bobTimer = 0;
-                currentBobOffset = Vector3.Lerp(currentBobOffset, Vector3.zero, Time.deltaTime * 10f);
-            }
-
-            // Head bob and motion shake share the camera's local position.
-            playerCamera.transform.localPosition = originalCameraPosition + currentBobOffset + shakePositionOffset;
+            playerCamera.transform.localPosition = originalCameraPosition + shakePositionOffset;
         }
 
         private void HandleRecoil()
@@ -294,6 +293,16 @@ namespace FPSGame.Player
         {
             sensitivityX = x;
             sensitivityY = y;
+            ApplyFPSFSensitivityRatio();
+        }
+
+        // FPSF has one sensitivity value; the Y/X ratio goes through its global Y multiplier.
+        // Only the local player touches it, so the static is safe.
+        private void ApplyFPSFSensitivityRatio()
+        {
+            if (sensitivityX > 0f)
+                FPSFrameworkUtility.ySensitivityMultiplier =
+                    FPSFrameworkUtility.xSensitivityMultiplier * sensitivityY / sensitivityX;
         }
     }
 }

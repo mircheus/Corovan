@@ -95,7 +95,10 @@ namespace Akila.FPSFramework
             if (mainCamera == null) mainCamera = Camera.main;
 
             characterManager = GetComponentInParent<CharacterManager>();
-            audioFiltersManager = FindFirstObjectByType<AudioListener>().GetComponent<AudioFiltersManager>();
+            // CORVAN: several players means several listeners; use our own camera's, and tolerate none.
+            AudioListener listener = mainCamera ? mainCamera.GetComponent<AudioListener>() : null;
+            if (!listener) listener = FindFirstObjectByType<AudioListener>();
+            audioFiltersManager = listener ? listener.GetComponent<AudioFiltersManager>() : null;
             characterInput = GetComponentInParent<CharacterInput>();
             SettingsManager = FindFirstObjectByType<SettingsManager>();
 

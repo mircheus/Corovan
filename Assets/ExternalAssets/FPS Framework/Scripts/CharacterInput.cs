@@ -99,6 +99,10 @@ namespace Akila.FPSFramework
         /// </summary>
         [HideInInspector] public bool rawSprintInput;
 
+        // CORVAN: set by the owning game code (death, match end) to silence this component without
+        // disabling it — a disabled component would freeze its last values instead of zeroing them.
+        public bool inputBlocked { get; set; }
+
         private float lastSprintClickTime;
 
         private void Start()
@@ -116,6 +120,19 @@ namespace Akila.FPSFramework
 
         protected void Update()
         {
+            // CORVAN: blocked input reads as idle; queued look (recoil) is dropped too.
+            if (inputBlocked)
+            {
+                moveInput = Vector2.zero;
+                rawLookInput = Vector2.zero;
+                lookInput = Vector2.zero;
+                addedLookValue = Vector2.zero;
+                sprintInput = tacticalSprintInput = jumpInput = false;
+                rawSprintInput = rawTacticalSprintInput = false;
+                leanLeftInput = leanRightInput = false;
+                return;
+            }
+
             // Read movement input values
             moveInput = controls.Player.Move.ReadValue<Vector2>();
 
