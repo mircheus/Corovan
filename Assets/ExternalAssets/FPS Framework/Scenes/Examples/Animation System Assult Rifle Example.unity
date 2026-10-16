@@ -3699,7 +3699,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 944382961727287619}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 8X Scope
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4259,7 +4259,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 751421509000574995}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 4X Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4358,7 +4358,7 @@ GameObject:
   - component: {fileID: 751421509526400728}
   - component: {fileID: 751421509526400726}
   - component: {fileID: 751421509526400729}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Top Reticle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4426,7 +4426,7 @@ GameObject:
   - component: {fileID: 751421509582415385}
   - component: {fileID: 751421509582415383}
   - component: {fileID: 751421509582415382}
-  m_Layer: 10
+  m_Layer: 19
   m_Name: Stencil
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4524,7 +4524,7 @@ GameObject:
   - component: {fileID: 751421510170695036}
   - component: {fileID: 751421510170695034}
   - component: {fileID: 751421510170695037}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Shadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4562,7 +4562,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 751421510296405916}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4580,7 +4580,7 @@ GameObject:
   - component: {fileID: 751421510405313441}
   - component: {fileID: 751421510405313471}
   - component: {fileID: 751421510405313470}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Reticle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5145,7 +5145,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7516412831910300861}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Source
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5783,7 +5783,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6487043726667270971}
   - component: {fileID: 5025785250170377808}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: FPS Arms
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6731,7 +6731,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1429197144746560050}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Iron Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8313,7 +8313,7 @@ GameObject:
   - component: {fileID: 3042077974366853652}
   - component: {fileID: 2132588948766201265}
   - component: {fileID: 4214398453271421307}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Small Reflex
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8604,7 +8604,7 @@ GameObject:
   - component: {fileID: 5563894449238992351}
   - component: {fileID: 5437072093458403516}
   - component: {fileID: 9071132105136131741}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 4X Sight Top
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9223,7 +9223,7 @@ GameObject:
   - component: {fileID: 2938222195707677912}
   - component: {fileID: 2938222195707677918}
   - component: {fileID: 2938222195707677919}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 2X Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9305,7 +9305,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222195905318353}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Iron Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9338,7 +9338,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222195942724899}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Setup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9395,7 +9395,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2938222195957366849}
   - component: {fileID: 2938222195957366848}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9411,7 +9411,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222195970656331}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Ejection Port
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9462,7 +9462,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196009121538}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9497,7 +9497,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196064843741}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9580,7 +9580,7 @@ GameObject:
   - component: {fileID: 2938222196208283054}
   - component: {fileID: 2938222196208283052}
   - component: {fileID: 2938222196208283053}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Shadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9612,7 +9612,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196366455713}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 2X Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9695,7 +9695,7 @@ GameObject:
   - component: {fileID: 2938222196409536739}
   - component: {fileID: 2938222196409536737}
   - component: {fileID: 2938222196409536738}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Reticle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9729,7 +9729,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196412691297}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Attachments
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9794,7 +9794,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196555058457}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Laser
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9825,7 +9825,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196575464949}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Range
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9859,7 +9859,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196590593001}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9892,7 +9892,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196610491539}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Base
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9924,7 +9924,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196823493928}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 8X Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9956,7 +9956,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222196875222826}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Laser
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10122,7 +10122,7 @@ GameObject:
   - component: {fileID: 2938222197033131226}
   - component: {fileID: 2938222197033131224}
   - component: {fileID: 2938222197033131225}
-  m_Layer: 10
+  m_Layer: 19
   m_Name: Stencil
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10138,7 +10138,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222197167081847}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10238,7 +10238,7 @@ GameObject:
   - component: {fileID: 2938222197170154602}
   - component: {fileID: 2938222197170154600}
   - component: {fileID: 2938222197170154601}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Glass
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10273,7 +10273,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222197180096554}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10311,7 +10311,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222197223580480}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10342,7 +10342,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222197286848544}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Muzzle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10425,7 +10425,7 @@ GameObject:
   - component: {fileID: 2938222197333270413}
   - component: {fileID: 2938222197333270403}
   - component: {fileID: 2938222197333270412}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Reticle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10443,7 +10443,7 @@ GameObject:
   - component: {fileID: 2938222197333495211}
   - component: {fileID: 2938222197333495209}
   - component: {fileID: 2938222197333495210}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Shadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10624,7 +10624,7 @@ GameObject:
   - component: {fileID: 2938222197671770512}
   - component: {fileID: 2938222197671770518}
   - component: {fileID: 2938222197671770519}
-  m_Layer: 10
+  m_Layer: 19
   m_Name: Stencil
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10706,7 +10706,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2938222197692984542}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Kobra
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11046,7 +11046,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2328148670369691015}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 2X Sight_1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11367,7 +11367,7 @@ GameObject:
   - component: {fileID: 3295817653404267809}
   - component: {fileID: 3295817653404267811}
   - component: {fileID: 3295817653404267810}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Glass
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11448,7 +11448,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3295817654244443044}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Small Reflex
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11481,7 +11481,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8589945800717330197}
   - component: {fileID: 1879959046380838882}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Slide
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12407,7 +12407,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4575247656184431332}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Holographic Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12870,7 +12870,7 @@ GameObject:
   - component: {fileID: 2315762787005301005}
   - component: {fileID: 6874434300287611849}
   - component: {fileID: 5957835211980815212}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12888,7 +12888,7 @@ GameObject:
   - component: {fileID: 3055853035311610683}
   - component: {fileID: 668234241494009782}
   - component: {fileID: 3066920271994759972}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Rear
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -13176,7 +13176,7 @@ GameObject:
   - component: {fileID: 4103961226826677531}
   - component: {fileID: 4103961226826677529}
   - component: {fileID: 4103961226826677530}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Glass
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -13943,7 +13943,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2398786986863472974}
   - component: {fileID: 6743419482598975172}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Assult Rifle_1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -14200,7 +14200,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4378820757033169595}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Holographic Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -16224,7 +16224,7 @@ GameObject:
   - component: {fileID: 1185180717050681741}
   - component: {fileID: 311149268809766023}
   - component: {fileID: 3386688143124662018}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 4X Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -16336,7 +16336,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1414992622260086310}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Stock
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17218,7 +17218,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3872237794900197790}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Tactical Stock
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17409,7 +17409,7 @@ GameObject:
   - component: {fileID: 4870064797500255984}
   - component: {fileID: 6180966528567337667}
   - component: {fileID: 1991314565828905133}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Kobra
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17490,7 +17490,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5145215838166145726}
   - component: {fileID: 4178909779370033714}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Tactical Stock
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17947,7 +17947,7 @@ GameObject:
   - component: {fileID: 1846405640848333617}
   - component: {fileID: 3080502262725395913}
   - component: {fileID: 8688500796717532392}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 8X scope
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -18244,7 +18244,7 @@ GameObject:
   - component: {fileID: 5522185502015380585}
   - component: {fileID: 6356682134308729618}
   - component: {fileID: 7228657899936989640}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Front
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -19044,7 +19044,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5809839790711941235}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Kobra Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20523,7 +20523,7 @@ GameObject:
   m_Component:
   - component: {fileID: 857987622246771452}
   - component: {fileID: 5016009537543199400}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Magazine
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -22574,7 +22574,7 @@ GameObject:
   - component: {fileID: 1824840762774875664}
   - component: {fileID: 8137653314866518190}
   - component: {fileID: 1261247113998002726}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 4X Sight lens
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -22813,7 +22813,7 @@ GameObject:
   - component: {fileID: 4759165342066192603}
   - component: {fileID: 8529883089749623589}
   - component: {fileID: 5498344536458460327}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Lazer Pointer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -22847,7 +22847,7 @@ GameObject:
   - component: {fileID: 925052991947648803}
   - component: {fileID: 6684302255117370050}
   - component: {fileID: 8383013811359998508}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Holographic Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -22865,7 +22865,7 @@ GameObject:
   - component: {fileID: 4512951936508594436}
   - component: {fileID: 6771436995335819678}
   - component: {fileID: 6853479354303679454}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 2X Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -23059,7 +23059,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8962183081228161130}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Laser Pointer
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -277,7 +277,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hittableLayers:
     serializedVersion: 2
-    m_Bits: 3123
+    m_Bits: 1572915
   decalDirection: 0
   penetrationStrenght: 100
   speed: 100
@@ -394,7 +394,7 @@ MonoBehaviour:
   type: 0
   layerMask:
     serializedVersion: 2
-    m_Bits: 130879
+    m_Bits: 2093239
   radius: 5
   effectRadius: 16
   damage: 150

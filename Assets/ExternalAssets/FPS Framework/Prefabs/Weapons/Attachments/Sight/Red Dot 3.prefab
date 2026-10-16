@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6181229927423900563}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -45,7 +45,7 @@ GameObject:
   - component: {fileID: 6181229928533873830}
   - component: {fileID: 6181229928533873831}
   - component: {fileID: 1526733963992105181}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Red Dot 3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 6181229929058833424}
   - component: {fileID: 6181229929058833426}
   - component: {fileID: 6181229929058833427}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Glass
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -284,7 +284,7 @@ PrefabInstance:
     - target: {fileID: 597210739990924340, guid: 8fb8fe1cf79e6634fbfbb43cc175b072,
         type: 3}
       propertyPath: m_Layer
-      value: 9
+      value: 18
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 8fb8fe1cf79e6634fbfbb43cc175b072,
         type: 3}
@@ -294,12 +294,12 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 8fb8fe1cf79e6634fbfbb43cc175b072,
         type: 3}
       propertyPath: m_Layer
-      value: 9
+      value: 18
       objectReference: {fileID: 0}
     - target: {fileID: 6787849460316717416, guid: 8fb8fe1cf79e6634fbfbb43cc175b072,
         type: 3}
       propertyPath: m_Layer
-      value: 9
+      value: 18
       objectReference: {fileID: 0}
     - target: {fileID: 7059673449037249193, guid: 8fb8fe1cf79e6634fbfbb43cc175b072,
         type: 3}

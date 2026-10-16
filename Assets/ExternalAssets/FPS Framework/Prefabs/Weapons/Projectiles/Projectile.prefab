@@ -276,7 +276,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hittableLayers:
     serializedVersion: 2
-    m_Bits: 3123
+    m_Bits: 1572915
   decalDirection: 0
   penetrationStrenght: 100
   speed: 100

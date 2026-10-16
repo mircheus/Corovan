@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1293362980109977312}
   - component: {fileID: 6326203576370855481}
   - component: {fileID: 2113031332469165406}
-  m_Layer: 10
+  m_Layer: 19
   m_Name: Stencil
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -95,7 +95,7 @@ GameObject:
   - component: {fileID: 5580109252959865658}
   - component: {fileID: 5580109252959865659}
   - component: {fileID: 6278842697862425145}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: 8X Sight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -186,7 +186,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5580109254288929225}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -224,7 +224,7 @@ GameObject:
   - component: {fileID: 979756936137188230}
   - component: {fileID: 6918189251552509662}
   - component: {fileID: 1449736736813515398}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Shadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -307,7 +307,7 @@ GameObject:
   - component: {fileID: 8749479441603439754}
   - component: {fileID: 8252961200448612845}
   - component: {fileID: 60419534822158982}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Retical
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -390,7 +390,7 @@ GameObject:
   - component: {fileID: 9184245002766393729}
   - component: {fileID: 7773556998267162362}
   - component: {fileID: 6307038734859418656}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Front
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -473,7 +473,7 @@ GameObject:
   - component: {fileID: 5716644477939641923}
   - component: {fileID: 5524993623741901611}
   - component: {fileID: 5113895690956014697}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Scope
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -233,8 +233,9 @@ namespace Akila.FPSFramework
             interactables.interactKeyText = btnNameText;
             interactables.interactActionText = interactText;
 
-            player.gameObject.layer = 8;
-            foreach (Transform transform in player.transform) transform.gameObject.layer = 8;
+            // CORVAN: FPSF "Player" layer 8 is Corovan's "Player" layer 7 (8 is "Obstacles" here).
+            player.gameObject.layer = 7;
+            foreach (Transform transform in player.transform) transform.gameObject.layer = 7;
 
             Vector3 position = Vector3.zero;
 

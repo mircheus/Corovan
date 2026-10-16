@@ -7,6 +7,7 @@ TagManager:
   - Floor
   - Enemy
   - ChatWindow
+  - Laser Line
   layers:
   - Default
   - TransparentFX
@@ -20,15 +21,15 @@ TagManager:
   - LocalPlayerBody
   - Floor
   - BarrelHitbox
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - FPSF FPS Object
+  - FPSF Environment
+  - FPSF Environment Overlay
+  - FPSF Interactable
+  - FPSF Post-Processing Overlay
+  - FPSF No Player Collision
+  - FPSF Hidden
+  - FPSF Stencil
+  - FPSF Post-Processing
   - 
   - 
   - 

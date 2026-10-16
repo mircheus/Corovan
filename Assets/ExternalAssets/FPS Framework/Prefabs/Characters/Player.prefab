@@ -64,7 +64,7 @@ Camera:
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 22016
+    m_Bits: 806912
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -175,7 +175,7 @@ Camera:
   m_Depth: 1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 59711
+    m_Bits: 1237175
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -216,7 +216,7 @@ MonoBehaviour:
   m_RendererIndex: -1
   m_VolumeLayerMask:
     serializedVersion: 2
-    m_Bits: 2048
+    m_Bits: 1048576
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
   m_RenderPostProcessing: 1
@@ -313,7 +313,7 @@ MonoBehaviour:
     m_Flags: 0
   pingableLayers:
     serializedVersion: 2
-    m_Bits: 108607
+    m_Bits: 1286199
   ping: {fileID: 3140122644539666730, guid: 4ad2dac5baebfb0419acae38ce0f2cb9, type: 3}
   canvas: {fileID: 8810427385406512385}
   range: 100
@@ -331,7 +331,7 @@ GameObject:
   - component: {fileID: 1027490708004095867}
   - component: {fileID: 6260321660814928506}
   - component: {fileID: 5613972093959343656}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Inventory
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1072,7 +1072,7 @@ GameObject:
   - component: {fileID: 9180581688508917381}
   - component: {fileID: 4782186207136391829}
   - component: {fileID: 2255320938441714989}
-  m_Layer: 8
+  m_Layer: 7
   m_Name: Player
   m_TagString: Player
   m_Icon: {fileID: 0}

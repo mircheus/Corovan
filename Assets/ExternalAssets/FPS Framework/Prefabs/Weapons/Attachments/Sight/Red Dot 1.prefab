@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 7849601697117110327}
   - component: {fileID: 7849601697117110325}
   - component: {fileID: 7849601697117110324}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Glass
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -95,7 +95,7 @@ GameObject:
   - component: {fileID: 7849601697657569409}
   - component: {fileID: 7849601697657569408}
   - component: {fileID: 3177092221517075706}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Red Dot 1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -180,7 +180,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7849601698836639668}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -289,7 +289,7 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 875bc3f88b2317c46bef8fafb66f1864,
         type: 3}
       propertyPath: m_Layer
-      value: 9
+      value: 18
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 875bc3f88b2317c46bef8fafb66f1864, type: 3}

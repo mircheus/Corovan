@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1344778512738416040}
   - component: {fileID: 3154323961040929994}
   - component: {fileID: -6337696370555048015}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: Normal
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -96,7 +96,7 @@ GameObject:
   - component: {fileID: 1611823488428129581}
   - component: {fileID: 1611823488428129583}
   - component: {fileID: 1611823488428129580}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: MuzzleFlashEffect
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4853,7 +4853,7 @@ GameObject:
   - component: {fileID: 1611823489129234683}
   - component: {fileID: 1611823489129234685}
   - component: {fileID: 1611823489129234682}
-  m_Layer: 9
+  m_Layer: 18
   m_Name: MuzzleFlashEffect Local
   m_TagString: Untagged
   m_Icon: {fileID: 0}

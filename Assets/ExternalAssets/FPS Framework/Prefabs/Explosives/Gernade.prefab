@@ -53,7 +53,7 @@ MonoBehaviour:
   type: 0
   layerMask:
     serializedVersion: 2
-    m_Bits: 7991
+    m_Bits: 1839287
   radius: 7
   effectRadius: 30
   damage: 150
