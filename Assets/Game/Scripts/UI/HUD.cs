@@ -11,7 +11,8 @@ namespace FPSGame.UI
     {
         [Header("References")]
         [SerializeField] private PlayerHealth playerHealth;
-        [SerializeField] private PlayerShooting playerShooting;
+        [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
+        [SerializeField] private PlayerLoadout loadout;
         [SerializeField] private PlayerInputHandler playerInputHandler;
         [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
         [SerializeField] private PlayerRevive playerRevive;
@@ -115,11 +116,14 @@ namespace FPSGame.UI
 
             ResolvePlayerRevive();
 
-            if (playerShooting != null)
+            if (loadout == null && playerHealth != null)
+                loadout = playerHealth.GetComponent<PlayerLoadout>();
+
+            if (loadout != null)
             {
-                playerShooting.OnAmmoChangedEvent += UpdateAmmoUI;
-                playerShooting.OnReloadStarted += ShowReloading;
-                playerShooting.OnReloadFinished += HideReloading;
+                loadout.OnAmmoChangedEvent += UpdateAmmoUI;
+                loadout.OnReloadStarted += ShowReloading;
+                loadout.OnReloadFinished += HideReloading;
             }
 
             if (playerInputHandler != null)
@@ -346,21 +350,21 @@ namespace FPSGame.UI
             }
         }
 
-        public void SetPlayerReferences(PlayerHealth health, PlayerShooting shooting, PlayerInputHandler inputHandler = null)
+        public void SetPlayerReferences(PlayerHealth health, PlayerLoadout playerLoadout, PlayerInputHandler inputHandler = null)
         {
             playerHealth = health;
-            playerShooting = shooting;
+            loadout = playerLoadout;
 
             if (playerHealth != null)
                 playerHealth.OnHealthChanged += UpdateHealthUI;
 
             ResolvePlayerRevive();
 
-            if (playerShooting != null)
+            if (loadout != null)
             {
-                playerShooting.OnAmmoChangedEvent += UpdateAmmoUI;
-                playerShooting.OnReloadStarted += ShowReloading;
-                playerShooting.OnReloadFinished += HideReloading;
+                loadout.OnAmmoChangedEvent += UpdateAmmoUI;
+                loadout.OnReloadStarted += ShowReloading;
+                loadout.OnReloadFinished += HideReloading;
             }
 
             if (inputHandler != null)
@@ -388,11 +392,11 @@ namespace FPSGame.UI
             if (playerCarry != null)
                 playerCarry.OnCarryingChanged -= UpdateCarryHint;
 
-            if (playerShooting != null)
+            if (loadout != null)
             {
-                playerShooting.OnAmmoChangedEvent -= UpdateAmmoUI;
-                playerShooting.OnReloadStarted -= ShowReloading;
-                playerShooting.OnReloadFinished -= HideReloading;
+                loadout.OnAmmoChangedEvent -= UpdateAmmoUI;
+                loadout.OnReloadStarted -= ShowReloading;
+                loadout.OnReloadFinished -= HideReloading;
             }
 
             if (playerInputHandler != null)

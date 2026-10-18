@@ -5,30 +5,22 @@ namespace FPSGame.Player
 {
     /// <summary>
     /// Self-contained grappling hook. Add to the Player prefab alongside the other
-    /// player components. Wire all Inspector references and set grappleWeaponSlot to
-    /// the index in PlayerShooting.availableWeapons reserved for the grapple.
-    ///
-    /// Prefab setup:
-    ///   1. Add GrapplingHookController and GrapplingHookInput to the Player prefab.
-    ///   2. Create a WeaponData ScriptableObject for the grapple slot:
-    ///        MagazineSize = 0, MaxReserveAmmo = 0, IsMelee = false
-    ///      This prevents PlayerShooting from firing on that slot.
-    ///   3. Assign the WeaponData to the correct slot in PlayerShooting.availableWeapons.
-    ///   4. Set grappleWeaponSlot to that slot index.
+    /// player components; it is active while the loadout item with grappleItemId
+    /// (a plain ToolItem under the Inventory, no tool Behaviour) is in hand.
     /// </summary>
     public class GrapplingHookController : NetworkBehaviour
     {
         private enum GrappleState { Idle, Grappling }
 
         [Header("References")]
-        [SerializeField] private PlayerShooting playerShooting;
+        [SerializeField] private PlayerLoadout loadout;
         [SerializeField] private PlayerController playerController;
         [SerializeField] private PlayerCamera playerCamera;
         [SerializeField] private GrapplingHookInput grapplingInput;
 
         [Header("Settings")]
-        /// <summary>Weapon slot index in PlayerShooting that represents the grappling hook.</summary>
-        [SerializeField] private int grappleWeaponSlot = 2;
+        /// <summary>LoadoutItem id of the grappling hook; the hook aims and fires only while it is in hand.</summary>
+        [SerializeField] private string grappleItemId = "grapple";
 
         /// <summary>Maximum range for a valid grapple target.</summary>
         [SerializeField] private float maxRange = 30f;
@@ -53,8 +45,8 @@ namespace FPSGame.Player
         {
             characterController = GetComponent<CharacterController>();
 
-            if (playerShooting == null)
-                playerShooting = GetComponent<PlayerShooting>();
+            if (loadout == null)
+                loadout = GetComponent<PlayerLoadout>();
             if (playerController == null)
                 playerController = GetComponent<PlayerController>();
             if (playerCamera == null)
@@ -87,8 +79,7 @@ namespace FPSGame.Player
 
         private void UpdateAiming()
         {
-            bool isGrappleSlotActive = playerShooting != null
-                && playerShooting.CurrentWeaponIndex == grappleWeaponSlot;
+            bool isGrappleSlotActive = loadout != null && loadout.IsEquipped(grappleItemId);
 
             if (!isGrappleSlotActive)
             {

@@ -6,7 +6,7 @@ using UnityEngine;
 namespace FPSGame.Environment
 {
     // Shootable lock that hangs on a container door. Has its own HP (SyncVar).
-    // PlayerShooting.CmdFire calls TakeDamage on the server when a raycast hits it.
+    // Weapon hits reach TakeDamage on the server through DamageRouter (IDamageReceiver).
     // When HP reaches 0 the lock prop is hidden on every client and the parent
     // ContainerDoor is notified (server-side) so it can swing the doors open.
     //
@@ -50,7 +50,7 @@ namespace FPSGame.Environment
                 HideProp();
         }
 
-        // Called server-side from PlayerShooting.CmdFire on hit.
+        // Called server-side by DamageRouter on a weapon hit.
         [Server]
         public void TakeDamage(int amount)
         {

@@ -756,28 +756,6 @@ namespace Akila.FPSFramework
                 },
                 {
                     ""name"": """",
-                    ""id"": ""ab03ec2a-7d18-4109-b178-66fa6ebbea9b"",
-                    ""path"": ""<Keyboard>/b"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": ""Keyboard&Mouse"",
-                    ""action"": ""Drop"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""9bbafeb7-0348-4120-be7c-b56e7699ff0d"",
-                    ""path"": ""<Gamepad>/rightStickPress"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": ""Gamepad"",
-                    ""action"": ""Drop"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
                     ""id"": ""4542e8da-6ce8-45b0-9932-71937c129a97"",
                     ""path"": ""<Keyboard>/x"",
                     ""interactions"": """",
@@ -887,28 +865,6 @@ namespace Akila.FPSFramework
                     ""processors"": """",
                     ""groups"": ""Gamepad"",
                     ""action"": ""Throw"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""b9afcb1e-c41c-4fa9-ac7c-d3e194d7b1f4"",
-                    ""path"": ""<Keyboard>/b"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": ""Keyboard&Mouse"",
-                    ""action"": ""Drop"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""a38925d1-4913-4035-b4be-175a906555e2"",
-                    ""path"": ""<Gamepad>/rightStickPress"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": ""Gamepad"",
-                    ""action"": ""Drop"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }

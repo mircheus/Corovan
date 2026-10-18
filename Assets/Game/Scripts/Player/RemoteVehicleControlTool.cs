@@ -9,7 +9,7 @@ namespace FPSGame.Player
     // The bound car is auto-assigned: whichever vehicle this player most recently drove becomes
     // the target. LMB commands the bound car along an L-shaped path (world X first, then Z).
     // Cooldown gates fires. Component is enabled only when this slot is active in
-    // PlayerShooting.weaponTools and isOwned.
+    // the owner's hand (ToolItem in the PlayerLoadout).
     public class RemoteVehicleControlTool : NetworkBehaviour
     {
         [Header("References")]

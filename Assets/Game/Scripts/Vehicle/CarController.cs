@@ -531,13 +531,15 @@ namespace FPSGame.Vehicle
             if (playerController != null)
                 playerController.SetVehicleMode(!visible);
 
-            // Hide/show renderers on driver, but keep weapon visible
-            var shooting = driver.GetComponent<FPSGame.Player.PlayerShooting>();
-            Transform weaponHolder = shooting != null ? shooting.WeaponHolder : null;
+            // Hide/show renderers on driver. Weapons are put away while driving (PlayerLoadout), and the
+            // FPSF Inventory is left alone: attachment meshes there are switched off on purpose, and
+            // re-enabling every renderer on exit would turn them all back on.
+            var inventory = driver.GetComponentInChildren<Akila.FPSFramework.Inventory>(true);
+            Transform weapons = inventory != null ? inventory.transform : null;
 
             foreach (var renderer in driver.GetComponentsInChildren<Renderer>())
             {
-                if (!visible && weaponHolder != null && renderer.transform.IsChildOf(weaponHolder))
+                if (weapons != null && renderer.transform.IsChildOf(weapons))
                     continue;
 
                 renderer.enabled = visible;

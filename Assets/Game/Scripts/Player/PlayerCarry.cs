@@ -15,7 +15,7 @@ namespace FPSGame.Player
         [SerializeField] private bool allowDrop = true;
 
         private PlayerCamera playerCamera;
-        private PlayerShooting playerShooting;
+        private PlayerLoadout loadout;
         private PlayerController playerController;
         private CarryableObject carriedObject;
 
@@ -29,7 +29,7 @@ namespace FPSGame.Player
         private void Awake()
         {
             playerCamera = GetComponentInChildren<PlayerCamera>();
-            playerShooting = GetComponent<PlayerShooting>();
+            loadout = GetComponent<PlayerLoadout>();
             playerController = GetComponent<PlayerController>();
         }
 
@@ -52,7 +52,7 @@ namespace FPSGame.Player
             carriedObject = target;
             target.SetCarriedLocally(true);
             AttachToCarryPoint();
-            playerShooting?.SetCarryingMode(true);
+            loadout?.SetCarryingMode(true);
             playerController?.SetCarrySpeedMultiplier(target.MovementSpeedMultiplier);
             CmdPickup(target.netIdentity);
             OnCarryingChanged?.Invoke(true);
@@ -78,7 +78,7 @@ namespace FPSGame.Player
             carriedObject.SetCarriedLocally(false);
             CmdDrop(carriedObject.netIdentity);
             carriedObject = null;
-            playerShooting?.SetCarryingMode(false);
+            loadout?.SetCarryingMode(false);
             playerController?.SetCarrySpeedMultiplier(1f);
             OnCarryingChanged?.Invoke(false);
         }
@@ -95,7 +95,7 @@ namespace FPSGame.Player
             carriedObject.SetCarriedLocally(false);
             CmdThrow(carriedObject.netIdentity, impulse);
             carriedObject = null;
-            playerShooting?.SetCarryingMode(false);
+            loadout?.SetCarryingMode(false);
             playerController?.SetCarrySpeedMultiplier(1f);
             OnCarryingChanged?.Invoke(false);
         }

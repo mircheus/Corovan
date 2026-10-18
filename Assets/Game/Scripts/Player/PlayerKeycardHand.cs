@@ -32,7 +32,7 @@ namespace FPSGame.Player
         [SerializeField] private float releaseForwardOffset = 0.6f;
 
         private PlayerCamera playerCamera;
-        private PlayerShooting playerShooting;
+        private PlayerLoadout loadout;
         private PlayerKeyring keyring;
 
         // Owner-side hand state.
@@ -48,7 +48,7 @@ namespace FPSGame.Player
         private void Awake()
         {
             playerCamera = GetComponentInChildren<PlayerCamera>();
-            playerShooting = GetComponent<PlayerShooting>();
+            loadout = GetComponent<PlayerLoadout>();
             keyring = GetComponent<PlayerKeyring>();
         }
 
@@ -80,7 +80,7 @@ namespace FPSGame.Player
             equippedKey = id;
             if (heldCardVisual != null)
                 heldCardVisual.SetActive(true);
-            playerShooting?.SetCarryingMode(true);
+            loadout?.SetCarryingMode(true);
             CmdSetEquipped(true);
         }
 
@@ -93,7 +93,7 @@ namespace FPSGame.Player
             hasEquipped = false;
             if (heldCardVisual != null)
                 heldCardVisual.SetActive(false);
-            playerShooting?.SetCarryingMode(false);
+            loadout?.SetCarryingMode(false);
             CmdSetEquipped(false);
         }
 
@@ -108,7 +108,7 @@ namespace FPSGame.Player
             hasEquipped = false;
             if (heldCardVisual != null)
                 heldCardVisual.SetActive(false);
-            playerShooting?.SetCarryingMode(false);
+            loadout?.SetCarryingMode(false);
 
             CmdThrowKey(equippedKey, aimDir);
         }

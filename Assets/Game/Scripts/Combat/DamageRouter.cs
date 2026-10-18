@@ -4,8 +4,8 @@ using Mirror;
 namespace FPSGame.Combat
 {
     /// <summary>
-    /// The one server-side door for weapon damage, whoever fired it (our PlayerShooting, an FPSF
-    /// weapon reported by a client, a server-side explosion).
+    /// The one server-side door for weapon damage, whoever fired it (an FPSF weapon or the axe
+    /// reported by a client, a server-side explosion).
     /// </summary>
     public static class DamageRouter
     {

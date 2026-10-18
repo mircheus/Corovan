@@ -88,7 +88,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  weapon: {fileID: 11400000, guid: 62dc278a46770be4fa3994ca0f322d93, type: 2}
+  itemId: pistol
   visual: {fileID: 2874486410209553962}
   pickupRange: 2.5
   respawns: 0
