@@ -2,6 +2,7 @@ using UnityEngine;
 using Mirror;
 using FPSGame.Combat;
 using FPSGame.Vehicle;
+using Akila.FPSFramework;
 
 namespace FPSGame.Player
 {
@@ -86,7 +87,21 @@ namespace FPSGame.Player
             else if (receiver is CarController)
                 multiplier = vehicleDamageMultiplier;
 
-            return DamageRouter.ServerApplyHit(receiver, Mathf.RoundToInt(damage * multiplier), force);
+            bool wasAlive = !receiver.IsDead;
+            bool applied = DamageRouter.ServerApplyHit(receiver, Mathf.RoundToInt(damage * multiplier), force);
+
+            // The shooter's own hit marker fires on the spot; the kill highlight waits for the server.
+            if (applied && wasAlive && receiver.IsDead && connectionToClient != null)
+                TargetKillConfirmed(connectionToClient);
+            return applied;
+        }
+
+        [TargetRpc]
+        private void TargetKillConfirmed(NetworkConnectionToClient target)
+        {
+            Hitmarker marker = UIManager.Instance != null ? UIManager.Instance.Hitmarker : null;
+            if (marker != null)
+                marker.Enable(true, true, marker.maxSize);
         }
     }
 }

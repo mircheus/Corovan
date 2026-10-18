@@ -19752,6 +19752,7 @@ GameObject:
   - component: {fileID: 6788121313096189642}
   - component: {fileID: 8536403973742836469}
   - component: {fileID: 8439570500952112446}
+  - component: {fileID: 7035728351820612827}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -20457,6 +20458,24 @@ MonoBehaviour:
   maxSpawnDistance: 3
   maxThrowSpeed: 40
   maxFuse: 6
+--- !u!114 &7035728351820612827
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea70eb4196b2c414dbde723f1fc8bf3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  minAlpha: 0.35
+  fullAlphaFraction: 0.4
+  cameraShake: 0.3
 --- !u!1 &4928421534997451326
 GameObject:
   m_ObjectHideFlags: 0

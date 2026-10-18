@@ -2158,7 +2158,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerHealth: {fileID: 0}
-  playerShooting: {fileID: 0}
+  loadout: {fileID: 0}
   playerInputHandler: {fileID: 0}
   playerRevive: {fileID: 0}
   playerCarry: {fileID: 0}
@@ -2191,6 +2191,7 @@ MonoBehaviour:
   bleedoutText: {fileID: 0}
   beingRevivedRoot: {fileID: 0}
   reviveProgressBar: {fileID: 0}
+  fpsfCombatHudPrefab: {fileID: 2238996276540977224, guid: c809f47fdf668f843a68ab27c5d0d6dd, type: 3}
   hitMarker: {fileID: 203947911026555479}
   hitMarkerDuration: 0.1
   scoreText: {fileID: 7632556413405969567}

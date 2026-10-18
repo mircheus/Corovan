@@ -37,13 +37,14 @@ namespace Akila.FPSFramework
 
         private void Update()
         {
-            DamageIndicator.gameObject.SetActive(_damageIndicator);
-            HealthDisplay.gameObject.SetActive(_healthDisplay);
-            Hitmarker.gameObject.SetActive(_hitmarker);
-            KillFeed.gameObject.SetActive(_killFeed);
+            // CORVAN: the game uses only some HUD elements; skip the ones that are not there.
+            if (DamageIndicator) DamageIndicator.gameObject.SetActive(_damageIndicator);
+            if (HealthDisplay) HealthDisplay.gameObject.SetActive(_healthDisplay);
+            if (Hitmarker) Hitmarker.gameObject.SetActive(_hitmarker);
+            if (KillFeed) KillFeed.gameObject.SetActive(_killFeed);
 
-            Hitmarker.useSFX = hitmarkerSFX;
-            KillFeed.useSFX = killSFX;
+            if (Hitmarker) Hitmarker.useSFX = hitmarkerSFX;
+            if (KillFeed) KillFeed.useSFX = killSFX;
         }
 
         /// <summary>
@@ -52,7 +53,7 @@ namespace Akila.FPSFramework
         /// <param name="name"></param>
         public void SetName(string name)
         {
-            HealthDisplay.actorNameText.text = name;
+            if (HealthDisplay) HealthDisplay.actorNameText.text = name; // CORVAN: optional element
         }
 
         public void LoadGame(string name)

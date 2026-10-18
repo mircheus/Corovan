@@ -95,6 +95,8 @@ namespace FPSGame.Player
                 return;
 
             PlayerHitReporter.Local.ReportHit(receiver, data.Damage, ray.direction * hitPushSpeed);
+            // FPSF firearms raise their own hit marker; ours does it here (kills: PlayerHitReporter).
+            UIManager.Instance?.Hitmarker?.Enable();
         }
     }
 }

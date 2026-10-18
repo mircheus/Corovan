@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FPSGame.Player;
+using Akila.FPSFramework;
 
 namespace FPSGame.UI
 {
@@ -69,6 +70,10 @@ namespace FPSGame.UI
         [SerializeField] private GameObject beingRevivedRoot;
         [SerializeField] private Slider reviveProgressBar;
 
+        [Header("FPS Framework")]
+        [Tooltip("FPSF hit marker + damage indicator (UIManager). Instantiated for the local player only.")]
+        [SerializeField] private GameObject fpsfCombatHudPrefab;
+
         [Header("Hit Marker")]
         [SerializeField] private GameObject hitMarker;
         [SerializeField] private float hitMarkerDuration = 0.1f;
@@ -77,6 +82,7 @@ namespace FPSGame.UI
         [SerializeField] TextMeshProUGUI scoreText;
 
         private float hitMarkerTimer;
+        private GameObject fpsfCombatHud;
         private ScoreManager _scoreManager;
 
         // This canvas is part of the player prefab, so every spawned player brings a full-screen
@@ -100,6 +106,11 @@ namespace FPSGame.UI
                 return;
             }
 
+            // FPSF's UIManager is a singleton the FPSF weapons talk to (hit marker, damage flash):
+            // one per client, the local player's.
+            if (fpsfCombatHudPrefab != null && fpsfCombatHud == null)
+                fpsfCombatHud = Instantiate(fpsfCombatHudPrefab);
+
             _scoreManager = ScoreManager.Instance;
 
             if (_scoreManager != null)
@@ -122,8 +133,8 @@ namespace FPSGame.UI
             if (loadout != null)
             {
                 loadout.OnAmmoChangedEvent += UpdateAmmoUI;
-                loadout.OnReloadStarted += ShowReloading;
-                loadout.OnReloadFinished += HideReloading;
+                loadout.OnEquippedItemChanged += ApplyWeaponHud;
+                ApplyWeaponHud(loadout.EquippedItem);
             }
 
             if (playerInputHandler != null)
@@ -236,6 +247,23 @@ namespace FPSGame.UI
                     ? lowHealthColor
                     : Color.Lerp(lowHealthColor, healthyColor, playerHealth.HealthPercentage);
             }
+        }
+
+        // A firearm in hand brings FPSF's Weapon HUD (ammo, dynamic crosshair, alerts): hide ours then.
+        // The grenade count uses our ammo line; melee and tools show no ammo.
+        private void ApplyWeaponHud(LoadoutItem item)
+        {
+            bool firearm = item != null && item.GetComponent<Firearm>() != null;
+            bool throwable = item != null && item.GetComponent<Throwable>() != null;
+
+            if (crosshair != null)
+                crosshair.gameObject.SetActive(!firearm);
+            if (ammoText != null)
+                ammoText.gameObject.SetActive(throwable);
+            if (reserveAmmoText != null)
+                reserveAmmoText.gameObject.SetActive(false);
+            if (reloadingIndicator != null)
+                reloadingIndicator.SetActive(false);
         }
 
         private void UpdateAmmoUI(int currentAmmo, int reserveAmmo)
@@ -363,8 +391,8 @@ namespace FPSGame.UI
             if (loadout != null)
             {
                 loadout.OnAmmoChangedEvent += UpdateAmmoUI;
-                loadout.OnReloadStarted += ShowReloading;
-                loadout.OnReloadFinished += HideReloading;
+                loadout.OnEquippedItemChanged += ApplyWeaponHud;
+                ApplyWeaponHud(loadout.EquippedItem);
             }
 
             if (inputHandler != null)
@@ -395,9 +423,11 @@ namespace FPSGame.UI
             if (loadout != null)
             {
                 loadout.OnAmmoChangedEvent -= UpdateAmmoUI;
-                loadout.OnReloadStarted -= ShowReloading;
-                loadout.OnReloadFinished -= HideReloading;
+                loadout.OnEquippedItemChanged -= ApplyWeaponHud;
             }
+
+            if (fpsfCombatHud != null)
+                Destroy(fpsfCombatHud);
 
             if (playerInputHandler != null)
             {

@@ -45,6 +45,7 @@ namespace FPSGame.Player
         private bool downed;
         private bool inVehicle;
         private bool triggerLock;     // the button that threw/dropped loot is still held
+        private bool paused;
         private bool disabledForGood; // dead or match over
 
         // HUD feed (same shape PlayerShooting had).
@@ -57,13 +58,16 @@ namespace FPSGame.Player
         public event System.Action OnReloadFinished;
         /// <summary>Owner: the item in hand changed (null = nothing, or not a firearm).</summary>
         public event System.Action<Firearm> OnEquippedFirearmChanged;
+        /// <summary>Owner: the slot in hand changed (null = hands empty or busy).</summary>
+        public event System.Action<LoadoutItem> OnEquippedItemChanged;
         public event System.Action OnLoadoutChanged;
 
         public int WeaponCount => slots.Count;
         public LoadoutItem GetSlot(int index) => index >= 0 && index < slots.Count ? slots[index] : null;
         public int EquippedSlot => equippedSlot;
         public Firearm EquippedFirearm { get; private set; }
-        private bool HandsBusy => carrying || downed || inVehicle || triggerLock || disabledForGood;
+        public LoadoutItem EquippedItem => appliedSlot >= 0 && appliedSlot < slots.Count ? slots[appliedSlot] : null;
+        private bool HandsBusy => carrying || downed || inVehicle || triggerLock || paused || disabledForGood;
 
         private void Awake()
         {
@@ -121,6 +125,7 @@ namespace FPSGame.Player
         public void SetInVehicle(bool value) { inVehicle = value; Apply(); }
         /// <summary>Keep weapons away while the LMB/RMB press that threw or dropped loot is held.</summary>
         public void SetTriggerLock(bool value) { if (value != triggerLock) { triggerLock = value; Apply(); } }
+        public void SetPaused(bool value) { paused = value; Apply(); }
         /// <summary>Dead, or the match is over: nothing in hand from now on.</summary>
         public void DisableForGood() { disabledForGood = true; Apply(); }
 
@@ -180,6 +185,7 @@ namespace FPSGame.Player
 
             EquippedFirearm = target >= 0 ? slots[target].GetComponent<Firearm>() : null;
             OnEquippedFirearmChanged?.Invoke(EquippedFirearm);
+            OnEquippedItemChanged?.Invoke(EquippedItem);
             lastAmmo = lastReserve = int.MinValue; // force a HUD refresh
 
             CmdSetEquipped(target);

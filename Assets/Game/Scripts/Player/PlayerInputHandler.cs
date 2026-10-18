@@ -32,6 +32,9 @@ namespace FPSGame.Player
         private PlayerHealth playerHealth;
         private PlayerInput playerInput;
         private CharacterInput fpsfInput;
+        // FPSF input is blocked while paused, and for good once dead or the match is over.
+        private bool fpsfInputPaused;
+        private bool fpsfInputLockedForGood;
         private InputAction aimAction;
         private InputAction attackAction;
         private InputAction interactAction;
@@ -95,8 +98,8 @@ namespace FPSGame.Player
                 interactAction = playerInput.actions["Interact"];
             }
 
-            if (fpsfInput != null)
-                fpsfInput.inputBlocked = false;
+            fpsfInputLockedForGood = false;
+            ApplyFpsfInputBlock();
 
             if (playerHealth != null)
             {
@@ -137,7 +140,8 @@ namespace FPSGame.Player
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
-            if (fpsfInput != null) fpsfInput.inputBlocked = true;
+            fpsfInputLockedForGood = true;
+            ApplyFpsfInputBlock();
 
             if (currentVehicle != null)
             {
@@ -160,7 +164,8 @@ namespace FPSGame.Player
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
-            if (fpsfInput != null) fpsfInput.inputBlocked = true;
+            fpsfInputLockedForGood = true;
+            ApplyFpsfInputBlock();
             loadout?.DisableForGood();
             playerController?.SetSprinting(false);
             playerController?.SetMoveInput(Vector2.zero);
@@ -200,6 +205,20 @@ namespace FPSGame.Player
         {
             loadout?.SetDowned(false);
             playerController?.SetDownedMode(false);
+        }
+
+        /// <summary>Pause menu open/closed: freezes FPSF movement/look/weapons and puts the weapon away.</summary>
+        public void SetPaused(bool paused)
+        {
+            fpsfInputPaused = paused;
+            ApplyFpsfInputBlock();
+            loadout?.SetPaused(paused);
+        }
+
+        private void ApplyFpsfInputBlock()
+        {
+            if (fpsfInput != null)
+                fpsfInput.inputBlocked = fpsfInputPaused || fpsfInputLockedForGood;
         }
 
         // Drops whatever hold was in flight — revive or interactable.

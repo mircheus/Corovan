@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Mirror;
 using FPSGame.Player;
 
 namespace FPSGame.UI
@@ -42,6 +43,7 @@ namespace FPSGame.UI
         {
             isPaused = true;
             Time.timeScale = 0f;
+            SetLocalPlayerPaused(true);
 
             if (pauseMenuPanel != null)
             {
@@ -63,6 +65,7 @@ namespace FPSGame.UI
         {
             isPaused = false;
             Time.timeScale = 1f;
+            SetLocalPlayerPaused(false);
 
             if (pauseMenuPanel != null)
             {
@@ -78,6 +81,14 @@ namespace FPSGame.UI
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
             }
+        }
+
+        // FPSF reads input and fires on its own; only its own PauseMenu would stop it.
+        private static void SetLocalPlayerPaused(bool paused)
+        {
+            var handler = NetworkClient.localPlayer != null
+                ? NetworkClient.localPlayer.GetComponent<PlayerInputHandler>() : null;
+            handler?.SetPaused(paused);
         }
 
         public void OpenSettings()
