@@ -586,6 +586,11 @@ namespace Akila.FPSFramework
                 ThrowCasing();
         }
 
+        /// <summary>
+        /// CORVAN: lets the game supply an IDamageable for a hit collider that has none of its own.
+        /// </summary>
+        public static System.Func<Transform, IDamageable> ResolveDamageable;
+
         public static void UpdateHits(Firearm firearm, Projectile projectile, GameObject defaultDecal, Ray ray, RaycastHit hit, float damage, float damageRangeFactor, Vector3Direction decalDirection)
         {
             //stop if object has ignore component
@@ -623,13 +628,23 @@ namespace Akila.FPSFramework
                 _explosive.source = firearm.Actor;
             }
 
-            if (hit.transform.TryGetComponent(out IDamageable damageable))
+            // CORVAN: game targets keep their IDamageable-equivalent on a parent, not on each collider.
+            // Fall back to the game's resolver unless the collider is a HealthGroup (handled below).
+            IDamageable damageable = hit.transform.GetComponent<IDamageable>();
+            if (damageable == null && ResolveDamageable != null && !hit.transform.TryGetComponent(out IDamageableGroup _))
+                damageable = ResolveDamageable(hit.transform);
+
+            if (damageable != null)
             {
                 float damageResult = damage * damageRangeFactor * firearm.attachmentsManager.damage;
 
                 Actor sourceActor = null;
 
                 if (firearm.Actor) sourceActor = firearm.Actor;
+                // CORVAN: the push travels with the hit, so it must be known before Damage().
+                float directForce = firearm.preset.alwaysApplyFire ?
+                    firearm.preset.impactForce / firearm.preset.shotCount : firearm.preset.impactForce;
+                damageable.deathForce = -hit.normal * directForce;
                 damageable.Damage(damageResult, sourceActor);
 
                 bool highDamage = damageable.GetHealth() <= damageable.MaxHealth * 0.3f ? true : false;
@@ -649,11 +664,12 @@ namespace Akila.FPSFramework
                     {
                         float damageResult = damage * damageRangeFactor * damageableGroup.GetDamageMultipler() * firearm.attachmentsManager.damage;
 
-                        damageableGroup.GetDamageable()?.Damage(damageResult, firearm.Actor);
-
+                        // CORVAN: force first — the networked Damage() sends it along with the hit.
                         float force = firearm.preset.alwaysApplyFire ?
                             firearm.preset.impactForce / firearm.preset.shotCount : firearm.preset.impactForce;
                         damageableGroup.GetDamageable().deathForce = -hit.normal * force;
+
+                        damageableGroup.GetDamageable()?.Damage(damageResult, firearm.Actor);
 
                         if (firearm.isLocallyMine)
                             UIManager.Instance?.Hitmarker?.Enable();

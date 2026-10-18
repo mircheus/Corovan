@@ -1,50 +1,86 @@
 using UnityEngine;
 using Mirror;
 using Akila.FPSFramework;
+using FPSGame.Player;
 
-namespace FPSGame.Player
+namespace FPSGame.Combat
 {
     /// <summary>
-    /// Presents PlayerHealth to the FPS Framework as an IDamageable, so FPSF's Actor, HUD and weapons
-    /// can see the player. PlayerHealth stays the single authority: damage is int, server-side, and
-    /// goes through its LifeState (down / bleedout) rules.
+    /// Presents one of our IDamageReceivers to the FPS Framework as an IDamageable, so FPSF weapons,
+    /// hit boxes (HealthGroup) and HUD can see it. The receiver stays the single authority: damage is
+    /// int, applied on the server only, through its own rules (LifeState, vehicle health, ...).
+    ///
+    /// Put it explicitly on objects whose FPSF HealthGroups look it up in Start (the ragdoll bots);
+    /// everything else gets one added on first hit through Firearm.ResolveDamageable.
     /// </summary>
-    [RequireComponent(typeof(PlayerHealth))]
-    public class PlayerDamageable : MonoBehaviour, IDamageable
+    public class FPSFDamageable : MonoBehaviour, IDamageable
     {
-        private PlayerHealth health;
+        private IDamageReceiver receiver;
         private Actor actor;
+        private Ragdoll ragdoll;
 
         public bool deadConfirmed { get; set; }
-        // Recorded by FPSF weapons on the killing hit; drives the death ragdoll's push.
+        // Written by FPSF weapons just before Damage(); travels with the hit to the server.
         public Vector3 deathForce { get; set; }
 
         public float MaxHealth
         {
-            get => health.MaxHealth;
-            set { } // PlayerHealth owns max health; FPSF only writes this from its own HealthSystem.
+            get => receiver != null ? receiver.MaxHealth : 0;
+            set { } // the receiver owns its max health
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void RegisterResolver()
+        {
+            Firearm.ResolveDamageable = Resolve;
+        }
+
+        // Finds the receiver above a hit collider and hands FPSF an adapter for it.
+        private static IDamageable Resolve(Transform hit)
+        {
+            var found = hit.GetComponentInParent<IDamageReceiver>() as Component;
+            if (found == null)
+                return null;
+
+            var adapter = found.GetComponent<FPSFDamageable>();
+            return adapter != null ? adapter : found.gameObject.AddComponent<FPSFDamageable>();
         }
 
         private void Awake()
         {
-            health = GetComponent<PlayerHealth>();
+            receiver = GetComponentInParent<IDamageReceiver>();
             actor = GetComponent<Actor>();
+            ragdoll = GetComponentInParent<Ragdoll>();
         }
 
         public Actor GetActor() => actor;
-        public float GetHealth() => health.CurrentHealth;
-        public bool IsDead() => health.IsDead;
+        public float GetHealth() => receiver != null ? receiver.CurrentHealth : 0;
+        public bool IsDead() => receiver == null || receiver.IsDead;
         public int GetGroupsCount() => 0;
-        public Ragdoll GetRagdoll() => null;
+        public Ragdoll GetRagdoll() => ragdoll;
 
-        // Only the server may change health. Client-side FPSF hits are routed to the server by the
-        // weapon bridge instead of landing here.
         public void Damage(float amount, Actor damageSource)
         {
-            if (!NetworkServer.active)
+            if (receiver == null)
                 return;
 
-            health.TakeDamage(Mathf.RoundToInt(amount));
+            int damage = Mathf.RoundToInt(amount);
+            Vector3 force = deathForce;
+            deathForce = Vector3.zero;
+
+            // Our own player's FPSF weapon: report through the player so the server validates it
+            // and applies friendly-fire rules. (Remote players' FPSF never runs, so a client only ever
+            // sees its own player's hits here.)
+            PlayerHitReporter local = PlayerHitReporter.Local;
+            if (local != null && damageSource != null && damageSource.gameObject == local.gameObject)
+            {
+                local.ReportHit(receiver, damage, force);
+                return;
+            }
+
+            // Server-side FPSF damage with no player behind it (e.g. an explosion simulated on the server).
+            if (NetworkServer.active)
+                DamageRouter.ServerApplyHit(receiver, damage, force);
         }
     }
 }

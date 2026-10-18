@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using Mirror;
+using FPSGame.Combat;
 using FPSGame.Vehicle;
 using FPSGame.Player;
 
@@ -8,8 +9,13 @@ namespace FPSGame.Hazards
 {
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(CapsuleCollider))]
-    public class Barrel : NetworkBehaviour
+    public class Barrel : NetworkBehaviour, IDamageReceiver
     {
+        // A barrel has no health bar: it detonates once the hits add up to the threshold.
+        int IDamageReceiver.CurrentHealth => Mathf.Max(0, explosionDamageThreshold - accumulatedDamage);
+        int IDamageReceiver.MaxHealth => explosionDamageThreshold;
+        bool IDamageReceiver.IsDead => !isActive;
+
         [Header("Movement")]
         [Tooltip("Initial horizontal speed (world units per second).")]
         [SerializeField] private float moveSpeed = 8f;

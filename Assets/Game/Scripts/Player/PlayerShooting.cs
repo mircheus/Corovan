@@ -2,6 +2,7 @@ using UnityEngine;
 using Mirror;
 using FPSGame.Weapons;
 using FPSGame.Environment;
+using FPSGame.Combat;
 
 namespace FPSGame.Player
 {
@@ -17,11 +18,15 @@ namespace FPSGame.Player
         [SerializeField] private ParticleSystem[] muzzleFlashEffects;
         [SerializeField] private Transform weaponHolder;
         [SerializeField] private LayerMask hitMask = ~0;
+        [Tooltip("Velocity (m/s) a killing hit gives a ragdoll, along the shot direction.")]
+        [SerializeField] private float hitPushSpeed = 4f;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugRays = false;
 
         private WeaponData currentWeapon;
+        private PlayerHitReporter hitReporter;
+        private PlayerHealth ownHealth;
 
         [SyncVar(hook = nameof(OnAmmoChanged))]
         private int currentAmmo;
@@ -73,6 +78,9 @@ namespace FPSGame.Player
 
             if (playerController == null)
                 playerController = GetComponent<PlayerController>();
+
+            hitReporter = GetComponent<PlayerHitReporter>();
+            ownHealth = GetComponent<PlayerHealth>();
         }
 
         public override void OnStartLocalPlayer()
@@ -258,20 +266,14 @@ namespace FPSGame.Player
 
             if (didHit)
             {
-                PlayerHealth targetHealth = hit.collider.GetComponentInParent<PlayerHealth>();
-                if (targetHealth != null && targetHealth.gameObject != gameObject)
-                    targetHealth.TakeDamage(currentWeapon.Damage, hit.point, -hit.normal);
-
-                FPSGame.Environment.EnemyTurret enemyTurret = hit.collider.GetComponentInParent<FPSGame.Environment.EnemyTurret>();
-                if (enemyTurret != null)
-                    enemyTurret.TakeDamage(currentWeapon.Damage);
+                // Players, enemies, the car, barrels, locks — one path, with the friendly-fire rules.
+                IDamageReceiver receiver = DamageRouter.FindReceiver(hit.collider);
+                if (receiver != null && !ReferenceEquals(receiver, ownHealth) && hitReporter != null)
+                    hitReporter.ServerApplyHit(receiver, currentWeapon.Damage, direction.normalized * hitPushSpeed);
 
                 FPSGame.Environment.ZombieEnemy zombie = hit.collider.GetComponentInParent<FPSGame.Environment.ZombieEnemy>();
                 if (zombie != null)
-                {
-                    zombie.TakeDamage(currentWeapon.Damage);
                     zombie.ServerPlayHitEffect(hit.point, hit.normal);
-                }
 
                 FPSGame.Environment.DestroyableObject destroyable = hit.collider.GetComponentInParent<FPSGame.Environment.DestroyableObject>();
                 if (destroyable != null)
@@ -280,14 +282,6 @@ namespace FPSGame.Player
                 FPSGame.Environment.DestructionTarget destructionTarget = hit.collider.GetComponentInParent<FPSGame.Environment.DestructionTarget>();
                 if (destructionTarget != null)
                     destructionTarget.TakeHit();
-
-                FPSGame.Environment.ContainerLock containerLock = hit.collider.GetComponentInParent<FPSGame.Environment.ContainerLock>();
-                if (containerLock != null)
-                    containerLock.TakeDamage(currentWeapon.Damage);
-
-                FPSGame.Hazards.Barrel barrel = hit.collider.GetComponentInParent<FPSGame.Hazards.Barrel>();
-                if (barrel != null)
-                    barrel.TakeDamage(currentWeapon.Damage);
 
                 RpcOnHit(hit.point, hit.normal);
             }

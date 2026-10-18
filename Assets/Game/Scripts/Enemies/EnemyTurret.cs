@@ -1,4 +1,5 @@
 using Mirror;
+using FPSGame.Combat;
 using UnityEngine;
 using FPSGame.Player;
 using FPSGame.Vehicle;
@@ -17,8 +18,11 @@ namespace FPSGame.Environment
         Vehicles = 1 << 1
     }
 
-    public class EnemyTurret : NetworkBehaviour
+    public class EnemyTurret : NetworkBehaviour, IDamageReceiver
     {
+        int IDamageReceiver.CurrentHealth => health;
+        bool IDamageReceiver.IsDead => !isAlive;
+
         [Header("Targeting")]
         [Tooltip("Which kinds of target this turret will engage. Detection is shared by EnemyTurretTrigger, " +
                  "so one sensor can feed a mixed battery of anti-personnel and anti-vehicle turrets.")]

@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using FPSGame.Combat;
 using FPSGame.Environment;
 using FPSGame.Networking;
 
@@ -14,8 +15,12 @@ namespace FPSGame.Vehicle
         StayInPlace
     }
 
-    public class CarController : NetworkBehaviour
+    public class CarController : NetworkBehaviour, IDamageReceiver
     {
+        int IDamageReceiver.CurrentHealth => vehicleHealth;
+        int IDamageReceiver.MaxHealth => maxVehicleHealth;
+        bool IDamageReceiver.IsDead => !vehicleIsAlive;
+
         [Header("References: ")]
         [SerializeField] private Rigidbody rb;
         [Tooltip("The car's NetworkTransform. Its sync direction is flipped at runtime: ClientToServer while a driver holds authority, ServerToClient while the server drives it (idle / driverless drift / autopilot). Auto-resolved from this GameObject if left empty.")]

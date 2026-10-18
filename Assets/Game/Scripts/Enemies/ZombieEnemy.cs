@@ -1,4 +1,5 @@
 using Mirror;
+using FPSGame.Combat;
 using UnityEngine;
 using UnityEngine.AI;
 using FPSGame.Player;
@@ -17,8 +18,11 @@ namespace FPSGame.Environment
     ///   • playerLayerMask should be set to the Player layer
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent))]
-    public class ZombieEnemy : NetworkBehaviour
+    public class ZombieEnemy : NetworkBehaviour, IDamageReceiver
     {
+        int IDamageReceiver.CurrentHealth => health;
+        bool IDamageReceiver.IsDead => !isAlive;
+
         private enum ZombieState { Idle = 0, Chasing = 1, Attacking = 2, Dead = 3 }
 
         [Header("Detection")]

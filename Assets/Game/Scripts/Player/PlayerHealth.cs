@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using Mirror;
+using FPSGame.Combat;
 
 namespace FPSGame.Player
 {
@@ -13,7 +14,7 @@ namespace FPSGame.Player
         Dead = 2
     }
 
-    public class PlayerHealth : NetworkBehaviour
+    public class PlayerHealth : NetworkBehaviour, IDamageReceiver
     {
         [Header("Health Settings")]
         [SerializeField] private int maxHealth = 100;

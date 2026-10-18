@@ -1,5 +1,6 @@
 using System;
 using Mirror;
+using FPSGame.Combat;
 using UnityEngine;
 
 namespace FPSGame.Environment
@@ -12,8 +13,10 @@ namespace FPSGame.Environment
     // This is a child NetworkBehaviour: it lives on a child GameObject and shares
     // the NetworkIdentity on the container root (Mirror resolves the identity via
     // GetComponentInParent — no nested NetworkIdentity needed).
-    public class ContainerLock : NetworkBehaviour
+    public class ContainerLock : NetworkBehaviour, IDamageReceiver
     {
+        bool IDamageReceiver.IsDead => isBroken;
+
         [SerializeField] private int maxHealth = 30;
 
         [Tooltip("Visual prop hidden when the lock breaks. Defaults to this GameObject.")]

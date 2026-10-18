@@ -50,8 +50,9 @@ namespace Akila.FPSFramework
                 {
                     rigidbody.isKinematic = false;
 
-                    if (Controller != null)
-                        rigidbody.AddForce(deathForce, ForceMode.VelocityChange);
+                    // CORVAN: push every ragdoll, not only ones with a character controller —
+                    // bots have none and would otherwise just slump.
+                    rigidbody.AddForce(deathForce, ForceMode.VelocityChange);
 
                 }
             }
