@@ -484,6 +484,7 @@ namespace Akila.FPSFramework
                 {
                     shots = 0;
                     FireDone(direction);
+                    ShotFired?.Invoke(this); // CORVAN: one per trigger pull, after the rate check
 
                     if (!preset.alwaysApplyFire)
                         ApplyFireOnce();
@@ -590,6 +591,12 @@ namespace Akila.FPSFramework
         /// CORVAN: lets the game supply an IDamageable for a hit collider that has none of its own.
         /// </summary>
         public static System.Func<Transform, IDamageable> ResolveDamageable;
+
+        /// <summary>
+        /// CORVAN: raised for every shot actually fired (once per trigger pull, pellets included),
+        /// so the game can show the shot to other players.
+        /// </summary>
+        public static System.Action<Firearm> ShotFired;
 
         public static void UpdateHits(Firearm firearm, Projectile projectile, GameObject defaultDecal, Ray ray, RaycastHit hit, float damage, float damageRangeFactor, Vector3Direction decalDirection)
         {

@@ -59,6 +59,7 @@ namespace FPSGame.Player
         public event System.Action OnLoadoutChanged;
 
         public int WeaponCount => slots.Count;
+        public LoadoutItem GetSlot(int index) => index >= 0 && index < slots.Count ? slots[index] : null;
         public int EquippedSlot => equippedSlot;
         public Firearm EquippedFirearm { get; private set; }
         private bool HandsBusy => carrying || downed || inVehicle || triggerLock || disabledForGood;
