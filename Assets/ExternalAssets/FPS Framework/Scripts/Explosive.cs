@@ -57,6 +57,12 @@ namespace Akila.FPSFramework
         private Rigidbody rb;
 
         public bool exploded { get; set; }
+
+        /// <summary>CORVAN: raised right after this explosive went off (lets the game network it).</summary>
+        public System.Action<Explosive> onExploded;
+
+        // CORVAN: each target takes one hit per explosion, however many of its colliders are in range.
+        private readonly HashSet<IDamageable> damagedThisExplosion = new HashSet<IDamageable>();
         public bool deadConfirmed { get; set; }
         public Vector3 deathForce { get; set; }
         public float MaxHealth { get; set; }
@@ -131,6 +137,7 @@ namespace Akila.FPSFramework
         {
             if (exploded) return;
             exploded = true;
+            damagedThisExplosion.Clear();
 
 
             Collider[] nearColliders = Physics.OverlapSphere(transform.position, radius * scale, layerMask);
@@ -172,17 +179,20 @@ namespace Akila.FPSFramework
 
                     if (distanceFromPlayer <= radius * scale) percentage = 1;
 
-                    controller.cameraManager.ShakeCameras(cameraShake * inversedPercentage);
+                    // CORVAN: other players' copies never started their camera rig.
+                    controller.cameraManager?.ShakeCameras(cameraShake * inversedPercentage);
 
                     if (GamepadManager.Instance) GamepadManager.Instance.BeginVibration(1, 1, 0.8f);
                     
-                    if (audioLowPassFilter)
+                    if (audioLowPassFilter && controller.audioFiltersManager)
                     {
                         controller.audioFiltersManager.SetLowPass(lowPassCutoffFrequency * distanceFromPlayer / effectRadius * scale, 1000 * Time.deltaTime);
                         controller.audioFiltersManager.ResetLowPass(lowPassSmoothness * Time.deltaTime, lowPassTime);
                     }
                 }
             }
+
+            onExploded?.Invoke(this);
 
             if (destroyOnExplode) Destroy(gameObject);
         }
@@ -261,28 +271,38 @@ namespace Akila.FPSFramework
         {
             if (_transform != transform)
             {
-                if (_transform.TryGetComponent(out IDamageable damageable))
+                // CORVAN: game targets keep their damageable on a parent; resolve it like Firearm does.
+                bool isGroup = _transform.TryGetComponent(out IDamageableGroup damageableGroup);
+                IDamageable damageable = _transform.GetComponent<IDamageable>();
+                if (damageable == null && !isGroup && Firearm.ResolveDamageable != null)
+                    damageable = Firearm.ResolveDamageable(_transform);
+
+                // CORVAN: once per target, and the push is set before Damage() (it travels with the hit).
+                if (damageable != null && damagedThisExplosion.Add(damageable))
                 {
-                    damageable.Damage(damage, source);
                     damageable.deathForce = dir * force;
+                    damageable.Damage(damage, source);
                 }
 
-                if (_transform.TryGetComponent(out IDamageableGroup damageableGroup))
+                IDamageable groupOwner = isGroup ? damageableGroup.GetDamageable() : null;
+                if (groupOwner != null && damagedThisExplosion.Add(groupOwner))
                 {
-                    float lenght = damageableGroup.GetDamageable().GetGroupsCount() > 0 ? damageableGroup.GetDamageable().GetGroupsCount() : 1;
-                    damageableGroup.GetDamageable().Damage((damage / lenght), source);
+                    groupOwner.deathForce = dir * force;
+                    groupOwner.Damage(damage, source);
 
-                    if (!damageableGroup.GetDamageable().IsDead())
-                        UIManager.Instance.Hitmarker.Enable(false, false);
+                    if (!groupOwner.IsDead())
+                        UIManager.Instance?.Hitmarker?.Enable(false, false);
 
-                    if (source && !damageableGroup.GetDamageable().deadConfirmed && damageableGroup.GetDamageable().IsDead())
+                    if (source && !groupOwner.deadConfirmed && groupOwner.IsDead())
                     {
-                        source?.actorManager?.actor?.onKill?.Invoke(damageableGroup.GetDamageable().GetActor(), damageableGroup);
-                        damageableGroup.GetDamageable().deadConfirmed = true;
+                        source?.actorManager?.actor?.onKill?.Invoke(groupOwner.GetActor(), damageableGroup);
+                        groupOwner.deadConfirmed = true;
                     }
 
-                    foreach (Rigidbody ragdollRB in damageableGroup.GetDamageable().GetRagdoll().rigidbodies) 
-                        ragdollRB.AddExplosionForce(force / lenght, transform.position, radius * scale, 1, ForceMode.VelocityChange);
+                    Ragdoll ragdoll = groupOwner.GetRagdoll();
+                    if (ragdoll != null && ragdoll.rigidbodies != null)
+                        foreach (Rigidbody ragdollRB in ragdoll.rigidbodies)
+                            ragdollRB.AddExplosionForce(force, transform.position, radius * scale, 1, ForceMode.VelocityChange);
                 }
 
                 ShootingSheet _shootingSheet = transform.SearchFor<ShootingSheet>();

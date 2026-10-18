@@ -70,8 +70,19 @@ namespace Akila.FPSFramework
             Animator.SetBool("Throw", false);
         }
 
+        /// <summary>
+        /// CORVAN: lets the game take over the throw (networked spawn). Arguments: this item, spawn
+        /// pose, launch velocity, remaining fuse. Return true when handled.
+        /// </summary>
+        public static System.Func<Throwable, Vector3, Quaternion, Vector3, float, bool> ThrowOverride;
+
         public void Throw()
         {
+            // CORVAN: networked games spawn the grenade on the server instead.
+            if (ThrowOverride != null && ThrowOverride(this, throwPoint.position, throwPoint.rotation,
+                    throwPoint.forward * throwForce, maxCookingTime - cookingTimer))
+                return;
+
             //Do throw logic
             Rigidbody newThrowable = Instantiate(throwableItem, throwPoint.position, throwPoint.rotation);
             newThrowable.AddForce(throwPoint.forward * throwForce, ForceMode.VelocityChange);

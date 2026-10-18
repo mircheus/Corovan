@@ -33,6 +33,7 @@ namespace FPSGame.Player
         private int equippedSlot = -1;
 
         private Inventory inventory;
+        private PlayerGrenades grenades;
         private readonly List<LoadoutItem> slots = new List<LoadoutItem>();
         // Reserve each ammo type started with; a pickup of an owned weapon refills to this.
         private readonly Dictionary<AmmoProfile, int> startingReserve = new Dictionary<AmmoProfile, int>();
@@ -66,6 +67,7 @@ namespace FPSGame.Player
 
         private void Awake()
         {
+            grenades = GetComponent<PlayerGrenades>();
             inventory = GetComponentInChildren<Inventory>(true);
             if (inventory == null)
                 return;
@@ -260,21 +262,46 @@ namespace FPSGame.Player
         [TargetRpc]
         private void TargetRefillReserve(int slot)
         {
-            var firearm = slots[slot].GetComponent<Firearm>();
-            if (firearm == null || inventory == null)
+            if (inventory == null)
                 return;
-            AmmoProfile profile = firearm.AmmoProfile ?? inventory.FindAmmunition(firearm.preset.ammoType);
+            AmmoProfile profile = AmmoFor(slots[slot]);
             if (profile != null && startingReserve.TryGetValue(profile, out int full))
                 profile.amount = Mathf.Max(profile.amount, full);
         }
 
         // ---------- HUD ----------
 
+        // Ammo a slot draws from: a firearm's ammo type, or the grenade count for the throwable.
+        private AmmoProfile AmmoFor(LoadoutItem slot)
+        {
+            if (slot == null || inventory == null)
+                return null;
+            var firearm = slot.GetComponent<Firearm>();
+            if (firearm != null)
+                return firearm.AmmoProfile ?? inventory.FindAmmunition(firearm.preset.ammoType);
+            if (slot.GetComponent<Throwable>() != null && grenades != null)
+                return inventory.FindAmmunition(grenades.AmmoName);
+            return null;
+        }
+
         private void UpdateHudFeed()
         {
             Firearm firearm = EquippedFirearm;
-            int ammo = firearm != null ? firearm.remainingAmmoCount : 0;
-            int reserve = firearm != null && firearm.AmmoProfile != null ? firearm.AmmoProfile.amount : 0;
+            int ammo;
+            int reserve;
+            if (firearm != null)
+            {
+                ammo = firearm.remainingAmmoCount;
+                reserve = firearm.AmmoProfile != null ? firearm.AmmoProfile.amount : 0;
+            }
+            else
+            {
+                // Grenades: the count in hand, nothing in reserve. Melee/tools: zero.
+                AmmoProfile thrown = appliedSlot >= 0 && slots[appliedSlot].GetComponent<Throwable>() != null
+                    ? AmmoFor(slots[appliedSlot]) : null;
+                ammo = thrown != null ? thrown.amount : 0;
+                reserve = 0;
+            }
             if (ammo != lastAmmo || reserve != lastReserve)
             {
                 lastAmmo = ammo;

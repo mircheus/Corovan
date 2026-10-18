@@ -9,7 +9,25 @@ namespace FPSGame.Networking
         [Header("Spawn Settings")]
         [SerializeField] private Transform[] spawnPoints;
 
+        [Tooltip("Spawnable prefabs registered on top of spawnPrefabs. Scenes override spawnPrefabs on " +
+                 "their NetworkManager instances; this list comes from the prefab untouched.")]
+        [SerializeField] private GameObject[] runtimeSpawnPrefabs;
+
         private int currentSpawnIndex;
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            if (runtimeSpawnPrefabs == null)
+                return;
+            foreach (GameObject prefab in runtimeSpawnPrefabs)
+            {
+                if (prefab == null || !prefab.TryGetComponent(out NetworkIdentity identity))
+                    continue;
+                if (!NetworkClient.prefabs.ContainsKey(identity.assetId))
+                    NetworkClient.RegisterPrefab(prefab);
+            }
+        }
 
         public override void OnStartServer()
         {

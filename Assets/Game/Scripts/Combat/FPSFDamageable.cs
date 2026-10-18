@@ -68,19 +68,23 @@ namespace FPSGame.Combat
             Vector3 force = deathForce;
             deathForce = Vector3.zero;
 
-            // Our own player's FPSF weapon: report through the player so the server validates it
-            // and applies friendly-fire rules. (Remote players' FPSF never runs, so a client only ever
-            // sees its own player's hits here.)
-            PlayerHitReporter local = PlayerHitReporter.Local;
-            if (local != null && damageSource != null && damageSource.gameObject == local.gameObject)
+            PlayerHitReporter attacker = damageSource != null ? damageSource.GetComponent<PlayerHitReporter>() : null;
+
+            // On the server (an explosion, or the host's own weapon): apply directly, still through the
+            // attacker's friendly-fire rules when a player is behind it.
+            if (NetworkServer.active)
             {
-                local.ReportHit(receiver, damage, force);
+                if (attacker != null)
+                    attacker.ServerApplyHit(receiver, damage, force);
+                else
+                    DamageRouter.ServerApplyHit(receiver, damage, force);
                 return;
             }
 
-            // Server-side FPSF damage with no player behind it (e.g. an explosion simulated on the server).
-            if (NetworkServer.active)
-                DamageRouter.ServerApplyHit(receiver, damage, force);
+            // A client: only our own player's FPSF weapons run here (remote players' FPSF never does).
+            // Report through the player so the server validates it.
+            if (attacker != null && attacker == PlayerHitReporter.Local)
+                attacker.ReportHit(receiver, damage, force);
         }
     }
 }
