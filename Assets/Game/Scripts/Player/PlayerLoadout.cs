@@ -48,19 +48,13 @@ namespace FPSGame.Player
         private bool paused;
         private bool disabledForGood; // dead or match over
 
-        // HUD feed (same shape PlayerShooting had).
+        // HUD feed: ammo of what is in hand (FPSF's Weapon HUD shows reload/low-ammo alerts itself).
         private int lastAmmo = int.MinValue;
         private int lastReserve = int.MinValue;
-        private bool lastReloading;
 
         public event System.Action<int, int> OnAmmoChangedEvent;
-        public event System.Action OnReloadStarted;
-        public event System.Action OnReloadFinished;
-        /// <summary>Owner: the item in hand changed (null = nothing, or not a firearm).</summary>
-        public event System.Action<Firearm> OnEquippedFirearmChanged;
         /// <summary>Owner: the slot in hand changed (null = hands empty or busy).</summary>
         public event System.Action<LoadoutItem> OnEquippedItemChanged;
-        public event System.Action OnLoadoutChanged;
 
         public int WeaponCount => slots.Count;
         public LoadoutItem GetSlot(int index) => index >= 0 && index < slots.Count ? slots[index] : null;
@@ -184,7 +178,6 @@ namespace FPSGame.Player
             appliedSlot = target;
 
             EquippedFirearm = target >= 0 ? slots[target].GetComponent<Firearm>() : null;
-            OnEquippedFirearmChanged?.Invoke(EquippedFirearm);
             OnEquippedItemChanged?.Invoke(EquippedItem);
             lastAmmo = lastReserve = int.MinValue; // force a HUD refresh
 
@@ -199,7 +192,6 @@ namespace FPSGame.Player
 
         private void OnUnlockedMaskChanged(int oldMask, int newMask)
         {
-            OnLoadoutChanged?.Invoke();
             // First unlock while empty-handed (e.g. no default item): take it.
             if (isOwned && !IsUnlocked(selectedSlot))
             {
@@ -308,19 +300,12 @@ namespace FPSGame.Player
                 ammo = thrown != null ? thrown.amount : 0;
                 reserve = 0;
             }
+
             if (ammo != lastAmmo || reserve != lastReserve)
             {
                 lastAmmo = ammo;
                 lastReserve = reserve;
                 OnAmmoChangedEvent?.Invoke(ammo, reserve);
-            }
-
-            bool reloading = firearm != null && firearm.IsReloading;
-            if (reloading != lastReloading)
-            {
-                lastReloading = reloading;
-                if (reloading) OnReloadStarted?.Invoke();
-                else OnReloadFinished?.Invoke();
             }
         }
     }

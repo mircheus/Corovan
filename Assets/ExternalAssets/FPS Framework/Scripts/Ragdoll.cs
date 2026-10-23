@@ -10,11 +10,8 @@ namespace Akila.FPSFramework
         public Rigidbody[] rigidbodies { get; set; }
         public Animator animator;
 
-        private ICharacterController Controller;
-
         private void Start()
         {
-            Controller = GetComponent<ICharacterController>();
             rigidbodies = GetComponentsInChildren<Rigidbody>();
             if (!animator) animator = GetComponent<Animator>();
 

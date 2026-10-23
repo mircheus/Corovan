@@ -333,22 +333,6 @@ namespace FPSGame.UI
 
         private void HideCarryHint() => UpdateCarryHint(false);
 
-        private void ShowReloading()
-        {
-            if (reloadingIndicator != null)
-            {
-                reloadingIndicator.SetActive(true);
-            }
-        }
-
-        private void HideReloading()
-        {
-            if (reloadingIndicator != null)
-            {
-                reloadingIndicator.SetActive(false);
-            }
-        }
-
         private void UpdateCrosshair()
         {
             // Placeholder for dynamic crosshair spread based on movement/shooting

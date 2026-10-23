@@ -32,7 +32,6 @@ namespace FPSGame.Player
 
         private float pitch;
         private float yaw;
-        private Vector2 lookInput;
         private Vector3 originalCameraPosition;
 
         // Additive shake offsets set each frame by an external source (e.g. CameraMotionShake).
@@ -158,19 +157,12 @@ namespace FPSGame.Player
 
         private void HandleLook()
         {
-            float mouseX;
-            float mouseY;
-            if (fpsfInput != null)
-            {
-                // Already in degrees: sensitivity, FOV scaling and FPSF recoil are applied upstream.
-                mouseX = fpsfInput.lookInput.x;
-                mouseY = fpsfInput.lookInput.y * (invertY ? 1 : -1);
-            }
-            else
-            {
-                mouseX = lookInput.x * sensitivityX;
-                mouseY = lookInput.y * sensitivityY * (invertY ? 1 : -1);
-            }
+            if (fpsfInput == null)
+                return;
+
+            // Already in degrees: sensitivity, FOV scaling and FPSF recoil are applied upstream.
+            float mouseX = fpsfInput.lookInput.x;
+            float mouseY = fpsfInput.lookInput.y * (invertY ? 1 : -1);
 
             yaw += mouseX;
             pitch += mouseY;
@@ -202,13 +194,6 @@ namespace FPSGame.Player
                 return;
             shakePositionOffset = positionOffset;
             shakeRotationOffset = rotationOffset;
-        }
-
-        public void SetLookInput(Vector2 input)
-        {
-            if (!isOwned)
-                return;
-            lookInput = input;
         }
 
         public void LockCursor()
