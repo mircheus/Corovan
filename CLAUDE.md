@@ -3,9 +3,11 @@
 ## Tech Stack
 - **Unity 6** (6000.0.60f1)
 - **Mirror** networking (Assets/Mirror/)
-- **New Input System** (Send Messages mode on PlayerInput component)
+- **New Input System** (Send Messages mode on PlayerInput component) + FPSF's generated `Controls`
+- **FPS Framework** (Akila, v1.92) — forked in `Assets/ExternalAssets/FPS Framework/`; every edit marked `// CORVAN:`
 - **ParrelSync** for local multiplayer testing
 - **ZeroTier** for peer-to-peer LAN networking
+- **Unity Pipeline** (`com.unity.pipeline`) — lets the Unity CLI drive the open Editor (prefab edits, compile checks)
 
 ## Project Structure
 
@@ -14,18 +16,35 @@ Assets/Game/
 ├── Input/
 │   └── InputSystem_Actions.inputactions
 ├── Prefabs/
-│   ├── Player/Player.prefab
+│   ├── Player/Player.prefab         # + FPSF camera rig, Inventory loadout, RemoteWeaponAnchor
+│   ├── Enemies/RagdollBot.prefab    # FPSF Bot dummy with networked health + ragdoll
+│   ├── Weapons/                     # *_Pickup (WeaponPickup), NetGrenade (networked FPSF grenade)
+│   ├── UI/FPSF_CombatHUD.prefab     # FPSF UIManager + hit marker + damage indicator
 │   └── Network/NetworkDebugUI.prefab
 ├── Scripts/
 │   ├── Player/
-│   │   ├── PlayerInputHandler.cs    # Central input router; vehicle/carry/interact dispatch
-│   │   ├── PlayerController.cs      # CharacterController FPS movement, crouch, sprint, jump
-│   │   ├── PlayerCamera.cs          # First-person mouse look, ADS FOV, recoil
-│   │   ├── PlayerShooting.cs        # Multi-weapon system, ammo, reload, melee/ranged
+│   │   ├── PlayerInputHandler.cs    # Game-action router (interact/vehicle/carry/revive); owns FPSF input block
+│   │   ├── PlayerController.cs      # CharacterController movement; reads FPSF CharacterInput, is its ICharacterController
+│   │   ├── PlayerCamera.cs          # Pitch/yaw from FPSF CharacterInput, cursor, aim ray
+│   │   ├── PlayerLoadout.cs         # Weapon/tool slots over the FPSF Inventory; unlocks, hands-busy, HUD feed
+│   │   ├── LoadoutItem.cs           # Slot marker (id, default unlock) on each Inventory item
+│   │   ├── MeleeItem.cs / ToolItem.cs # Axe; tool slot enabling a tool Behaviour
+│   │   ├── PlayerHitReporter.cs     # Client hits -> server (validation, friendly fire, kill confirm)
+│   │   ├── PlayerGrenades.cs        # FPSF throw -> server-spawned NetGrenade
+│   │   ├── RemoteWeaponView.cs      # Third-person placeholder weapon + replayed shot FX
+│   │   ├── RemotePlayerHitbox.cs    # PlayerHitbox capsule on other players' copies
+│   │   ├── FPSFPlayerBridge.cs      # FPSF runs on the owner only
+│   │   ├── PlayerDamageFeedback.cs  # FPSF damage flash + camera shake
 │   │   ├── PlayerHealth.cs          # SyncVar LifeState (Alive/Downed/Dead), bleedout, optional regen
 │   │   ├── PlayerRevive.cs          # Hold-E revive of a downed teammate; server-validated
 │   │   ├── PlayerDownedVisual.cs    # Standing/lying model swap + downed marker on all clients
 │   │   └── PlayerCarry.cs           # Pick up, drop, throw CarryableObjects
+│   ├── Combat/
+│   │   ├── IDamageReceiver.cs       # int damage target (+ IHitForceReceiver)
+│   │   ├── DamageRouter.cs          # Single server-side entry for weapon damage
+│   │   └── FPSFDamageable.cs        # Our receivers as FPSF IDamageable
+│   ├── Enemies/
+│   │   └── RagdollEnemy.cs          # Networked FPSF Bot dummy (ragdoll on death, respawn)
 │   ├── Vehicle/
 │   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
 │   │   └── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
@@ -52,8 +71,8 @@ Assets/Game/
 │   │   ├── NetworkDebugUI.cs        # Runtime connection info overlay
 │   │   └── ScoreManager.cs          # Singleton NetworkBehaviour; SyncVar totalScore
 │   ├── Weapons/
-│   │   ├── WeaponData.cs            # ScriptableObject: damage, spread, recoil, reload, melee flag
-│   │   └── WeaponBase.cs
+│   │   ├── WeaponData.cs            # ScriptableObject; only Axe.asset still used (MeleeItem)
+│   │   └── NetworkExplosive.cs      # Server-owned FPSF Explosive (grenade)
 │   ├── Animations/
 │   │   └── WheelAnimation.cs
 │   ├── UI/
@@ -84,7 +103,18 @@ Assets/Game/
 ## Architecture
 
 ### Namespace Convention
-All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `FPSGame.Environment`, `FPSGame.Hazards`, `FPSGame.Networking`, `FPSGame.Weapons`, `FPSGame.UI`, `FPSGame.Config`
+All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `FPSGame.Environment`, `FPSGame.Hazards`, `FPSGame.Networking`, `FPSGame.Weapons`, `FPSGame.Combat`, `FPSGame.Enemies`, `FPSGame.UI`, `FPSGame.Config`. FPS Framework code stays in `Akila.FPSFramework`.
+
+### FPS Framework Integration
+FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll and combat HUD, and keep our own movement, health and game logic.
+- **Owner only.** Every FPSF component reads the keyboard through its own `Controls` and drives cameras/UI. `FPSFPlayerBridge` disables all of them (except `Ragdoll`) on other players' copies in `OnStartClient`, before their `Start`. Inventory items are stored **inactive** in `Player.prefab` so FPSF per-item `Awake` (input, Weapon HUD canvas) runs only when the owner's `PlayerLoadout` activates one.
+- **Fork, marked.** Edits to FPSF files carry `// CORVAN:` so an FPSF update can be merged by hand. Hooks we added: `Firearm.ResolveDamageable` / `Firearm.ShotFired`, `Throwable.ThrowOverride`, `Explosive.onExploded`, `CharacterInput.inputBlocked`.
+- **Movement:** our `PlayerController` reads FPSF `CharacterInput` and implements `ICharacterController`; FPSF's `FirstPersonController` is not used. `PlayerCamera` takes look from `CharacterInput.lookInput` (carries FPSF recoil); FOV/ADS/head bob belong to FPSF `CameraManager`.
+- **Input split, no duplicate keys:** FPSF `Controls` = move/look/jump/crouch/sprint, fire/aim/reload/fire mode, slots. Our `InputSystem_Actions` = Interact (E), Attack/Aim (carry/keycard), Previous/Next. FPSF lean and Drop (B) are unbound. Block FPSF input with `CharacterInput.inputBlocked` (owned by `PlayerInputHandler`: paused OR dead/match over) — never by disabling `CharacterInput` (values would freeze).
+- **Hits are client-authoritative.** The owner's FPSF weapon/axe decides the hit; `FPSFDamageable` → `PlayerHitReporter.CmdReportHit` (server checks shooter alive, distance, damage clamp) → friendly-fire multipliers → `DamageRouter`. Never replay an FPSF projectile on observers — on the host it would deal damage again (`RemoteWeaponView` draws a tracer instead).
+- **Grenades are server objects:** `ThrowOverride` → `PlayerGrenades.CmdThrow` → `NetGrenade` (`NetworkExplosive`); only the server runs fuse + blast; clients play effects on `RpcExploded`. Register runtime-spawned prefabs in `CustomNetworkManager.runtimeSpawnPrefabs` — scenes override `spawnPrefabs`.
+- **Layers** (FPSF layers were remapped onto ours): 12–20 = `FPSF ...` (18 `FPSF Hidden` = viewmodel, drawn by the stacked Overlay Camera; the main camera skips 12/18/19), 21 = `PlayerHitbox` (collides with nothing, only catches rays).
+- **Editing prefabs from the CLI** (`unity command run_script`): keep every object in one prefab/preview scene (`MoveGameObjectToScene` before `SetParent`), never remap references generically through `SerializedObject` (hidden fields corrupt the hierarchy and crash the Editor), try on a copy first.
 
 ### Down / Revive System
 - `PlayerHealth` holds a single `[SyncVar] LifeState { Alive, Downed, Dead }` — never two bools. Hook order can't then report "revived" for a player who was finished off while down.
@@ -104,13 +134,14 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - An empty roster never loses: `ServerReevaluateDefeat` returns early on `serverPlayers.Count == 0`, covering both the gap before the first join and the last disconnect.
 - **Victory**: `GameStateManager` polls a serialized `MonoBehaviour[]` of `IWinCondition` on `winCheckInterval` (`requireAllWinConditions` = all vs any). `ExtractionZone` is the first implementor — hold the driven, alive car inside its trigger for `captureDuration` continuous seconds; it latches `IsMet` and the poll flips the SyncVar. `ServerEndMatch` / `ServerTriggerVictory` remain public for an objective to force an outcome directly.
 - `ExtractionZone` (scene `NetworkBehaviour`, needs a `NetworkIdentity`): tracks overlapping car colliders in a `Dictionary<Collider,CarController>` (per-collider, so a partial exit doesn't drop a car still inside); `HasQualifyingCar` re-checks `HasDriver`/`VehicleIsAlive` each server tick. Capture is all-or-nothing — the deadline resets the instant the car stops qualifying. Countdown synced as a deadline (`captureEndTime`) + `capturing` flag, like bleedout; `CaptureProgress` (0–1) and `OnCapturingChanged` drive `ExtractionUI` (scene-level progress bar, shown only while capturing). `MatchEndUI` shows `ScoreManager.TotalScore` on victory only.
-- Ending the match **does not stop the world** — turrets keep firing, `BarrelSpawner` keeps spawning, bleedout keeps ticking. It only flips the SyncVar. Clients react in `PlayerInputHandler.OnMatchEnded` (disable `PlayerInput`, drop holds, exit vehicle, unlock cursor) and `MatchEndUI`.
+- Ending the match **does not stop the world** — turrets keep firing, `BarrelSpawner` keeps spawning, bleedout keeps ticking. It only flips the SyncVar. Clients react in `PlayerInputHandler.OnMatchEnded` (disable `PlayerInput`, block FPSF input, empty the hands, drop holds, exit vehicle, unlock cursor) and `MatchEndUI`.
 - Restart reloads the active scene via `ServerRestartMatch`; the button is only shown when `NetworkServer.active`. `GameStateManager` is a scene object, so the roster and result reset themselves.
 - `MatchEndUI` is separate from `LocalPlayerDeadUI` — the latter reacts to the local player's own death while the match is still running (a teammate may still win or lose it), and hides itself when the match ends so `MatchEndUI` owns the screen. It binds to the runtime local player via `NetworkClient.localPlayer` (no serialized player reference is possible on a scene object).
 
 ### Damage & Health Values
 - All damage and health values are `int` — damage fields, `health`/`maxHealth` fields, `TakeDamage(int)` parameters, projectile/weapon damage. Never use `float` for a damage or health value.
 - `PlayerHealth` regen accumulates fractional HP in a private `float regenBuffer` and applies whole `int` points; `regenerationRate` stays `float` (a per-second rate). `HealthPercentage` casts to `float` for the division.
+- Anything weapons can hurt implements `IDamageReceiver` (found with `GetComponentInParent` from the hit collider) and is damaged through `DamageRouter.ServerApplyHit` — no per-type branches in weapon code. Hit-count targets (`DestroyableObject`, `DestructionTarget`) count any hit as one. FPSF's float damage is rounded once, in `FPSFDamageable`.
 
 ### Networking Pattern
 - All networked scripts inherit `NetworkBehaviour` (Mirror)
@@ -120,12 +151,12 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - Server validates all game-state mutations; clients send intent via Commands
 
 ### Player System
-- `PlayerInputHandler` is the sole input router (Input System **Send Messages** mode: `OnMove`, `OnLook`, `OnJump`, `OnCrouch`, `OnInteract`, `OnReload`, `OnPrevious`, `OnNext`)
+- `PlayerInputHandler` routes our game actions (Send Messages: `OnInteract`, `OnPrevious`, `OnNext`; `Attack`/`Aim` polled for carry/keycard; digit keys for slots). Movement/look/weapon input is FPSF's (see FPS Framework Integration); in a car it steers from `CharacterInput.moveInput`
 - Only local player (`isOwned`) processes input; remote players have `PlayerInput` disabled in `OnStartClient`
-- `PlayerController` uses `CharacterController` — disabled for remote players (NetworkTransform handles their position)
+- `PlayerController` uses `CharacterController` — disabled for remote players (NetworkTransform handles their position); other players are hit through `RemotePlayerHitbox`
 - `PlayerController.SetVehicleMode(bool)` disables CharacterController + zeroes velocity when entering a vehicle
-- `PlayerCarry` manages loot carrying; while carrying, LMB=drop, RMB=throw; normal shooting blocked
-- `PlayerShooting` supports multiple `WeaponData` slots with per-slot saved ammo; optimistic local weapon switch + server SyncVar confirmation
+- `PlayerCarry` manages loot carrying; while carrying, LMB=throw, RMB=drop; weapons are put away
+- `PlayerLoadout` owns the weapon slots (FPSF Inventory children, keys 1–9). Unlocks are server state (`unlockedMask`, `WeaponPickup` grants an item id); the slot in hand is the owner's, mirrored as `equippedSlot`. Anything that occupies the hands calls one of its busy setters (`SetCarryingMode`, `SetDowned`, `SetInVehicle`, `SetPaused`, `DisableForGood`) — nothing is in hand while any is set
 
 ### Vehicle System
 - `CarController` is a `NetworkBehaviour` on the car prefab
@@ -135,16 +166,17 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 - `CargoTrigger` child (trigger collider, no Rigidbody) calls `car.ServerDepositLoot()` when a carried object enters — adds to `ScoreManager`
 
 ### Weapon System
-- `WeaponData` ScriptableObject: `Damage`, `Range`, `FireRate`, `MagazineSize`, `MaxReserveAmmo`, `ReloadTime`, `BaseSpread`, `AdsSpreadMultiplier`, `MovementSpreadMultiplier`, `IsAutomatic`, `IsMelee`, `MeleeRadius`, recoil pattern, `ImpactEffectPrefab`
-- Ranged: Raycast on server; `RpcOnHit` spawns impact effect on all clients
-- Melee: SphereCast for wide sweep; no ammo consumed
-- Weapon switch: optimistic local model swap → `CmdSwitchWeapon` → SyncVar hook confirms on all clients
+- Firearms are FPSF prefabs (presets in `FPS Framework/Data/Weapons`): fire, recoil, spread, attachments, reload, ammo and Weapon HUD run on the owner; ammo is client-side (FPSF `AmmoProfile`s in the Inventory)
+- Axe = `MeleeItem` (camera SphereCast, `Axe.asset` WeaponData); tools = `ToolItem` slots enabling `FloorCutter` / `RemoteVehicleControlTool` (keep those Behaviours disabled in the prefab); grapple = `GrapplingHookController` active while item `grapple` is in hand
+- Others see a placeholder world model per slot (`RemoteWeaponView`) and the owner's shots replayed (flash, sound, tracer, impact) — cosmetic only
+- Adding a weapon: put the FPSF item under the Inventory (inactive, layer 18) with a `LoadoutItem` id, add its world model to `RemoteWeaponView`, and a `WeaponPickup` with that id
 
 ### Enemy System
 - `Enemy` (NetworkBehaviour): SphereCollider trigger for detection, server-only Update loop
 - Targets either `PlayerHealth` (on foot) or `CarController` (driven vehicle)
 - Fires `EnemyProjectile` via `NetworkServer.Spawn`; optional `keepAttackAfterTriggerExit` flag
 - `DestructionObjective` monitors an array of `DestructionTarget`s; fires a UnityEvent when enough are destroyed
+- `RagdollEnemy` (`RagdollBot.prefab`): server health; death → `RpcDie(push)` flops the FPSF `Ragdoll` on every client (cosmetic, not synced) → stands up after `respawnDelay`. Ragdoll is for enemies only — the player ragdoll is deferred
 
 ### Hazard System
 - `BarrelSpawner`: server-side object pool (`poolSize` pre-spawned barrels). Returns barrel to pool after despawn delay
@@ -175,14 +207,16 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 ### Input System
 - `PlayerInput` in Send Messages mode — callback methods must be named `On<ActionName>(InputValue value)`
 - Disable `PlayerInput` on remote players in `OnStartClient` (not `OnStartAuthority`) to avoid double-processing
+- Editing an `.inputactions` asset regenerates FPSF's `Controls.cs` on import — commit both
 
-## Current State (2026-05-12)
+## Current State (2026-10-23)
 
 See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 
 ### Working
 - Core gameplay loop: join → drive convoy car → carry loot into cargo (`CargoTrigger`) → `ScoreManager` updates
-- FPS player: movement/crouch/sprint/jump, camera (ADS FOV, recoil, head bob), multi-weapon shooting (ranged + melee, per-slot ammo, reload, optimistic switch), health/damage/regen/death
+- FPS player: our movement (crouch/sprint/tactical sprint/jump, convoy riding) with the FPS Framework camera rig; FPSF firearms (pistol/rifle/shotgun/sniper), axe, networked grenades, tools as loadout slots; health/damage/regen/death
+- Client-authoritative hits with full friendly fire (players, car), FPSF hit marker (server-confirmed kill highlight) and damage flash; `RagdollBot` target dummies
 - Downed state + teammate revive (hold E): bleedout deadline paused during a revive, enemies ignore downed players, collapsed pose + marker synced to all clients
 - Match defeat when the whole squad is down/dead (`GameStateManager`): input locked on every client, `MatchEndUI` with a host-only restart
 - Match victory: drive the car into `ExtractionZone` and hold it there for `captureDuration` seconds; `MatchEndUI` shows the collected loot score
@@ -196,13 +230,13 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 - ZeroTier for remote peers; `NetworkDebugUI` connection overlay; F9 scene hot-reload (`SceneReloader`)
 
 ### In progress
-- **Vehicle remote control** (`RemoteVehicleControlTool` + `CarController` autopilot: `ServerStartAutopilot`/`ServerStopAutopilot`, `autopilot*` SyncVars, L-path `ServerTickAutopilot`). Code complete; not yet wired into `Player.prefab` / `PlayerShooting.weaponTools[]`. See PROJECT_STATE.md §4.
+- **Vehicle remote control** (`RemoteVehicleControlTool` + `CarController` autopilot). Wired as loadout slot 8 (`car_remote`); needs a playtest. See PROJECT_STATE.md §4.
 
 ### Exists in code but NOT integrated
 - `ZombieEnemy` — full NavMesh state machine, not spawned in any scene
 - Grappling hook (`GrapplingHookController` / `GrapplingHookInput`) — **local-only prototype, no networking**: only the owner's resulting position syncs (via NetworkTransform); grapple state, target, rope visual, and server validation are absent
 - `NetworkMessages.cs` structs — declared, never sent/handled
-- `WeaponBase` abstract class — unused; `PlayerShooting` does firing inline
+- `PauseMenu` — FPSF-aware (`PlayerInputHandler.SetPaused`) but not placed in any scene
 
 ### Known gaps
 - No respawn flow (`PlayerHealth.Respawn` exists server-side, no caller)
@@ -213,4 +247,5 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 - UI stubs: `PauseMenu.OpenSettings`/`Disconnect`
 - `GameSettings` not networked / not persisted per client
 - `PlayerSpawnManager.FurthestFromPlayers` ignores `minSpawnDistance`
+- FPSF integration leftovers: third-person view is a placeholder (fixed anchor, no head pitch, no remote axe swing); axe/tools have no FPSF sway; pistol pickup still shows the revolver; grenades don't inherit the thrower's velocity; lean unbound; player ragdoll deferred
 - WIP scenes (untracked): `Test.unity`, `WagonsConstruct.unity`, `Wall Laser.unity`, `GrapplingHook_Test.unity`
