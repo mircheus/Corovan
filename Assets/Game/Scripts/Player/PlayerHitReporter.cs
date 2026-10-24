@@ -90,6 +90,12 @@ namespace FPSGame.Player
             bool wasAlive = !receiver.IsDead;
             bool applied = DamageRouter.ServerApplyHit(receiver, Mathf.RoundToInt(damage * multiplier), force);
 
+            if (applied && receiver is Component hitComponent)
+            {
+                foreach (IAttackerListener listener in hitComponent.GetComponents<IAttackerListener>())
+                    listener.ServerOnHitBy(gameObject);
+            }
+
             // The shooter's own hit marker fires on the spot; the kill highlight waits for the server.
             if (applied && wasAlive && receiver.IsDead && connectionToClient != null)
                 TargetKillConfirmed(connectionToClient);

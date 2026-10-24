@@ -25,4 +25,13 @@ namespace FPSGame.Combat
     {
         void ServerSetHitForce(Vector3 force);
     }
+
+    /// <summary>
+    /// Optional: components that want to know who hit them (an enemy that turns on its shooter).
+    /// Looked up on the receiver's GameObject after a player's hit has been applied. Server only.
+    /// </summary>
+    public interface IAttackerListener
+    {
+        void ServerOnHitBy(GameObject attacker);
+    }
 }

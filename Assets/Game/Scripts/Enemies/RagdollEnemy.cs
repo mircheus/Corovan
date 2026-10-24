@@ -41,6 +41,10 @@ namespace FPSGame.Enemies
         public int MaxHealth => maxHealth;
         public bool IsDead => isDead;
 
+        /// <summary>Server only: the dummy just died / stood back up. Lets an AI on the same object stop and resume.</summary>
+        public event System.Action ServerDied;
+        public event System.Action ServerRespawned;
+
         private void Awake()
         {
             ragdoll = GetComponent<Ragdoll>();
@@ -77,6 +81,7 @@ namespace FPSGame.Enemies
                 return;
 
             isDead = true;
+            ServerDied?.Invoke();
             RpcDie(Vector3.ClampMagnitude(pendingHitForce * pushMultiplier, maxPushSpeed));
 
             if (respawnDelay > 0f)
@@ -96,6 +101,7 @@ namespace FPSGame.Enemies
             yield return new WaitForSeconds(delay);
             health = maxHealth;
             isDead = false; // the hook stands it back up on every client
+            ServerRespawned?.Invoke();
         }
 
         private IEnumerator ServerDestroyAfter(float delay)

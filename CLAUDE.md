@@ -44,7 +44,9 @@ Assets/Game/
 │   │   ├── DamageRouter.cs          # Single server-side entry for weapon damage
 │   │   └── FPSFDamageable.cs        # Our receivers as FPSF IDamageable
 │   ├── Enemies/
-│   │   └── RagdollEnemy.cs          # Networked FPSF Bot dummy (ragdoll on death, respawn)
+│   │   ├── RagdollEnemy.cs          # Networked FPSF Bot dummy (ragdoll on death, respawn)
+│   │   ├── ShooterDroid.cs          # RagdollBot that chases on foot players and shoots projectiles
+│   │   └── ShooterDroidSpawner.cs   # Server spawn loop for droids (on start / players in zone / manual)
 │   ├── Vehicle/
 │   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
 │   │   └── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
@@ -176,7 +178,10 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 - Targets either `PlayerHealth` (on foot) or `CarController` (driven vehicle)
 - Fires `EnemyProjectile` via `NetworkServer.Spawn`; optional `keepAttackAfterTriggerExit` flag
 - `DestructionObjective` monitors an array of `DestructionTarget`s; fires a UnityEvent when enough are destroyed
-- `RagdollEnemy` (`RagdollBot.prefab`): server health; death → `RpcDie(push)` flops the FPSF `Ragdoll` on every client (cosmetic, not synced) → stands up after `respawnDelay`. Ragdoll is for enemies only — the player ragdoll is deferred
+- `RagdollEnemy` (`RagdollBot.prefab`): server health; death → `RpcDie(push)` flops the FPSF `Ragdoll` on every client (cosmetic, not synced) → stands up after `respawnDelay`. Ragdoll is for enemies only — the player ragdoll is deferred. Raises server events `ServerDied` / `ServerRespawned` for an AI on the same object
+- `ShooterDroid` (`ShooterDroid.prefab`, variant of `RagdollBot` + NavMeshAgent + NetworkTransformUnreliable): server-only brain over `RagdollEnemy`. Re-sweeps `detectionRadius` while idle (players on foot only, `IsTargetable`), walks to `standoffDistance` (never backs off; closes in when sight is lost), fires `EnemyProjectile` from `FirePoint` (between the eyes) while moving. Shots pass through every droid and through each other (`EnemyProjectile` ignores live projectiles); the sight check skips droids and shots in flight to match — droids walk in a pack and the projectile is fat (r 0.3), so a ray-only check let them shoot each other. Optional target loss (leash radius / out of sight timeout), wake on being shot (`IAttackerListener`, called by `PlayerHitReporter` after a player's hit), alert nearby droids. Needs a baked NavMesh
+- Droid detection and spawner zone/aggro checks iterate `ShooterDroid.ServerPlayers()` (from `NetworkServer.connections`), never a fixed-size overlap buffer — a droid pack's bone colliders filled the 32-slot buffer before the player appeared in it
+- `ShooterDroidSpawner`: server spawn loop, `maxAlive` / `totalToSpawn`; `aggroOnSpawn` re-runs every tick for idle droids (an `OnStart` wave spawns before anyone joins), player inside `activationZone` or within `aggroRadius`; activation `OnStart` / `WhilePlayersInZone` (polled zone collider) / `Manual` (`ServerStartSpawning`/`ServerStopSpawning`, safe from UnityEvents on any peer). Droid + `Projectile` prefabs are in `NetworkManager.prefab` `runtimeSpawnPrefabs`
 
 ### Hazard System
 - `BarrelSpawner`: server-side object pool (`poolSize` pre-spawned barrels). Returns barrel to pool after despawn delay

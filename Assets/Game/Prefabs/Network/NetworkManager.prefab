@@ -85,6 +85,8 @@ MonoBehaviour:
   - {fileID: 0}
   runtimeSpawnPrefabs:
   - {fileID: 3535857001082036508, guid: 3bac6345196c7574785c62a5ca0f37c8, type: 3}
+  - {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
+  - {fileID: 8666274087423490802, guid: cae4282aef7462b4480655714e05b85a, type: 3}
 --- !u!114 &4520788953085958085
 MonoBehaviour:
   m_ObjectHideFlags: 0
