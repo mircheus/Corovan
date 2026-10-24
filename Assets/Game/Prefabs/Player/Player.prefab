@@ -18840,7 +18840,7 @@ Camera:
   m_GameObject: {fileID: 3999588163481166502}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
+  m_ClearFlags: 4
   m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
@@ -19799,7 +19799,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 0
+  _assetId: 753332552
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
@@ -19914,7 +19914,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  maxHealth: 10000
+  maxHealth: 100
   bleedoutDuration: 30
   reviveHealthPercent: 0.5
   enableRegeneration: 0
@@ -26813,8 +26813,8 @@ Transform:
   m_GameObject: {fileID: 6198311397056833968}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.928, z: 0.243}
-  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_LocalPosition: {x: 0, y: -0.03, z: 0.243}
+  m_LocalScale: {x: 1.2, y: 1.2, z: 1.2}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 6200645084559563028}
