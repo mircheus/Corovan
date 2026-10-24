@@ -3530,8 +3530,8 @@ MonoBehaviour:
   maxHealth: 100
   respawnDelay: 5
   destroyDelay: 4
-  pushMultiplier: 1
-  maxPushSpeed: 12
+  pushMultiplier: 0.1
+  maxPushSpeed: 5
 --- !u!114 &8489230227013691741
 MonoBehaviour:
   m_ObjectHideFlags: 0
