@@ -289,7 +289,7 @@ namespace FPSGame.Player
 
         /// <summary>
         /// Kills the player outright, skipping the downed state. For hazards where being revived
-        /// makes no sense — kill volumes, bottomless falls, dying inside an exploding car.
+        /// makes no sense — bottomless falls, dying inside an exploding car.
         /// </summary>
         [Server]
         public void ServerKillInstant()

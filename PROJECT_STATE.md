@@ -20,7 +20,7 @@ Corovan is a **multiplayer convoy FPS** on Unity 6 with Mirror networking. Playe
 7. **Win** by driving the car into the extraction zone and holding it there; **lose** if the whole squad is down/dead at once. Either way `MatchEndUI` shows the result (+ loot score on victory) with a host-only restart.
 8. Optional: destruction objectives (destroy N targets → fire an event).
 
-**Supporting / experimental mechanics present in code:** zombie melee enemies, ragdoll target dummies (`RagdollBot`), a grappling hook, a floor-cutting tool + safe that falls through the hole, wind zones, kill volumes, vehicle remote control.
+**Supporting / experimental mechanics present in code:** zombie melee enemies, ragdoll target dummies (`RagdollBot`), a grappling hook, a floor-cutting tool + safe that falls through the hole, wind zones, vehicle remote control.
 
 **Scenes** (`Assets/Game/Scenes/`):
 | Scene | Role |
@@ -59,7 +59,7 @@ Corovan is a **multiplayer convoy FPS** on Unity 6 with Mirror networking. Playe
 | Convoy motion / physics | ✅ Working | Single `MotionDirector` signal → platform tilt, camera shake, player sway, loot force, swerve telegraph, fall hazard + respawn. Setup: `convoy_raid_physics_setup.md` |
 | Destruction objective | ✅ Working | `DestructionObjective` tracks `DestructionTarget`s |
 | Interactables (hold-E) | ✅ Working | Generic; binds UnityEvents (doors etc.) |
-| Wind zones / kill volumes | ✅ Working | Trigger-based push / instant kill |
+| Wind zones | ✅ Working | Trigger-based push |
 | Floor cutter + falling safe | ✅ Working (tool) | Runtime mesh hole + point-in-quad fall detection |
 | Zombie enemies | ⚠️ Coded, not placed | Full NavMesh state machine — not spawned in any scene |
 | Grappling hook | ⚠️ Local-only prototype | No networking; placeholder visuals |
@@ -85,7 +85,7 @@ Legend: ✅ done · ◑ partial · ⚠️ exists but not integrated · 🚧 acti
 - **PlayerGrenades** — FPSF `Throwable.ThrowOverride`: the owner spends one grenade (FPSF ammo "Gernades") and `CmdThrow` → the server validates and spawns `NetGrenade`.
 - **PlayerDamageFeedback** — owner: FPSF damage-indicator flash + camera shake on health loss.
 - **FPSFPlayerBridge** — disables every FPSF component (except `Ragdoll`) on other players' copies before their `Start`; wires `Inventory.characterManager`.
-- **PlayerHealth** — `currentHealth` (hook) + `lifeState` (`Alive/Downed/Dead`, hook) SyncVars; bleedout synced as a deadline (`bleedoutEndTime` + pause flag), optional server-side regen. **All damage/health values are `int`.** Zero HP calls `GoDown()` (downed + bleedout) rather than dying; `TakeDamage` is a no-op while downed. Server API: `TakeDamage(int)`, `TakeDamage(int, hitPoint, hitDir)`, `Heal`, `SetHealth`, `ServerKillInstant()` (skips downed — kill volumes, falls, car explosion), `ServerRevive()`, `ServerSetBleedoutPaused(bool)`, `Respawn`, `ResetHealth`. Events `OnHealthChanged/OnDowned/OnRevived/OnDeath/OnRespawn` (raised via hook on clients+host, via `isServerOnly` on a dedicated server). Registered with `GameStateManager` by `CustomNetworkManager`. **`Respawn()` has no caller in scene.**
+- **PlayerHealth** — `currentHealth` (hook) + `lifeState` (`Alive/Downed/Dead`, hook) SyncVars; bleedout synced as a deadline (`bleedoutEndTime` + pause flag), optional server-side regen. **All damage/health values are `int`.** Zero HP calls `GoDown()` (downed + bleedout) rather than dying; `TakeDamage` is a no-op while downed. Server API: `TakeDamage(int)`, `TakeDamage(int, hitPoint, hitDir)`, `Heal`, `SetHealth`, `ServerKillInstant()` (skips downed — instant-kill falls, car explosion), `ServerRevive()`, `ServerSetBleedoutPaused(bool)`, `Respawn`, `ResetHealth`. Events `OnHealthChanged/OnDowned/OnRevived/OnDeath/OnRespawn` (raised via hook on clients+host, via `isServerOnly` on a dedicated server). Registered with `GameStateManager` by `CustomNetworkManager`. **`Respawn()` has no caller in scene.**
 - **PlayerRevive** — sits next to `PlayerHealth`; owns the "can a teammate pick me up?" side. `[SyncVar] reviverNetId` + `reviveStartTime`; `CanBeRevivedBy`, `ServerBeginRevive/ServerCancelRevive/ServerCompleteRevive` (re-validate reviver identity, range +1 m tolerance, hold ≥ `reviveHoldDuration` − 0.25 s). A `[ServerCallback] Update` watchdog aborts if the reviver dies, goes down, walks off, or disconnects. Pauses the victim's bleedout while a hold is in flight. Exposes `IsBeingRevived`, `ReviveProgress`, `OnBeingRevivedChanged`.
 - **PlayerDownedVisual** — swaps the standing model (`aliveVisual`) for a lying one (`downedVisual`) on all clients, driven by `PlayerHealth`'s life-state events (`IsIncapacitated` — dead players stay on the ground too). Shows a `downedMarker` above a downed teammate (never to the owner). Both models must live under a `LocalPlayerBodyHider.bodyRoots` entry.
 - **PlayerCarry** — pickup within ~10 m, attaches to a carry point, puts weapons away via `PlayerLoadout.SetCarryingMode`. Commands `CmdPickup/CmdDrop/CmdThrow`; throw applies camera-ray impulse. Local parenting is instant; SyncVar confirms on others. `ForceDrop()` used when the carrier goes down.
@@ -131,7 +131,6 @@ Legend: ✅ done · ◑ partial · ⚠️ exists but not integrated · 🚧 acti
 - **ExtractionZone** — victory `IWinCondition`: hold a driven, alive car (`HasDriver` + `VehicleIsAlive`, `requireDriver` toggle) inside its trigger for `captureDuration` continuous seconds. Tracks overlapping car colliders in a `Dictionary<Collider,CarController>` (per-collider, so a partial exit doesn't drop a car still inside); capture is all-or-nothing (deadline resets the instant the car stops qualifying). Countdown synced as a deadline (`captureEndTime` + `capturing`), exposing `CaptureProgress`/`OnCapturingChanged` for `ExtractionUI`. Needs a `NetworkIdentity`; add it to `GameStateManager.winConditionSources`.
 - **DoorOpener** — minimal: sets the GameObject inactive when opened; state SyncVar.
 - **InfiniteRoad** — client-only tile recycler (scrolls + re-queues tiles); no networking.
-- **KillVolume** — server-validated trigger: instantly kills players (`ServerKillInstant()`, skipping the downed state), optionally damages cars.
 - **WindZone** — trigger that calls `AddExternalVelocity` on the owned `PlayerController` during `TriggerStay`; preset-axis or custom direction, local/world toggle.
 
 ### Hazards (`Assets/Game/Scripts/Hazards/`)
