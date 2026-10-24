@@ -264,6 +264,17 @@ namespace FPSGame.Environment
             SetPhase(RoadPhase.InAir);
         }
 
+        /// <summary>
+        /// Called when a player picks the prop up (<see cref="CarryableObject"/>). Leaves the road
+        /// so replication is back on; kinematics stay with the carry code. Dropping or throwing it
+        /// lands it on the road again through the normal InAir → OnRoad path. Server only.
+        /// </summary>
+        [Server]
+        public void ServerLift()
+        {
+            SetPhase(RoadPhase.InAir);
+        }
+
         [Server]
         private void SetPhase(RoadPhase p)
         {

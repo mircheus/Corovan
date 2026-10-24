@@ -100,6 +100,18 @@ namespace FPSGame.Player
             OnCarryingChanged?.Invoke(false);
         }
 
+        // A client-only carrier owns the object only after CmdPickup's round trip. Until then its
+        // NetworkTransform is still a non-owner and keeps applying the server's snapshots, which
+        // knock the object off the carry point — so re-pin it every frame (after NT's Update).
+        private void LateUpdate()
+        {
+            if (!isOwned || carriedObject == null)
+                return;
+
+            carriedObject.transform.localPosition = Vector3.zero;
+            carriedObject.transform.localRotation = Quaternion.identity;
+        }
+
         private void AttachToCarryPoint()
         {
             Transform parent = carryPoint != null ? carryPoint : transform;
