@@ -451,6 +451,15 @@ namespace FPSGame.Player
             {
                 isCrouching = !CanStand();
             }
+            SyncFPSFCrouch();
+        }
+
+        // Our forced crouch changes must reach FPSF's crouch flag too, or ReadFPSFInput would
+        // take the stale flag for a C press next frame and undo them (e.g. stay crouched after a revive).
+        private void SyncFPSFCrouch()
+        {
+            if (fpsfInput != null)
+                fpsfInput.crouchInput = isCrouching;
         }
 
         public void SetVehicleMode(bool inVehicle)
@@ -464,6 +473,7 @@ namespace FPSGame.Player
                 isSprinting = false;
                 isTacticalSprinting = false;
                 isCrouching = false;
+                SyncFPSFCrouch();
             }
         }
 
