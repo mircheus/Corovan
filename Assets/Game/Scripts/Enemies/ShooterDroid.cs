@@ -3,6 +3,7 @@ using Mirror;
 using UnityEngine;
 using UnityEngine.AI;
 using FPSGame.Combat;
+using FPSGame.Config;
 using FPSGame.Environment;
 using FPSGame.Player;
 
@@ -111,11 +112,26 @@ namespace FPSGame.Enemies
         public override void OnStartServer()
         {
             base.OnStartServer();
+            ApplyBalance();
             agent.speed = moveSpeed;
             agent.updateRotation = false;
             serverDroids.Add(this);
             body.ServerDied += OnServerDied;
             body.ServerRespawned += OnServerRespawned;
+        }
+
+        // Prefab values stay unless the scene has a BalanceConfig.
+        [Server]
+        private void ApplyBalance()
+        {
+            BalanceConfig config = SceneBalance.Current;
+            if (config == null)
+                return;
+
+            ShooterDroidBalance balance = config.shooterDroid;
+            body.ServerSetMaxHealth(balance.maxHealth);
+            projectileDamage = balance.projectileDamage;
+            projectileSpeed = balance.projectileSpeed;
         }
 
         public override void OnStopServer()

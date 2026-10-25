@@ -86,7 +86,9 @@ Assets/Game/
 │   │   ├── PauseMenu.cs
 │   │   └── SettingsMenu.cs
 │   ├── Config/
-│   │   └── GameSettings.cs
+│   │   ├── GameSettings.cs
+│   │   ├── BalanceConfig.cs         # Per-scene balance SO (player max health; grows as needed)
+│   │   └── SceneBalance.cs          # Scene component: picks the BalanceConfig (static Current)
 │   ├── Utility/
 │   │   ├── SceneReloader.cs         # F9 hot-reload
 │   │   ├── AutoTile.cs
@@ -144,6 +146,14 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 - All damage and health values are `int` — damage fields, `health`/`maxHealth` fields, `TakeDamage(int)` parameters, projectile/weapon damage. Never use `float` for a damage or health value.
 - `PlayerHealth` regen accumulates fractional HP in a private `float regenBuffer` and applies whole `int` points; `regenerationRate` stays `float` (a per-second rate). `HealthPercentage` casts to `float` for the division.
 - Anything weapons can hurt implements `IDamageReceiver` (found with `GetComponentInParent` from the hit collider) and is damaged through `DamageRouter.ServerApplyHit` — no per-type branches in weapon code. Hit-count targets (`DestroyableObject`, `DestructionTarget`) count any hit as one. FPSF's float damage is rounded once, in `FPSFDamageable`.
+
+### Scene Balance Config
+- `BalanceConfig` (SO, `Data/Balance/`: `Balance_Default`, `Balance_Test`) holds per-scene values; `SceneBalance` in a scene points at one and exposes it as static `SceneBalance.Current`. No `SceneBalance` (or no config on it) = prefab values stay.
+- **Pull, not push:** receivers read `SceneBalance.Current` when they spawn (players and enemies appear after scene load). The server applies it in `OnStartServer`; a value clients also need (e.g. `PlayerHealth.maxHealth` for the HUD) is a SyncVar so everyone uses the server's value. The scene exists on every peer, so client-side values (future weapon damage on the owner) can read it too.
+- Add fields one at a time, in sections. Applied so far:
+  - `player.maxHealth` → `PlayerHealth` (server, SyncVar).
+  - `player.pistolDamage/shotgunDamage/rifleDamage` → `PlayerLoadout.ApplyWeaponBalance` (owner, matched by `LoadoutItem` id). FPSF `preset` is a shared asset: the firearm gets its own `Instantiate`d copy — never write into the original (in the Editor that would edit the asset). Semantics = FPSF `damage` (shotgun: whole shot split between pellets). Server still clamps each reported hit to `PlayerHitReporter.maxDamagePerHit`.
+  - `shooterDroid.maxHealth/projectileDamage/projectileSpeed` → `ShooterDroid.ApplyBalance` (server) → `RagdollEnemy.ServerSetMaxHealth` (`maxHealth` is a SyncVar). The plain `RagdollBot` dummy is not configured.
 
 ### Networking Pattern
 - All networked scripts inherit `NetworkBehaviour` (Mirror)

@@ -17,6 +17,8 @@ namespace FPSGame.Enemies
     [RequireComponent(typeof(Ragdoll))]
     public class RagdollEnemy : NetworkBehaviour, IDamageReceiver, IHitForceReceiver
     {
+        [Tooltip("Default; an AI on the same object may override it from the scene's BalanceConfig. Synced so clients' FPSF hit feedback reads the same value.")]
+        [SyncVar]
         [SerializeField] private int maxHealth = 100;
 
         [Header("After death")]
@@ -62,6 +64,15 @@ namespace FPSGame.Enemies
             // Late join on an already dead dummy: just lie down, no push.
             if (isDead && !isServer)
                 StartCoroutine(SetRagdollWhenReady(true, Vector3.zero));
+        }
+
+        /// <summary>Server only: replace the max health (config from the AI's OnStartServer); refills a live body.</summary>
+        [Server]
+        public void ServerSetMaxHealth(int value)
+        {
+            maxHealth = Mathf.Max(1, value);
+            if (!isDead)
+                health = maxHealth;
         }
 
         [Server]

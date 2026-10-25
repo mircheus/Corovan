@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
 using Akila.FPSFramework;
+using FPSGame.Config;
 using FPSGame.Environment;
 
 namespace FPSGame.Player
@@ -101,8 +102,40 @@ namespace FPSGame.Player
                     if (profile != null)
                         startingReserve[profile] = profile.amount;
 
+            ApplyWeaponBalance();
             selectedSlot = FirstUnlocked();
             Apply();
+        }
+
+        // Hits are decided on the owner, so weapon damage only matters here. The FPSF preset is a
+        // shared asset: give this firearm its own copy, never write into the original.
+        private void ApplyWeaponBalance()
+        {
+            BalanceConfig config = SceneBalance.Current;
+            if (config == null)
+                return;
+
+            foreach (LoadoutItem slot in slots)
+            {
+                int? damage = WeaponDamage(config.player, slot.ItemId);
+                var firearm = slot.GetComponent<Firearm>();
+                if (damage == null || firearm == null || firearm.preset == null)
+                    continue;
+
+                firearm.preset = Instantiate(firearm.preset);
+                firearm.preset.damage = damage.Value;
+            }
+        }
+
+        private static int? WeaponDamage(PlayerBalance balance, string itemId)
+        {
+            switch (itemId)
+            {
+                case "pistol": return balance.pistolDamage;
+                case "shotgun": return balance.shotgunDamage;
+                case "rifle": return balance.rifleDamage;
+                default: return null;
+            }
         }
 
         private void Update()

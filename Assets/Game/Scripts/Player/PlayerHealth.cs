@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using Mirror;
 using FPSGame.Combat;
+using FPSGame.Config;
 
 namespace FPSGame.Player
 {
@@ -17,6 +18,8 @@ namespace FPSGame.Player
     public class PlayerHealth : NetworkBehaviour, IDamageReceiver
     {
         [Header("Health Settings")]
+        [Tooltip("Default; the scene's BalanceConfig overrides it on the server. Synced so client HUDs divide by the same value.")]
+        [SyncVar]
         [SerializeField] private int maxHealth = 100;
 
         [SyncVar(hook = nameof(OnHealthChangedHook))]
@@ -114,6 +117,8 @@ namespace FPSGame.Player
         public override void OnStartServer()
         {
             base.OnStartServer();
+            if (SceneBalance.Current != null)
+                maxHealth = SceneBalance.Current.player.maxHealth;
             currentHealth = maxHealth;
             lifeState = LifeState.Alive;
         }
