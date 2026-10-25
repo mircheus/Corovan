@@ -1,16 +1,21 @@
 using UnityEngine;
 using Mirror;
+using Akila.FPSFramework;
 using FPSGame.Vehicle;
 using FPSGame.Environment;
 
 namespace FPSGame.Player
 {
+    // Our movement drives the FPS Framework: it reads FPSF's CharacterInput and exposes itself as the
+    // ICharacterController that FPSF's camera, weapon motion and firearms query for speeds.
     [RequireComponent(typeof(CharacterController))]
-    public class PlayerController : NetworkBehaviour
+    public class PlayerController : NetworkBehaviour, ICharacterController
     {
         [Header("Movement Settings")]
         [SerializeField] private float walkSpeed = 5.0f;
         [SerializeField] private float sprintSpeed = 8.5f;
+        [Tooltip("Double-tap sprint (FPSF tactical sprint).")]
+        [SerializeField] private float tacticalSprintSpeed = 10.5f;
         [SerializeField] private float crouchSpeed = 2.5f;
         [SerializeField] private float airControlMultiplier = 0.3f;
 
@@ -36,13 +41,23 @@ namespace FPSGame.Player
         [SerializeField] private float crouchTransitionSpeed = 10.0f;
 
         private CharacterController characterController;
+        private CharacterInput fpsfInput;
+        private PlayerCamera playerCamera;
+        private PlayerCarry playerCarry;
         private Vector3 velocity;
         private Vector3 externalVelocity;
         private Vector2 moveInput;
         private bool isGrounded;
         private bool isOnCar;
         private bool isSprinting;
+        private bool isTacticalSprinting;
         private bool isCrouching;
+
+        // Speeds currently in force. FPSF firearms override them while held (aim / fire walk speed)
+        // through ICharacterController.SetSpeed and restore them with ResetSpeed.
+        private float activeWalkSpeed;
+        private float activeSprintSpeed;
+        private float activeTacticalSprintSpeed;
         private bool jumpRequested;
         private bool isDowned;
         private float targetHeight;
@@ -65,6 +80,7 @@ namespace FPSGame.Player
         public bool IsDowned => isDowned;
         public bool OnMotionPlatform => currentMotionPlatform != null;
         public bool IsSprinting => isSprinting && !isCrouching && moveInput.y > 0;
+        public bool IsTacticalSprinting => isTacticalSprinting && IsSprinting;
         public bool IsCrouching => isCrouching;
         public Vector3 Velocity => velocity;
         public bool InVehicle { get; private set; }
@@ -75,6 +91,11 @@ namespace FPSGame.Player
             characterController = GetComponent<CharacterController>();
             characterController.stepOffset = stepHeight;
             targetHeight = standingHeight;
+
+            fpsfInput = GetComponent<CharacterInput>();
+            playerCamera = GetComponentInChildren<PlayerCamera>();
+            playerCarry = GetComponent<PlayerCarry>();
+            ResetSpeed();
         }
 
         public override void OnStartLocalPlayer()
@@ -99,12 +120,36 @@ namespace FPSGame.Player
             if (!isOwned || InVehicle || IsGrappling)
                 return;
 
+            ReadFPSFInput();
             CheckGround();
             CheckOnCar();
             ApplyPlatformMovement();
             HandleCrouch();
             HandleMovement();
             ApplyGravity();
+        }
+
+        // FPSF's CharacterInput owns the movement keys; route them through our setters so the
+        // downed / carry rules stay in one place.
+        private void ReadFPSFInput()
+        {
+            if (fpsfInput == null)
+                return;
+
+            SetMoveInput(fpsfInput.moveInput);
+            SetSprinting(fpsfInput.sprintInput || fpsfInput.tacticalSprintInput);
+            if (!isDowned)
+                isTacticalSprinting = fpsfInput.tacticalSprintInput;
+
+            // No jumping while carrying loot.
+            if (fpsfInput.jumpInput && (playerCarry == null || !playerCarry.IsCarrying))
+                Jump();
+
+            // FPSF toggles crouchInput itself; we may refuse to stand (low ceiling, downed), so the
+            // resolved state is written back for FPSF's weapon motion to read.
+            if (fpsfInput.crouchInput != isCrouching)
+                ToggleCrouch();
+            fpsfInput.crouchInput = isCrouching;
         }
 
         private void CheckGround()
@@ -255,13 +300,41 @@ namespace FPSGame.Player
             float baseSpeed;
             if (isCrouching)
                 baseSpeed = crouchSpeed;
+            else if (IsTacticalSprinting)
+                baseSpeed = activeTacticalSprintSpeed;
             else if (IsSprinting)
-                baseSpeed = sprintSpeed;
+                baseSpeed = activeSprintSpeed;
             else
-                baseSpeed = walkSpeed;
+                baseSpeed = activeWalkSpeed;
 
             return baseSpeed * carrySpeedMultiplier;
         }
+
+        #region ICharacterController (FPS Framework)
+
+        public void SetSpeed(float walk, float run, float tacticalSprint)
+        {
+            activeWalkSpeed = walk;
+            activeSprintSpeed = run;
+            activeTacticalSprintSpeed = tacticalSprint;
+        }
+
+        public void ResetSpeed()
+        {
+            activeWalkSpeed = walkSpeed;
+            activeSprintSpeed = sprintSpeed;
+            activeTacticalSprintSpeed = tacticalSprintSpeed;
+        }
+
+        float ICharacterController.sensitivity => playerCamera != null ? playerCamera.FPSFSensitivity : 1f;
+        float ICharacterController.walkSpeed => activeWalkSpeed;
+        float ICharacterController.sprintSpeed => activeSprintSpeed;
+        // FPSF divides by this for its head bob; never let it reach zero.
+        float ICharacterController.tacticalSprintSpeed => Mathf.Max(activeTacticalSprintSpeed, 0.01f);
+        float ICharacterController.tacticalSprintAmount => IsTacticalSprinting ? 1f : 0f;
+        bool ICharacterController.MaxedCameraRotation() => playerCamera != null && playerCamera.IsPitchClamped;
+
+        #endregion
 
         // Set by PlayerCarry: 1 = normal speed, <1 = slowed while carrying loot.
         public void SetCarrySpeedMultiplier(float multiplier)
@@ -370,6 +443,7 @@ namespace FPSGame.Player
                 velocity.x = 0f;
                 velocity.z = 0f;
                 isSprinting = false;
+                isTacticalSprinting = false;
                 jumpRequested = false;
                 isCrouching = true;
             }
@@ -377,6 +451,15 @@ namespace FPSGame.Player
             {
                 isCrouching = !CanStand();
             }
+            SyncFPSFCrouch();
+        }
+
+        // Our forced crouch changes must reach FPSF's crouch flag too, or ReadFPSFInput would
+        // take the stale flag for a C press next frame and undo them (e.g. stay crouched after a revive).
+        private void SyncFPSFCrouch()
+        {
+            if (fpsfInput != null)
+                fpsfInput.crouchInput = isCrouching;
         }
 
         public void SetVehicleMode(bool inVehicle)
@@ -388,7 +471,9 @@ namespace FPSGame.Player
                 moveInput = Vector2.zero;
                 velocity = Vector3.zero;
                 isSprinting = false;
+                isTacticalSprinting = false;
                 isCrouching = false;
+                SyncFPSFCrouch();
             }
         }
 

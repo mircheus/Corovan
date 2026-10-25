@@ -15,7 +15,7 @@ namespace FPSGame.Player
         [SerializeField] private bool allowDrop = true;
 
         private PlayerCamera playerCamera;
-        private PlayerShooting playerShooting;
+        private PlayerLoadout loadout;
         private PlayerController playerController;
         private CarryableObject carriedObject;
 
@@ -29,7 +29,7 @@ namespace FPSGame.Player
         private void Awake()
         {
             playerCamera = GetComponentInChildren<PlayerCamera>();
-            playerShooting = GetComponent<PlayerShooting>();
+            loadout = GetComponent<PlayerLoadout>();
             playerController = GetComponent<PlayerController>();
         }
 
@@ -52,7 +52,7 @@ namespace FPSGame.Player
             carriedObject = target;
             target.SetCarriedLocally(true);
             AttachToCarryPoint();
-            playerShooting?.SetCarryingMode(true);
+            loadout?.SetCarryingMode(true);
             playerController?.SetCarrySpeedMultiplier(target.MovementSpeedMultiplier);
             CmdPickup(target.netIdentity);
             OnCarryingChanged?.Invoke(true);
@@ -78,7 +78,7 @@ namespace FPSGame.Player
             carriedObject.SetCarriedLocally(false);
             CmdDrop(carriedObject.netIdentity);
             carriedObject = null;
-            playerShooting?.SetCarryingMode(false);
+            loadout?.SetCarryingMode(false);
             playerController?.SetCarrySpeedMultiplier(1f);
             OnCarryingChanged?.Invoke(false);
         }
@@ -95,9 +95,21 @@ namespace FPSGame.Player
             carriedObject.SetCarriedLocally(false);
             CmdThrow(carriedObject.netIdentity, impulse);
             carriedObject = null;
-            playerShooting?.SetCarryingMode(false);
+            loadout?.SetCarryingMode(false);
             playerController?.SetCarrySpeedMultiplier(1f);
             OnCarryingChanged?.Invoke(false);
+        }
+
+        // A client-only carrier owns the object only after CmdPickup's round trip. Until then its
+        // NetworkTransform is still a non-owner and keeps applying the server's snapshots, which
+        // knock the object off the carry point — so re-pin it every frame (after NT's Update).
+        private void LateUpdate()
+        {
+            if (!isOwned || carriedObject == null)
+                return;
+
+            carriedObject.transform.localPosition = Vector3.zero;
+            carriedObject.transform.localRotation = Quaternion.identity;
         }
 
         private void AttachToCarryPoint()

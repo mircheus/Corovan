@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FPSGame.Player;
+using Akila.FPSFramework;
 
 namespace FPSGame.UI
 {
@@ -11,7 +12,8 @@ namespace FPSGame.UI
     {
         [Header("References")]
         [SerializeField] private PlayerHealth playerHealth;
-        [SerializeField] private PlayerShooting playerShooting;
+        [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
+        [SerializeField] private PlayerLoadout loadout;
         [SerializeField] private PlayerInputHandler playerInputHandler;
         [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
         [SerializeField] private PlayerRevive playerRevive;
@@ -68,6 +70,10 @@ namespace FPSGame.UI
         [SerializeField] private GameObject beingRevivedRoot;
         [SerializeField] private Slider reviveProgressBar;
 
+        [Header("FPS Framework")]
+        [Tooltip("FPSF hit marker + damage indicator (UIManager). Instantiated for the local player only.")]
+        [SerializeField] private GameObject fpsfCombatHudPrefab;
+
         [Header("Hit Marker")]
         [SerializeField] private GameObject hitMarker;
         [SerializeField] private float hitMarkerDuration = 0.1f;
@@ -76,6 +82,7 @@ namespace FPSGame.UI
         [SerializeField] TextMeshProUGUI scoreText;
 
         private float hitMarkerTimer;
+        private GameObject fpsfCombatHud;
         private ScoreManager _scoreManager;
 
         // This canvas is part of the player prefab, so every spawned player brings a full-screen
@@ -99,6 +106,11 @@ namespace FPSGame.UI
                 return;
             }
 
+            // FPSF's UIManager is a singleton the FPSF weapons talk to (hit marker, damage flash):
+            // one per client, the local player's.
+            if (fpsfCombatHudPrefab != null && fpsfCombatHud == null)
+                fpsfCombatHud = Instantiate(fpsfCombatHudPrefab);
+
             _scoreManager = ScoreManager.Instance;
 
             if (_scoreManager != null)
@@ -115,11 +127,14 @@ namespace FPSGame.UI
 
             ResolvePlayerRevive();
 
-            if (playerShooting != null)
+            if (loadout == null && playerHealth != null)
+                loadout = playerHealth.GetComponent<PlayerLoadout>();
+
+            if (loadout != null)
             {
-                playerShooting.OnAmmoChangedEvent += UpdateAmmoUI;
-                playerShooting.OnReloadStarted += ShowReloading;
-                playerShooting.OnReloadFinished += HideReloading;
+                loadout.OnAmmoChangedEvent += UpdateAmmoUI;
+                loadout.OnEquippedItemChanged += ApplyWeaponHud;
+                ApplyWeaponHud(loadout.EquippedItem);
             }
 
             if (playerInputHandler != null)
@@ -234,6 +249,23 @@ namespace FPSGame.UI
             }
         }
 
+        // A firearm in hand brings FPSF's Weapon HUD (ammo, dynamic crosshair, alerts): hide ours then.
+        // The grenade count uses our ammo line; melee and tools show no ammo.
+        private void ApplyWeaponHud(LoadoutItem item)
+        {
+            bool firearm = item != null && item.GetComponent<Firearm>() != null;
+            bool throwable = item != null && item.GetComponent<Throwable>() != null;
+
+            if (crosshair != null)
+                crosshair.gameObject.SetActive(!firearm);
+            if (ammoText != null)
+                ammoText.gameObject.SetActive(throwable);
+            if (reserveAmmoText != null)
+                reserveAmmoText.gameObject.SetActive(false);
+            if (reloadingIndicator != null)
+                reloadingIndicator.SetActive(false);
+        }
+
         private void UpdateAmmoUI(int currentAmmo, int reserveAmmo)
         {
             if (ammoText != null)
@@ -301,22 +333,6 @@ namespace FPSGame.UI
 
         private void HideCarryHint() => UpdateCarryHint(false);
 
-        private void ShowReloading()
-        {
-            if (reloadingIndicator != null)
-            {
-                reloadingIndicator.SetActive(true);
-            }
-        }
-
-        private void HideReloading()
-        {
-            if (reloadingIndicator != null)
-            {
-                reloadingIndicator.SetActive(false);
-            }
-        }
-
         private void UpdateCrosshair()
         {
             // Placeholder for dynamic crosshair spread based on movement/shooting
@@ -346,21 +362,21 @@ namespace FPSGame.UI
             }
         }
 
-        public void SetPlayerReferences(PlayerHealth health, PlayerShooting shooting, PlayerInputHandler inputHandler = null)
+        public void SetPlayerReferences(PlayerHealth health, PlayerLoadout playerLoadout, PlayerInputHandler inputHandler = null)
         {
             playerHealth = health;
-            playerShooting = shooting;
+            loadout = playerLoadout;
 
             if (playerHealth != null)
                 playerHealth.OnHealthChanged += UpdateHealthUI;
 
             ResolvePlayerRevive();
 
-            if (playerShooting != null)
+            if (loadout != null)
             {
-                playerShooting.OnAmmoChangedEvent += UpdateAmmoUI;
-                playerShooting.OnReloadStarted += ShowReloading;
-                playerShooting.OnReloadFinished += HideReloading;
+                loadout.OnAmmoChangedEvent += UpdateAmmoUI;
+                loadout.OnEquippedItemChanged += ApplyWeaponHud;
+                ApplyWeaponHud(loadout.EquippedItem);
             }
 
             if (inputHandler != null)
@@ -388,12 +404,14 @@ namespace FPSGame.UI
             if (playerCarry != null)
                 playerCarry.OnCarryingChanged -= UpdateCarryHint;
 
-            if (playerShooting != null)
+            if (loadout != null)
             {
-                playerShooting.OnAmmoChangedEvent -= UpdateAmmoUI;
-                playerShooting.OnReloadStarted -= ShowReloading;
-                playerShooting.OnReloadFinished -= HideReloading;
+                loadout.OnAmmoChangedEvent -= UpdateAmmoUI;
+                loadout.OnEquippedItemChanged -= ApplyWeaponHud;
             }
+
+            if (fpsfCombatHud != null)
+                Destroy(fpsfCombatHud);
 
             if (playerInputHandler != null)
             {

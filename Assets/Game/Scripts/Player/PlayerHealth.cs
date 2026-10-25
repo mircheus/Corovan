@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using Mirror;
+using FPSGame.Combat;
 
 namespace FPSGame.Player
 {
@@ -13,7 +14,7 @@ namespace FPSGame.Player
         Dead = 2
     }
 
-    public class PlayerHealth : NetworkBehaviour
+    public class PlayerHealth : NetworkBehaviour, IDamageReceiver
     {
         [Header("Health Settings")]
         [SerializeField] private int maxHealth = 100;
@@ -288,7 +289,7 @@ namespace FPSGame.Player
 
         /// <summary>
         /// Kills the player outright, skipping the downed state. For hazards where being revived
-        /// makes no sense — kill volumes, bottomless falls, dying inside an exploding car.
+        /// makes no sense — bottomless falls, dying inside an exploding car.
         /// </summary>
         [Server]
         public void ServerKillInstant()

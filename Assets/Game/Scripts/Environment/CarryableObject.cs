@@ -25,6 +25,7 @@ namespace FPSGame.Environment
         private Rigidbody rb;
         private BoxCollider[] colliders;
         private NetworkTransformBase netTransform;
+        private RoadBody roadBody;
 
         public bool IsCarried => isCarried;
         public float PickupRange => pickupRange;
@@ -40,6 +41,7 @@ namespace FPSGame.Environment
             rb = GetComponent<Rigidbody>();
             colliders = GetComponentsInChildren<BoxCollider>();
             netTransform = GetComponent<NetworkTransformBase>();
+            roadBody = GetComponent<RoadBody>();
         }
 
         public override void OnStartClient()
@@ -93,6 +95,10 @@ namespace FPSGame.Environment
                 return;
 
             isCarried = true;
+            // A Settled RoadBody has its NetworkTransform switched off; lift it off the road
+            // first, or the carrier's movement never reaches the server or anyone else.
+            if (roadBody != null)
+                roadBody.ServerLift();
             netIdentity.AssignClientAuthority(conn);
             ApplyCarriedState(true);
         }

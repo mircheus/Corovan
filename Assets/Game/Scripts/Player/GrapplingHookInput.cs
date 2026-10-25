@@ -1,19 +1,19 @@
 using Mirror;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Akila.FPSFramework;
 
 namespace FPSGame.Player
 {
     /// <summary>
-    /// Caches the Attack and Jump input actions from the PlayerInput component and
-    /// exposes per-frame query properties for GrapplingHookController.
-    /// Reads actions directly (same pattern as PlayerInputHandler) so no modifications
-    /// to PlayerInputHandler are required.
+    /// Caches the Attack input action from the PlayerInput component (jump comes from FPSF's
+    /// CharacterInput, which owns the movement keys) and exposes per-frame query properties for
+    /// GrapplingHookController.
     /// </summary>
     public class GrapplingHookInput : NetworkBehaviour
     {
         private InputAction fireAction;
-        private InputAction jumpAction;
+        private CharacterInput fpsfInput;
         private bool initialized;
 
         /// <summary>True for one frame when the fire (Attack) action is triggered.</summary>
@@ -34,7 +34,7 @@ namespace FPSGame.Player
             }
 
             fireAction = playerInput.actions["Attack"];
-            jumpAction = playerInput.actions["Jump"];
+            fpsfInput = GetComponent<CharacterInput>();
             initialized = true;
         }
 
@@ -47,7 +47,7 @@ namespace FPSGame.Player
                 return;
 
             FireTriggered = fireAction != null && fireAction.WasPressedThisFrame();
-            JumpTriggered = jumpAction != null && jumpAction.WasPressedThisFrame();
+            JumpTriggered = fpsfInput != null && fpsfInput.jumpInput;
         }
     }
 }

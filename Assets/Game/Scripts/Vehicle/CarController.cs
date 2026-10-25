@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using FPSGame.Combat;
 using FPSGame.Environment;
 using FPSGame.Networking;
 
@@ -14,8 +15,12 @@ namespace FPSGame.Vehicle
         StayInPlace
     }
 
-    public class CarController : NetworkBehaviour
+    public class CarController : NetworkBehaviour, IDamageReceiver
     {
+        int IDamageReceiver.CurrentHealth => vehicleHealth;
+        int IDamageReceiver.MaxHealth => maxVehicleHealth;
+        bool IDamageReceiver.IsDead => !vehicleIsAlive;
+
         [Header("References: ")]
         [SerializeField] private Rigidbody rb;
         [Tooltip("The car's NetworkTransform. Its sync direction is flipped at runtime: ClientToServer while a driver holds authority, ServerToClient while the server drives it (idle / driverless drift / autopilot). Auto-resolved from this GameObject if left empty.")]
@@ -526,13 +531,15 @@ namespace FPSGame.Vehicle
             if (playerController != null)
                 playerController.SetVehicleMode(!visible);
 
-            // Hide/show renderers on driver, but keep weapon visible
-            var shooting = driver.GetComponent<FPSGame.Player.PlayerShooting>();
-            Transform weaponHolder = shooting != null ? shooting.WeaponHolder : null;
+            // Hide/show renderers on driver. Weapons are put away while driving (PlayerLoadout), and the
+            // FPSF Inventory is left alone: attachment meshes there are switched off on purpose, and
+            // re-enabling every renderer on exit would turn them all back on.
+            var inventory = driver.GetComponentInChildren<Akila.FPSFramework.Inventory>(true);
+            Transform weapons = inventory != null ? inventory.transform : null;
 
             foreach (var renderer in driver.GetComponentsInChildren<Renderer>())
             {
-                if (!visible && weaponHolder != null && renderer.transform.IsChildOf(weaponHolder))
+                if (weapons != null && renderer.transform.IsChildOf(weapons))
                     continue;
 
                 renderer.enabled = visible;

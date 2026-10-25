@@ -20,6 +20,24 @@ Shader "Custom/ScrollingGround"
             "Queue"          = "Geometry"
         }
 
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+        TEXTURE2D(_MainTex);   SAMPLER(sampler_MainTex);
+        TEXTURE2D(_NormalMap); SAMPLER(sampler_NormalMap);
+
+        // Общий для всех пассов — иначе шейдер несовместим с SRP Batcher
+        CBUFFER_START(UnityPerMaterial)
+            float4 _MainTex_ST;
+            float4 _NormalMap_ST;
+            float4 _Tint;
+            float  _ScrollSpeedX;
+            float  _ScrollSpeedY;
+            float  _NormalScale;
+            float  _Smoothness;
+        CBUFFER_END
+        ENDHLSL
+
         Pass
         {
             Name "ForwardLit"
@@ -29,25 +47,16 @@ Shader "Custom/ScrollingGround"
             #pragma vertex   vert
             #pragma fragment frag
 
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+            #pragma multi_compile _ _LIGHT_LAYERS
+            #pragma multi_compile _ _FORWARD_PLUS
             #pragma multi_compile_fog
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-
-            TEXTURE2D(_MainTex);   SAMPLER(sampler_MainTex);
-            TEXTURE2D(_NormalMap); SAMPLER(sampler_NormalMap);
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _MainTex_ST;
-                float4 _NormalMap_ST;
-                float4 _Tint;
-                float  _ScrollSpeedX;
-                float  _ScrollSpeedY;
-                float  _NormalScale;
-                float  _Smoothness;
-            CBUFFER_END
 
             struct Attributes
             {
@@ -105,16 +114,23 @@ Shader "Custom/ScrollingGround"
 
                 InputData inputData       = (InputData)0;
                 inputData.positionWS      = IN.positionWS;
+                inputData.positionCS      = IN.positionHCS;
                 inputData.normalWS        = normalWS;
                 inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(IN.positionWS);
                 inputData.shadowCoord     = TransformWorldToShadowCoord(IN.positionWS);
                 inputData.fogCoord        = IN.fogFactor;
+                // Ambient (Environment Lighting) — без него всё, что не освещено солнцем напрямую, чёрное
+                inputData.bakedGI         = SampleSH(normalWS);
+                inputData.shadowMask      = half4(1, 1, 1, 1);
+                // Нужен Forward+ (кластеры источников) и SSAO
+                inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(IN.positionHCS);
 
                 SurfaceData surfaceData = (SurfaceData)0;
                 surfaceData.albedo      = albedo.rgb;
                 surfaceData.alpha       = 1.0;
                 surfaceData.smoothness  = _Smoothness;
                 surfaceData.normalTS    = normalTS;
+                surfaceData.occlusion   = 1.0;
 
                 half4 color = UniversalFragmentPBR(inputData, surfaceData);
                 color.rgb   = MixFog(color.rgb, IN.fogFactor);
@@ -124,7 +140,121 @@ Shader "Custom/ScrollingGround"
             ENDHLSL
         }
 
-        UsePass "Universal Render Pipeline/Lit/ShadowCaster"
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma vertex   vert
+            #pragma fragment frag
+
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+
+            float3 _LightDirection;
+            float3 _LightPosition;
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;
+            };
+
+            float4 vert(Attributes IN) : SV_POSITION
+            {
+                float3 positionWS = TransformObjectToWorld(IN.positionOS.xyz);
+                float3 normalWS   = TransformObjectToWorldNormal(IN.normalOS);
+
+            #if _CASTING_PUNCTUAL_LIGHT_SHADOW
+                float3 lightDirectionWS = normalize(_LightPosition - positionWS);
+            #else
+                float3 lightDirectionWS = _LightDirection;
+            #endif
+
+                float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, lightDirectionWS));
+            #if UNITY_REVERSED_Z
+                positionCS.z = min(positionCS.z, UNITY_NEAR_CLIP_VALUE);
+            #else
+                positionCS.z = max(positionCS.z, UNITY_NEAR_CLIP_VALUE);
+            #endif
+                return positionCS;
+            }
+
+            half4 frag() : SV_Target
+            {
+                return 0;
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+
+            ZWrite On
+            ColorMask R
+
+            HLSLPROGRAM
+            #pragma vertex   vert
+            #pragma fragment frag
+
+            float4 vert(float4 positionOS : POSITION) : SV_POSITION
+            {
+                return TransformObjectToHClip(positionOS.xyz);
+            }
+
+            half frag() : SV_Target
+            {
+                return 0;
+            }
+            ENDHLSL
+        }
+
+        // Нужен SSAO (включён в PC_Renderer) — без него дорога не попадает в текстуру нормалей
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+
+            ZWrite On
+
+            HLSLPROGRAM
+            #pragma vertex   vert
+            #pragma fragment frag
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;
+            };
+
+            struct Varyings
+            {
+                float4 positionHCS : SV_POSITION;
+                float3 normalWS    : TEXCOORD0;
+            };
+
+            Varyings vert(Attributes IN)
+            {
+                Varyings OUT;
+                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
+                OUT.normalWS    = TransformObjectToWorldNormal(IN.normalOS);
+                return OUT;
+            }
+
+            half4 frag(Varyings IN) : SV_Target
+            {
+                return half4(NormalizeNormalPerPixel(IN.normalWS), 0.0);
+            }
+            ENDHLSL
+        }
     }
 
     FallBack "Hidden/Universal Render Pipeline/FallbackError"

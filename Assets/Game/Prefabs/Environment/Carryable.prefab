@@ -196,7 +196,7 @@ MonoBehaviour:
   interpolatePosition: 1
   interpolateRotation: 1
   interpolateScale: 1
-  coordinateSpace: 0
+  coordinateSpace: 1
   timelineOffset: 1
   showGizmos: 0
   showOverlay: 0
@@ -241,7 +241,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  profile: {fileID: 0}
+  profile: {fileID: 11400000, guid: 47d1e817b3dd9e54493452b3946d70f9, type: 2}
   startDetached: 1
   netSync: {fileID: 0}
   landingEffectPrefab: {fileID: 0}

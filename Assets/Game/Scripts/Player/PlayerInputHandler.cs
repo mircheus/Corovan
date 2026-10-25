@@ -2,12 +2,16 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using Mirror;
+using Akila.FPSFramework;
 using FPSGame.Vehicle;
 using FPSGame.Environment;
 using FPSGame.Networking;
 
 namespace FPSGame.Player
 {
+    // Routes the game actions of our InputSystem_Actions (interact/hold-E, vehicle, carry, weapons).
+    // Move / look / jump / crouch / sprint live in FPSF's Controls and are read through its
+    // CharacterInput — by PlayerController / PlayerCamera on foot, and here for steering a car.
     public class PlayerInputHandler : NetworkBehaviour
     {
         [SerializeField] private float vehicleSearchRadius = 5f;
@@ -21,15 +25,18 @@ namespace FPSGame.Player
 
         private PlayerController playerController;
         private PlayerCamera playerCamera;
-        private PlayerShooting playerShooting;
+        private PlayerLoadout loadout;
         private PlayerCarry playerCarry;
         private PlayerKeycardHand playerKeycardHand;
         private PlayerKeyring playerKeyring;
         private PlayerHealth playerHealth;
         private PlayerInput playerInput;
+        private CharacterInput fpsfInput;
+        // FPSF input is blocked while paused, and for good once dead or the match is over.
+        private bool fpsfInputPaused;
+        private bool fpsfInputLockedForGood;
         private InputAction aimAction;
         private InputAction attackAction;
-        private InputAction sprintAction;
         private InputAction interactAction;
         private bool isInitialized;
         // After a drop/throw the loot leaves the hands the same frame; block the button's
@@ -69,12 +76,13 @@ namespace FPSGame.Player
         {
             playerController = GetComponent<PlayerController>();
             playerCamera = GetComponentInChildren<PlayerCamera>();
-            playerShooting = GetComponent<PlayerShooting>();
+            loadout = GetComponent<PlayerLoadout>();
             playerCarry = GetComponent<PlayerCarry>();
             playerKeycardHand = GetComponent<PlayerKeycardHand>();
             playerKeyring = GetComponent<PlayerKeyring>();
             playerHealth = GetComponent<PlayerHealth>();
             playerInput = GetComponent<PlayerInput>();
+            fpsfInput = GetComponent<CharacterInput>();
         }
 
         public override void OnStartLocalPlayer()
@@ -87,9 +95,11 @@ namespace FPSGame.Player
 
                 aimAction = playerInput.actions["Aim"];
                 attackAction = playerInput.actions["Attack"];
-                sprintAction = playerInput.actions["Sprint"];
                 interactAction = playerInput.actions["Interact"];
             }
+
+            fpsfInputLockedForGood = false;
+            ApplyFpsfInputBlock();
 
             if (playerHealth != null)
             {
@@ -130,6 +140,8 @@ namespace FPSGame.Player
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
+            fpsfInputLockedForGood = true;
+            ApplyFpsfInputBlock();
 
             if (currentVehicle != null)
             {
@@ -137,8 +149,7 @@ namespace FPSGame.Player
                 ExitVehicle();
             }
 
-            playerShooting?.SetFiring(false);
-            playerShooting?.SetAiming(false);
+            loadout?.DisableForGood();
             playerController?.SetSprinting(false);
             playerController?.SetMoveInput(Vector2.zero);
 
@@ -153,9 +164,11 @@ namespace FPSGame.Player
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
-            playerShooting?.SetFiring(false);
-            playerShooting?.SetAiming(false);
+            fpsfInputLockedForGood = true;
+            ApplyFpsfInputBlock();
+            loadout?.DisableForGood();
             playerController?.SetSprinting(false);
+            playerController?.SetMoveInput(Vector2.zero);
             playerKeycardHand?.Unequip();
             if (currentVehicle != null)
             {
@@ -179,9 +192,7 @@ namespace FPSGame.Player
             playerCarry?.ForceDrop();
             playerKeycardHand?.Unequip();
 
-            playerShooting?.SetFiring(false);
-            playerShooting?.SetAiming(false);
-            playerShooting?.SetDowned(true);
+            loadout?.SetDowned(true);
 
             playerController?.SetSprinting(false);
             playerController?.SetDownedMode(true);
@@ -192,8 +203,22 @@ namespace FPSGame.Player
 
         private void OnPlayerRevived()
         {
-            playerShooting?.SetDowned(false);
+            loadout?.SetDowned(false);
             playerController?.SetDownedMode(false);
+        }
+
+        /// <summary>Pause menu open/closed: freezes FPSF movement/look/weapons and puts the weapon away.</summary>
+        public void SetPaused(bool paused)
+        {
+            fpsfInputPaused = paused;
+            ApplyFpsfInputBlock();
+            loadout?.SetPaused(paused);
+        }
+
+        private void ApplyFpsfInputBlock()
+        {
+            if (fpsfInput != null)
+                fpsfInput.inputBlocked = fpsfInputPaused || fpsfInputLockedForGood;
         }
 
         // Drops whatever hold was in flight — revive or interactable.
@@ -242,8 +267,8 @@ namespace FPSGame.Player
 
             if (isCarrying || cardInHand)
             {
-                // Hands occupied (loot or keycard) — firing/aiming is fully suppressed
-                // (PlayerShooting.isCarrying). LMB throws; for loot RMB also puts it down.
+                // Hands occupied (loot or keycard) — no weapon is held (PlayerLoadout,
+                // via SetCarryingMode). LMB throws; for loot RMB also puts it down.
                 if (attackAction != null && attackAction.triggered)
                 {
                     fireBlockedAfterCarry = true;
@@ -262,30 +287,23 @@ namespace FPSGame.Player
             }
             else
             {
-                if (aimAction != null)
-                {
-                    // Clear the block only once RMB is fully released after a drop.
-                    if (aimBlockedAfterCarry && !aimAction.IsPressed())
-                        aimBlockedAfterCarry = false;
-
-                    playerShooting?.SetAiming(!aimBlockedAfterCarry && aimAction.IsPressed());
-                }
-
-                if (attackAction != null)
-                {
-                    // Clear the block only once LMB is fully released after a throw.
-                    if (fireBlockedAfterCarry && !attackAction.IsPressed())
-                        fireBlockedAfterCarry = false;
-
-                    playerShooting?.SetFiring(!fireBlockedAfterCarry && attackAction.IsPressed());
-                }
+                // Clear each block only once its button is fully released after a throw/drop.
+                if (aimBlockedAfterCarry && (aimAction == null || !aimAction.IsPressed()))
+                    aimBlockedAfterCarry = false;
+                if (fireBlockedAfterCarry && (attackAction == null || !attackAction.IsPressed()))
+                    fireBlockedAfterCarry = false;
             }
 
-            if (currentVehicle == null && sprintAction != null)
-                playerController?.SetSprinting(sprintAction.IsPressed());
+            // FPSF weapons read LMB/RMB themselves: keep them out of hand until then, or the
+            // press that threw the loot would also fire or aim.
+            loadout?.SetTriggerLock(fireBlockedAfterCarry || aimBlockedAfterCarry);
 
             if (currentVehicle != null)
             {
+                // On foot PlayerController reads the move keys itself; in the car they steer.
+                if (fpsfInput != null)
+                    currentVehicle.SetMoveInput(fpsfInput.moveInput);
+
                 var kb = Keyboard.current;
                 if (kb != null && kb[Key.G].wasPressedThisFrame)
                     CmdDetachSafe(currentVehicle.netIdentity);
@@ -343,7 +361,7 @@ namespace FPSGame.Player
 
             // Number keys — on foot and not carrying loot. "0" pulls the keycard
             // into / out of hand; 1-9 select weapon slots (and put any held card away).
-            if (currentVehicle == null && !isCarrying && playerShooting != null)
+            if (currentVehicle == null && !isCarrying && loadout != null)
             {
                 var kb = Keyboard.current;
                 if (kb != null)
@@ -354,14 +372,14 @@ namespace FPSGame.Player
                     }
                     else
                     {
-                        int count = Mathf.Min(playerShooting.WeaponCount, slotKeys.Length);
+                        int count = Mathf.Min(loadout.WeaponCount, slotKeys.Length);
                         for (int i = 0; i < count; i++)
                         {
                             if (kb[slotKeys[i]].wasPressedThisFrame)
                             {
                                 // Selecting a weapon puts the keycard away.
                                 playerKeycardHand?.Unequip();
-                                playerShooting.SelectWeaponSlot(i);
+                                loadout.SelectWeaponSlot(i);
                                 break;
                             }
                         }
@@ -370,68 +388,12 @@ namespace FPSGame.Player
             }
         }
 
-        public void OnMove(InputValue value)
-        {
-            if (!isOwned)
-                return;
-
-            Vector2 input = value.Get<Vector2>();
-
-            if (currentVehicle != null)
-            {
-                currentVehicle.SetMoveInput(input);
-                return;
-            }
-
-            playerController?.SetMoveInput(input);
-        }
-
-        public void OnLook(InputValue value)
-        {
-            if (!isOwned)
-                return;
-            playerCamera?.SetLookInput(value.Get<Vector2>());
-        }
-
-        public void OnJump(InputValue value)
-        {
-            if (!isOwned || currentVehicle != null)
-                return;
-            // No jumping while carrying loot.
-            if (playerCarry != null && playerCarry.IsCarrying)
-                return;
-            if (value.isPressed)
-            {
-                playerController?.Jump();
-            }
-        }
-
-        public void OnCrouch(InputValue value)
-        {
-            if (!isOwned || currentVehicle != null)
-                return;
-            if (value.isPressed)
-            {
-                playerController?.ToggleCrouch();
-            }
-        }
-
-        public void OnReload(InputValue value)
-        {
-            if (!isOwned || currentVehicle != null)
-                return;
-            if (value.isPressed)
-            {
-                playerShooting?.StartReload();
-            }
-        }
-
         public void OnPrevious(InputValue value)
         {
             if (!isOwned || currentVehicle != null)
                 return;
             if (value.isPressed)
-                playerShooting?.SelectPreviousWeapon();
+                loadout?.SelectPreviousWeapon();
         }
 
         public void OnNext(InputValue value)
@@ -439,7 +401,7 @@ namespace FPSGame.Player
             if (!isOwned || currentVehicle != null)
                 return;
             if (value.isPressed)
-                playerShooting?.SelectNextWeapon();
+                loadout?.SelectNextWeapon();
         }
 
         public void OnInteract(InputValue value)
@@ -600,8 +562,7 @@ namespace FPSGame.Player
             playerKeycardHand?.Unequip();
 
             // Clear shooting states
-            playerShooting?.SetAiming(false);
-            playerShooting?.SetFiring(false);
+            loadout?.SetInVehicle(true);
             playerController?.SetSprinting(false);
         }
 
@@ -621,6 +582,7 @@ namespace FPSGame.Player
             }
             currentVehicle = null;
             playerController?.SetVehicleMode(false);
+            loadout?.SetInVehicle(false);
         }
 
         // Throttled: re-scans for the best interaction target and pushes its verb to the HUD only

@@ -70,11 +70,8 @@ namespace FPSGame.Editor
 
             player.AddComponent<PlayerHealth>();
 
-            PlayerShooting playerShooting = player.AddComponent<PlayerShooting>();
-            SerializedObject psSO = new SerializedObject(playerShooting);
-            psSO.FindProperty("playerCamera").objectReferenceValue = playerCamera;
-            psSO.FindProperty("weaponHolder").objectReferenceValue = weaponHolder.transform;
-            psSO.ApplyModifiedProperties();
+            // Weapons are FPS Framework items under the Inventory, driven by PlayerLoadout.
+            player.AddComponent<PlayerLoadout>();
 
             player.AddComponent<PlayerInputHandler>();
 

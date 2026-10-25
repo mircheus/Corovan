@@ -25,7 +25,7 @@ Corovan is a **multiplayer convoy FPS** on **Unity 6 (6000.0.60f1)** with **Mirr
 5. Survive enemies (turrets, **enemy cars**, **drones**) and rolling barrel hazards that damage you and the car.
 6. Optional objectives: destruction targets, **interaction objectives**, **shoot container locks** / **collect keycards** to open doors.
 
-**Supporting / experimental mechanics in code:** zombie melee enemies, a grappling hook (local-only), a floor-cutting tool + safe that falls through the hole, wind zones, kill volumes, vehicle remote control (autopilot).
+**Supporting / experimental mechanics in code:** zombie melee enemies, a grappling hook (local-only), a floor-cutting tool + safe that falls through the hole, wind zones, vehicle remote control (autopilot).
 
 **Scenes** (`Assets/Game/Scenes/`):
 | Scene | Role |
@@ -78,7 +78,7 @@ The biggest additions are a **richer enemy roster**, a **Doom-style keycard/door
 | Interactables (hold-E) | ✅ Working | Generic; binds UnityEvents (doors etc.) |
 | **Keycards / locked doors** | ✅ New | Pickup → keyring bitmask → `KeycardLock` proximity opens `DoorOpener` |
 | **Container (shootable lock)** | ✅ New | `ContainerLock` HP → `ContainerDoor` swing |
-| Wind zones / kill volumes | ✅ Working | Trigger-based push / instant kill |
+| Wind zones | ✅ Working | Trigger-based push |
 | Floor cutter + falling safe | ✅ Working (tool) | Runtime mesh hole + point-in-quad fall detection |
 | Zombie enemies | ⚠️ Coded, not placed | Full NavMesh state machine — not spawned in any scene |
 | Grappling hook | ⚠️ Local-only prototype | No networking; placeholder visuals |

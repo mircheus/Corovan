@@ -1,5 +1,6 @@
 using FPSGame.Environment;
 using Mirror;
+using FPSGame.Combat;
 using UnityEngine;
 using UnityEngine.AI;
 using FPSGame.Player;
@@ -20,8 +21,11 @@ namespace FPSGame.Enemies
     ///   • firePoint child Transform
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent))]
-    public class DroneEnemy : NetworkBehaviour
+    public class DroneEnemy : NetworkBehaviour, IDamageReceiver
     {
+        int IDamageReceiver.CurrentHealth => health;
+        bool IDamageReceiver.IsDead => !isAlive;
+
         private enum DroneState { Idle = 0, Chasing = 1, Attacking = 2, Dead = 3 }
 
         [Header("Detection")]

@@ -17,8 +17,8 @@ namespace FPSGame.Enemies
     ///
     /// The fallen enemy is despawned when it enters a FallHazardVolume trigger (the deadly
     /// gap under the platform). That contact needs a Rigidbody on the enemy — a static
-    /// collider generates no trigger events (which is why KillVolume relies on the player's
-    /// CharacterController). Add a *kinematic* Rigidbody so it never fights the NavMeshAgent.
+    /// collider generates no trigger events (which is why PlayerFallHazard relies on the
+    /// player's CharacterController). Add a *kinematic* Rigidbody so it never fights the NavMeshAgent.
     ///
     /// Prefab setup:
     ///   • Sits next to NavMeshAgent + ZombieEnemy (ZombieEnemy is optional — any

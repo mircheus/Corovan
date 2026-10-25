@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2bf70984c64d5a24b9eb5a40b3616bb3
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 217379
+  packageName: FPS Framework
+  packageVersion: 1.92
+  assetPath: Assets/FPS Framework/UI/TextMesh Pro/Shaders/TMP_Sprite.shader
+  uploadId: 695196
