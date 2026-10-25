@@ -19,25 +19,39 @@ namespace FPSGame.Environment
 
         public ProjectileFxSet Fx => fx;
 
+        private const int MaxCastHits = 16;
+        private static readonly RaycastHit[] castBuffer = new RaycastHit[MaxCastHits];
+        private static readonly Collider[] overlapBuffer = new Collider[MaxCastHits];
+
         private Vector3 direction;
         private float spawnTime;
         private int damage;
         private bool hasHit;
+        private bool checkedSpawnOverlap;
+        private float radius;
         private Rigidbody rb;
         private Collider ownCollider;
-
-        // Live server projectiles. Shots never collide with each other: a burst would otherwise
-        // shoot down its own leading round.
-        private static readonly System.Collections.Generic.List<EnemyProjectile> serverLive =
-            new System.Collections.Generic.List<EnemyProjectile>();
+        // Colliders the shot flies through (its shooter). Replaces Physics.IgnoreCollision: the
+        // projectile moves by sweep, not by physics contacts.
+        private readonly System.Collections.Generic.HashSet<Collider> ignored =
+            new System.Collections.Generic.HashSet<Collider>();
 
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
             ownCollider = GetComponent<Collider>();
+            // Hits are found by a sweep in FixedUpdate. A dynamic body could be deflected by a
+            // CharacterController contact that raises no OnCollisionEnter (the shot then flew on
+            // sideways without damaging anyone); a kinematic trigger body can't be pushed.
+            rb.isKinematic = true;
             rb.useGravity = false;
-            rb.freezeRotation = true;
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            if (ownCollider != null)
+            {
+                ownCollider.isTrigger = true;
+                radius = ownCollider is SphereCollider sphere
+                    ? sphere.radius * Mathf.Max(transform.lossyScale.x, transform.lossyScale.y, transform.lossyScale.z)
+                    : ownCollider.bounds.extents.magnitude;
+            }
         }
 
         // Called by Enemy before NetworkServer.Spawn.
@@ -51,27 +65,66 @@ namespace FPSGame.Environment
         // Called by Enemy to prevent the projectile from hitting the enemy's own colliders.
         public void IgnoreCollider(Collider col)
         {
-            if (col != null && ownCollider != null)
-                Physics.IgnoreCollision(ownCollider, col);
+            if (col != null)
+                ignored.Add(col);
         }
 
         public override void OnStartServer()
         {
             base.OnStartServer();
-            serverLive.RemoveAll(p => p == null); // a scene change can destroy one without OnStopServer
-            foreach (EnemyProjectile other in serverLive)
-                IgnoreCollider(other.ownCollider);
-            serverLive.Add(this);
-
-            rb.linearVelocity = direction * speed;
             spawnTime = Time.time;
             Invoke(nameof(DestroyProjectile), lifetime);
         }
 
-        public override void OnStopServer()
+        private void FixedUpdate()
         {
-            base.OnStopServer();
-            serverLive.Remove(this);
+            if (!isServer || hasHit)
+                return;
+
+            Vector3 origin = rb.position;
+
+            // A sweep skips colliders it starts inside (muzzle against a wall), so check once.
+            if (!checkedSpawnOverlap)
+            {
+                checkedSpawnOverlap = true;
+                int n = Physics.OverlapSphereNonAlloc(origin, radius, overlapBuffer, ~0, QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < n; i++)
+                {
+                    if (IsValidTarget(overlapBuffer[i]))
+                    {
+                        Hit(overlapBuffer[i], overlapBuffer[i].ClosestPoint(origin), -direction);
+                        return;
+                    }
+                }
+            }
+
+            float step = speed * Time.fixedDeltaTime;
+            int count = Physics.SphereCastNonAlloc(origin, radius, direction, castBuffer, step, ~0, QueryTriggerInteraction.Ignore);
+            int best = -1;
+            for (int i = 0; i < count; i++)
+            {
+                if (!IsValidTarget(castBuffer[i].collider))
+                    continue;
+                if (best < 0 || castBuffer[i].distance < castBuffer[best].distance)
+                    best = i;
+            }
+
+            if (best >= 0)
+            {
+                RaycastHit hit = castBuffer[best];
+                rb.position = origin + direction * hit.distance;
+                Hit(hit.collider, hit.point, hit.normal);
+                return;
+            }
+
+            rb.MovePosition(origin + direction * step);
+        }
+
+        // Shots pass through the shooter's colliders and through each other.
+        private bool IsValidTarget(Collider col)
+        {
+            return col != null && col != ownCollider && !col.isTrigger && !ignored.Contains(col)
+                   && col.GetComponentInParent<EnemyProjectile>() == null;
         }
 
         public override void OnStartClient()
@@ -88,30 +141,24 @@ namespace FPSGame.Environment
                 fx.PlayHit(point, normal);
         }
 
-        private void OnCollisionEnter(Collision collision)
+        private void Hit(Collider col, Vector3 point, Vector3 normal)
         {
-            if (!isServer || hasHit)
-                return;
-
             hasHit = true;
-            if (fx != null && collision.contactCount > 0)
-            {
-                ContactPoint contact = collision.GetContact(0);
-                RpcHit(contact.point, contact.normal);
-            }
+            if (fx != null)
+                RpcHit(point, normal);
             if (logHits)
-                Debug.Log($"[EnemyProjectile] {name} hit '{collision.collider.name}' " +
-                          $"(layer {LayerMask.LayerToName(collision.collider.gameObject.layer)}, " +
-                          $"root '{collision.collider.transform.root.name}') {Time.time - spawnTime:F3}s after spawn", collision.collider);
+                Debug.Log($"[EnemyProjectile] {name} hit '{col.name}' " +
+                          $"(layer {LayerMask.LayerToName(col.gameObject.layer)}, " +
+                          $"root '{col.transform.root.name}') {Time.time - spawnTime:F3}s after spawn", col);
 
-            var playerHealth = collision.collider.GetComponentInParent<PlayerHealth>();
+            var playerHealth = col.GetComponentInParent<PlayerHealth>();
             if (playerHealth != null)
             {
                 playerHealth.TakeDamage(damage);
             }
             else
             {
-                var car = collision.collider.GetComponentInParent<CarController>();
+                var car = col.GetComponentInParent<CarController>();
                 if (car != null)
                     car.TakeDamage(damage);
             }
