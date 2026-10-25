@@ -341,14 +341,19 @@ namespace FPSGame.Enemies
             }
 
             NetworkServer.Spawn(obj);
-            RpcPlayShotFx();
+            RpcPlayShotFx(direction);
         }
 
         [ClientRpc]
-        private void RpcPlayShotFx()
+        private void RpcPlayShotFx(Vector3 direction)
         {
             if (shotEffect != null)
                 shotEffect.Play();
+
+            // The projectile prefab owns its look; the droid only asks it for the muzzle flash.
+            if (projectilePrefab != null && firePoint != null &&
+                projectilePrefab.TryGetComponent(out EnemyProjectile shot) && shot.Fx != null)
+                shot.Fx.PlayMuzzle(firePoint.position, direction);
         }
 
         private Vector3 AimPoint(PlayerHealth player) => player.transform.position + Vector3.up * aimHeight;

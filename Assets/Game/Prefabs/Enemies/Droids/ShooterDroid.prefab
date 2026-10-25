@@ -44,6 +44,18 @@ PrefabInstance:
       value: 2210251864
       objectReference: {fileID: 0}
     - target: {fileID: 5207612646810747103, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5207612646810747103, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5207612646810747103, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5207612646810747103, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
       objectReference: {fileID: 0}
@@ -83,6 +95,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5207612646810747103, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6980946354184917361, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      propertyPath: m_Avatar
+      value: 
+      objectReference: {fileID: 9000000, guid: 36078ab0369161e49a29d349ae3e0739, type: 3}
+    - target: {fileID: 6980946354184917361, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: a4a3e0566c239a944818ef5c7e26ea60, type: 2}
     - target: {fileID: 8240701879346396193, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
       propertyPath: m_Name
       value: ShooterDroid
@@ -107,6 +131,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8240701879346396193, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6385210308036883477}
+    - targetCorrespondingSourceObject: {fileID: 8240701879346396193, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2544958933901171790}
   m_SourcePrefab: {fileID: 100100000, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
 --- !u!4 &642116600677546743 stripped
 Transform:
@@ -195,9 +222,6 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   detectionRadius: 20
-  targetLayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
   requireSightToDetect: 1
   retargetInterval: 0.5
   aimHeight: 1.3
@@ -212,9 +236,9 @@ MonoBehaviour:
   closeInDistance: 1.5
   rotationSpeed: 8
   thinkInterval: 0.2
-  projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
+  projectilePrefab: {fileID: 4037716282197922368, guid: 114ea3215ae597044a766ef3f9e11154, type: 3}
   firePoint: {fileID: 1055750098485254403}
-  fireRate: 2
+  fireRate: 1
   projectileDamage: 8
   projectileSpeed: 25
   fireRange: 20
@@ -223,3 +247,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   shotEffect: {fileID: 0}
+--- !u!114 &2544958933901171790
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8666274087423490802}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68c8140c2f7232c458f3971288cdaa49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  walkClipSpeed: 1
+  maxWalkRate: 2.2
+  speedSmoothTime: 0.15
+  teleportDistance: 2
