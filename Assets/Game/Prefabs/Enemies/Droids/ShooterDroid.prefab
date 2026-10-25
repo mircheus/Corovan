@@ -220,10 +220,10 @@ MonoBehaviour:
   closeInDistance: 1.5
   rotationSpeed: 8
   thinkInterval: 0.2
-  projectilePrefab: {fileID: 9052358280122309509, guid: df20a54c3ee59974e84c541f6ed8b6dc, type: 3}
+  projectilePrefab: {fileID: 4037716282197922368, guid: 114ea3215ae597044a766ef3f9e11154, type: 3}
   firePoint: {fileID: 1055750098485254403}
   fireRate: 1
-  projectileDamage: 0
+  projectileDamage: 8
   projectileSpeed: 25
   fireRange: 20
   spreadAngle: 1.5

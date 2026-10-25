@@ -1,5 +1,6 @@
 using Mirror;
 using UnityEngine;
+using FPSGame.Enemies;
 using FPSGame.Player;
 using FPSGame.Vehicle;
 
@@ -13,6 +14,10 @@ namespace FPSGame.Environment
         [SerializeField] private float lifetime = 5f;
         [Tooltip("Log what each projectile hits (debugging).")]
         [SerializeField] private bool logHits;
+        [Tooltip("Muzzle flash / projectile body / impact. Empty = the projectile has no visuals of its own.")]
+        [SerializeField] private ProjectileFxSet fx;
+
+        public ProjectileFxSet Fx => fx;
 
         private Vector3 direction;
         private float spawnTime;
@@ -69,12 +74,31 @@ namespace FPSGame.Environment
             serverLive.Remove(this);
         }
 
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            if (fx != null)
+                fx.AttachProjectile(transform);
+        }
+
+        [ClientRpc]
+        private void RpcHit(Vector3 point, Vector3 normal)
+        {
+            if (fx != null)
+                fx.PlayHit(point, normal);
+        }
+
         private void OnCollisionEnter(Collision collision)
         {
             if (!isServer || hasHit)
                 return;
 
             hasHit = true;
+            if (fx != null && collision.contactCount > 0)
+            {
+                ContactPoint contact = collision.GetContact(0);
+                RpcHit(contact.point, contact.normal);
+            }
             if (logHits)
                 Debug.Log($"[EnemyProjectile] {name} hit '{collision.collider.name}' " +
                           $"(layer {LayerMask.LayerToName(collision.collider.gameObject.layer)}, " +
