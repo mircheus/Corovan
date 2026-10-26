@@ -7,18 +7,25 @@ namespace FPSGame.Environment
 {
     public class DestructionTarget : NetworkBehaviour, IDamageReceiver
     {
-        // Counts hits, not HP: any weapon hit is one hit, whatever its damage.
-        int IDamageReceiver.CurrentHealth => Mathf.Max(0, hitsToDestroy - currentHits);
-        int IDamageReceiver.MaxHealth => hitsToDestroy;
+        int IDamageReceiver.CurrentHealth => currentHealth;
+        int IDamageReceiver.MaxHealth => maxHealth;
         bool IDamageReceiver.IsDead => isDestroyed;
-        void IDamageReceiver.TakeDamage(int damage) => TakeHit();
+        void IDamageReceiver.TakeDamage(int damage) => TakeDamage(damage);
 
-        [SerializeField] private int hitsToDestroy = 3;
+        [Tooltip("Total weapon damage needed to destroy the target.")]
+        [SerializeField, Min(1)] private int maxHealth = 100;
+
+        [Header("Destruction FX (played locally on every client)")]
+        [Tooltip("Inactive children (Play On Awake) activated once when the target is destroyed. " +
+                 "Any number; empty = none.")]
+        [SerializeField] private GameObject[] destructionEffects;
 
         [SyncVar(hook = nameof(OnDestroyedChanged))]
         private bool isDestroyed;
 
-        private int currentHits;
+        [SyncVar]
+        private int currentHealth;
+
         private Renderer[] renderers;
         private Collider[] colliders;
 
@@ -34,15 +41,28 @@ namespace FPSGame.Environment
             colliders = GetComponentsInChildren<Collider>();
         }
 
-        [Server]
-        public void TakeHit()
+        public override void OnStartServer()
         {
-            if (isDestroyed) return;
-            currentHits++;
-            if (currentHits >= hitsToDestroy)
+            currentHealth = maxHealth;
+        }
+
+        [Server]
+        public void TakeDamage(int damage)
+        {
+            if (isDestroyed || damage <= 0) return;
+            currentHealth = Mathf.Max(0, currentHealth - damage);
+            if (currentHealth == 0)
             {
+                // An RPC (not the hook) so a client joining later doesn't replay the effects.
+                RpcPlayDestructionEffects();
                 isDestroyed = true;
             }
+        }
+
+        [ClientRpc]
+        private void RpcPlayDestructionEffects()
+        {
+            DestructionEffects.Play(destructionEffects);
         }
 
         private void OnDestroyedChanged(bool oldValue, bool newValue)
