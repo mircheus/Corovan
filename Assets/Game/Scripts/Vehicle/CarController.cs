@@ -54,6 +54,8 @@ namespace FPSGame.Vehicle
         [SerializeField] private Transform driverSeat;
         [SerializeField] private Transform exitPoint;
         [SerializeField] private float interactDistance = 4f;
+        [Tooltip("Stand-in driver model (looping Driving animation) inside the car. Shown on every client except the driver's own while the seat is taken. Leave it inactive in the prefab.")]
+        [SerializeField] private GameObject driverVisual;
 
         [Header("Safe")]
         [SerializeField] private SafeMount safeMount;
@@ -179,6 +181,13 @@ namespace FPSGame.Vehicle
             // Server owns the car until a driver takes the seat. ServerToClient lets the
             // server broadcast its own movement (driverless drift, autopilot) to all clients.
             ServerSetClientDriven(false);
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            // A late joiner gets the car with a driver already in it; don't rely on the hook alone.
+            RefreshDriverVisual();
         }
 
         /// <summary>
@@ -542,6 +551,8 @@ namespace FPSGame.Vehicle
             // A dash left over from the previous driver must not shove the car for the next one.
             dashVelocity = Vector3.zero;
 
+            RefreshDriverVisual();
+
             if (newId != 0)
             {
                 // Driver entered
@@ -569,6 +580,19 @@ namespace FPSGame.Vehicle
                     SetDriverVisible(driverIdentity.gameObject, true);
                 }
             }
+        }
+
+        // The driver sees the car from first person, so the stand-in is everyone else's view only.
+        // Compared by netId, not by looking the driver up in NetworkClient.spawned: on a late joiner
+        // the driver's player object may not be spawned yet when the car is.
+        private void RefreshDriverVisual()
+        {
+            if (driverVisual == null)
+                return;
+
+            var localPlayer = NetworkClient.localPlayer;
+            bool localIsDriver = localPlayer != null && localPlayer.netId == driverNetId;
+            driverVisual.SetActive(driverNetId != 0 && !localIsDriver);
         }
 
         private void SetDriverVisible(GameObject driver, bool visible)
