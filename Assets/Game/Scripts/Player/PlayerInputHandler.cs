@@ -309,6 +309,14 @@ namespace FPSGame.Player
                 var kb = Keyboard.current;
                 if (kb != null && kb[Key.G].wasPressedThisFrame)
                     CmdDetachSafe(currentVehicle.netIdentity);
+
+                // Shift + A/D: sideways dash. Shift is sprint on foot and unused in the car.
+                if (kb != null && fpsfInput != null && kb[Key.LeftShift].wasPressedThisFrame
+                    && Mathf.Abs(fpsfInput.moveInput.x) > 0.5f
+                    && currentVehicle.TryDash(fpsfInput.moveInput.x))
+                {
+                    playerCamera?.PunchFOV(currentVehicle.DashFovPunch, currentVehicle.DashFovPunchDuration);
+                }
             }
 
             // Advance the revive hold. The server re-checks all of this before it lets the

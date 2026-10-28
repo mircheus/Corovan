@@ -42,6 +42,12 @@ namespace FPSGame.Player
         private bool isDead;
 
         private CharacterInput fpsfInput;
+        private CameraManager cameraManager;
+
+        // FOV punch: fades from punchAmount to 0 over punchDuration; CameraManager smooths the attack.
+        private float punchAmount;
+        private float punchDuration;
+        private float punchTimer;
 
         public Camera Camera => playerCamera;
         public bool IsPitchClamped => pitch <= minPitch + 1f || pitch >= maxPitch - 1f;
@@ -64,6 +70,8 @@ namespace FPSGame.Player
                 playerBody = transform.parent;
 
             fpsfInput = GetComponentInParent<CharacterInput>();
+            if (fpsfInput != null)
+                cameraManager = fpsfInput.GetComponentInChildren<CameraManager>(true);
 
             if (playerCamera != null)
             {
@@ -134,6 +142,8 @@ namespace FPSGame.Player
             if (!isOwned || !isInitialized)
                 return;
 
+            UpdateFOVPunch();
+
             if (isDead)
             {
                 HandleDeathDrop();
@@ -142,6 +152,30 @@ namespace FPSGame.Player
 
             HandleLook();
             ApplyCameraOffsets();
+        }
+
+        // Short FOV widening (e.g. car dash). A new punch restarts the fade.
+        public void PunchFOV(float amount, float duration)
+        {
+            if (!isOwned || duration <= 0f)
+                return;
+            punchAmount = amount;
+            punchDuration = duration;
+            punchTimer = 0f;
+        }
+
+        private void UpdateFOVPunch()
+        {
+            if (cameraManager == null || punchDuration <= 0f)
+                return;
+
+            punchTimer += Time.deltaTime;
+            float t = Mathf.Clamp01(punchTimer / punchDuration);
+            float fade = 1f - t;
+            cameraManager.fieldOfViewOffset = punchAmount * fade * fade;
+
+            if (t >= 1f)
+                punchDuration = 0f;
         }
 
         private void HandleDeathDrop()

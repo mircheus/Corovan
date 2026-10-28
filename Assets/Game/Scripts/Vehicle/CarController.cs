@@ -32,6 +32,18 @@ namespace FPSGame.Vehicle
         [SerializeField] private float acceleration = 8f;
         [SerializeField] private float deceleration = 12f;
 
+        [Header("Dash")]
+        [Tooltip("Sideways speed (units/sec, along the car's local X) added instantly on a dash.")]
+        [SerializeField] private float dashForce = 25f;
+        [Tooltip("How fast the dash speed bleeds off, in units/sec². Higher = shorter, snappier dash.")]
+        [SerializeField] private float dashDecay = 60f;
+        [Tooltip("Seconds between two dashes.")]
+        [SerializeField] private float dashCooldown = 1f;
+        [Tooltip("Degrees added to the driver's FOV at the start of a dash.")]
+        [SerializeField] private float dashFovPunch = 8f;
+        [Tooltip("Seconds the FOV punch takes to fade back out.")]
+        [SerializeField] private float dashFovPunchDuration = 0.35f;
+
         [Header("Driverless Behavior")]
         [Tooltip("What the car does once a driver has gotten out: roll backward, or stay put.")]
         [SerializeField] private DriverlessBehavior driverlessBehavior = DriverlessBehavior.RollBackward;
@@ -102,6 +114,10 @@ namespace FPSGame.Vehicle
 
         private Vector2 moveInput;
         private Vector3 currentVelocity;
+        // Kept apart from currentVelocity so acceleration/deceleration toward the input target
+        // don't eat the dash; it decays on its own at dashDecay.
+        private Vector3 dashVelocity;
+        private float lastDashTime = float.NegativeInfinity;
         private bool isExploded;
         private bool hasBeenDriven; // server-side: true once any player has entered at least once
 
@@ -122,6 +138,8 @@ namespace FPSGame.Vehicle
         public Transform DriverSeat => driverSeat;
         public Transform ExitPoint => exitPoint;
         public float InteractDistance => interactDistance;
+        public float DashFovPunch => dashFovPunch;
+        public float DashFovPunchDuration => dashFovPunchDuration;
         public int VehicleHealth => vehicleHealth;
         public int MaxVehicleHealth => maxVehicleHealth;
         public bool VehicleIsAlive => vehicleIsAlive;
@@ -259,6 +277,7 @@ namespace FPSGame.Vehicle
 
             isExploded = true;
             currentVelocity = Vector3.zero;
+            dashVelocity = Vector3.zero;
 
             foreach (var r in GetComponentsInChildren<Renderer>())
                 r.enabled = false;
@@ -285,7 +304,7 @@ namespace FPSGame.Vehicle
             if ((obstacleLayers.value & (1 << collision.gameObject.layer)) == 0)
                 return;
             
-            float impactSpeed = currentVelocity.magnitude;
+            float impactSpeed = (currentVelocity + dashVelocity).magnitude;
             Debug.Log($"impactSpeed: {impactSpeed}");
             if (impactSpeed < minImpactSpeed)
                 return;
@@ -333,10 +352,11 @@ namespace FPSGame.Vehicle
                     : deceleration;
 
                 currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
+                dashVelocity = Vector3.MoveTowards(dashVelocity, Vector3.zero, dashDecay * Time.fixedDeltaTime);
 
                 // Chaos is applied only to this frame's move step, never stored into
                 // currentVelocity, so it can't corrupt collision-impact speed or smoothing.
-                Vector3 frameVelocity = currentVelocity + GetChaosOffset();
+                Vector3 frameVelocity = currentVelocity + dashVelocity + GetChaosOffset();
 
                 if (frameVelocity.sqrMagnitude > 0.001f)
                     rb.MovePosition(rb.position + frameVelocity * Time.fixedDeltaTime);
@@ -450,6 +470,24 @@ namespace FPSGame.Vehicle
             moveInput = input;
         }
 
+        /// <summary>
+        /// Owner-only: sideways dash along the car's local X (direction = sign). The driver moves
+        /// the car with client authority, so no server round trip — NetworkTransform syncs the result.
+        /// Returns false while on cooldown, so the caller knows whether to play the FOV punch.
+        /// </summary>
+        public bool TryDash(float direction)
+        {
+            if (!isOwned || !HasDriver || !vehicleIsAlive || isExploded)
+                return false;
+
+            if (Mathf.Approximately(direction, 0f) || Time.time - lastDashTime < dashCooldown)
+                return false;
+
+            lastDashTime = Time.time;
+            dashVelocity = transform.right * (Mathf.Sign(direction) * dashForce);
+            return true;
+        }
+
         [Server]
         public void ServerEnter(NetworkConnectionToClient conn, NetworkIdentity player)
         {
@@ -501,6 +539,9 @@ namespace FPSGame.Vehicle
 
         private void OnDriverChanged(uint oldId, uint newId)
         {
+            // A dash left over from the previous driver must not shove the car for the next one.
+            dashVelocity = Vector3.zero;
+
             if (newId != 0)
             {
                 // Driver entered
