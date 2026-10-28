@@ -29,7 +29,6 @@ namespace FPSGame.Player
         [SerializeField] private float groundCheckRadius = 0.3f;
         [SerializeField] private float groundCheckOffset = 0.1f;
         [SerializeField] private LayerMask groundMask = ~0;
-        [SerializeField] private LayerMask carMask = ~0;
 
         [Header("Slope Settings")]
         [SerializeField] private float maxSlopeAngle = 45.0f;
@@ -69,8 +68,8 @@ namespace FPSGame.Player
         // last sampled position, used to carry the player along as the car drives.
         private Transform carPlatform;
         private Vector3 carPlatformLastPos;
-        private static readonly Collider[] carOverlapBuffer = new Collider[8];
         private static readonly Collider[] groundOverlapBuffer = new Collider[8];
+        private int groundOverlapCount;
 
         // The MotionPlatform the player currently stands on (null when off any convoy platform).
         // Resolved for free inside CheckGround's existing feet sweep — no extra physics query.
@@ -171,6 +170,7 @@ namespace FPSGame.Player
             int count = Physics.OverlapSphereNonAlloc(
                 sphereOrigin, groundCheckRadius, groundOverlapBuffer, groundMask, QueryTriggerInteraction.Ignore);
             isGrounded = count > 0;
+            groundOverlapCount = count;
 
             // Same sweep also tells us whether the ground we're on is a MotionPlatform,
             // so the ride only affects the player while actually standing on the convoy.
@@ -186,18 +186,16 @@ namespace FPSGame.Player
             // groundNormal = isGrounded ? hit.normal : Vector3.up;
         }
 
+        // Reuses CheckGround's feet sweep: a car is found by its CarController, not by layer, so a
+        // car prefab whose colliders sit on Default still carries the player standing on it.
         private void CheckOnCar()
         {
-            Vector3 sphereOrigin = transform.position + Vector3.down * (groundCheckOffset);
-            int count = Physics.OverlapSphereNonAlloc(
-                sphereOrigin, groundCheckRadius, carOverlapBuffer, carMask, QueryTriggerInteraction.Ignore);
-
             // Resolve the actual car root so platform tracking uses a stable transform
             // even if several of the car's child colliders fall inside the sphere.
             Transform newPlatform = null;
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < groundOverlapCount; i++)
             {
-                CarController car = carOverlapBuffer[i].GetComponentInParent<CarController>();
+                CarController car = groundOverlapBuffer[i].GetComponentInParent<CarController>();
                 if (car != null)
                 {
                     newPlatform = car.transform;
