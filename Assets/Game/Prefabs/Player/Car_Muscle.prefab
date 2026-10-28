@@ -1133,7 +1133,7 @@ MonoBehaviour:
   collisionDamageCooldown: 0.5
   autopilotSpeed: 8
   autopilotArriveThreshold: 0.3
-  enableChaoticMovement: 0
+  enableChaoticMovement: 1
   chaosStrength: 3
   chaosFrequency: 2
   chaosStrafeScale: 1
