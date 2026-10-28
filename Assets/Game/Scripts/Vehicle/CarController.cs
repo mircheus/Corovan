@@ -57,6 +57,14 @@ namespace FPSGame.Vehicle
         [Tooltip("Stand-in driver model (looping Driving animation) inside the car. Shown on every client except the driver's own while the seat is taken. Leave it inactive in the prefab.")]
         [SerializeField] private GameObject driverVisual;
 
+        [Header("Ejection")]
+        [Tooltip("Where the driver appears when thrown out through the windshield. Place it in front of and above the windshield, clear of the car's colliders. Empty = 2.5 m ahead and 1.5 m up from the car's pivot.")]
+        [SerializeField] private Transform ejectPoint;
+        [Tooltip("Launch speed (units/sec) along the car's forward when the driver is thrown out.")]
+        [SerializeField] private float ejectForwardSpeed = 14f;
+        [Tooltip("Launch speed (units/sec) straight up when the driver is thrown out.")]
+        [SerializeField] private float ejectUpSpeed = 7f;
+
         [Header("Safe")]
         [SerializeField] private SafeMount safeMount;
 
@@ -139,6 +147,9 @@ namespace FPSGame.Vehicle
         }
         public Transform DriverSeat => driverSeat;
         public Transform ExitPoint => exitPoint;
+        public Vector3 EjectPosition => ejectPoint != null
+            ? ejectPoint.position
+            : transform.position + transform.forward * 2.5f + Vector3.up * 1.5f;
         public float InteractDistance => interactDistance;
         public float DashFovPunch => dashFovPunch;
         public float DashFovPunchDuration => dashFovPunchDuration;
@@ -546,6 +557,28 @@ namespace FPSGame.Vehicle
             ServerOnDriverExited?.Invoke(this, exitingDriver);
         }
 
+        /// <summary>Server-only: throws the driver out through the windshield with this car's Ejection settings.</summary>
+        [Server]
+        public bool ServerEjectDriver() => ServerEjectDriver(ejectForwardSpeed, ejectUpSpeed);
+
+        /// <summary>
+        /// Server-only: empties the seat and throws the driver forward/up on their own client.
+        /// Returns false when nobody is driving.
+        /// </summary>
+        [Server]
+        public bool ServerEjectDriver(float forwardSpeed, float upSpeed)
+        {
+            var driver = GetCurrentDriverServer();
+            if (driver == null)
+                return false;
+
+            var input = driver.GetComponent<FPSGame.Player.PlayerInputHandler>();
+            ServerExit();
+            if (input != null)
+                input.ServerEjectFromVehicle(this, forwardSpeed, upSpeed);
+            return true;
+        }
+
         private void OnDriverChanged(uint oldId, uint newId)
         {
             // A dash left over from the previous driver must not shove the car for the next one.
@@ -572,10 +605,17 @@ namespace FPSGame.Vehicle
                     // was disabled (the spot they entered the car) — a teleport to the entry point.
                     // Setting the position while the CC is still off (vehicle mode) makes it adopt
                     // the new spot when SetDriverVisible re-enables it.
-                    if (exitPoint != null)
-                        driverIdentity.transform.SetPositionAndRotation(exitPoint.position, exitPoint.rotation);
-                    else
-                        driverIdentity.transform.position = transform.position + transform.right * 2.5f;
+                    // An owner who has already left the seat locally placed themselves (exit point, or
+                    // the eject point mid-flight) — moving them again here would yank them back.
+                    var input = driverIdentity.GetComponent<FPSGame.Player.PlayerInputHandler>();
+                    bool placedByOwner = driverIdentity.isOwned && input != null && !input.IsInVehicle;
+                    if (!placedByOwner)
+                    {
+                        if (exitPoint != null)
+                            driverIdentity.transform.SetPositionAndRotation(exitPoint.position, exitPoint.rotation);
+                        else
+                            driverIdentity.transform.position = transform.position + transform.right * 2.5f;
+                    }
 
                     SetDriverVisible(driverIdentity.gameObject, true);
                 }

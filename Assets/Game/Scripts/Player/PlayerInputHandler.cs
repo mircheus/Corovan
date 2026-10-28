@@ -611,6 +611,37 @@ namespace FPSGame.Player
             loadout?.SetInVehicle(false);
         }
 
+        /// <summary>
+        /// Server-only: the car has already emptied the seat (<c>CarController.ServerEjectDriver</c>);
+        /// throws this player out through the windshield on their own client.
+        /// </summary>
+        [Server]
+        public void ServerEjectFromVehicle(CarController car, float forwardSpeed, float upSpeed)
+        {
+            TargetEjectFromVehicle(car.netIdentity, forwardSpeed, upSpeed);
+        }
+
+        [TargetRpc]
+        private void TargetEjectFromVehicle(NetworkIdentity carIdentity, float forwardSpeed, float upSpeed)
+        {
+            CarController car = carIdentity != null ? carIdentity.GetComponent<CarController>() : currentVehicle;
+
+            if (currentVehicle != null)
+                currentVehicle.SetMoveInput(Vector2.zero);
+            currentVehicle = null;
+            currentVehicleGun = null;
+            playerController?.SetVehicleMode(false);
+            loadout?.SetInVehicle(false);
+
+            if (car == null || playerController == null)
+                return;
+
+            // TeleportTo turns the CharacterController off for the move, so the spot sticks even if
+            // the driver-changed hook has already re-enabled it.
+            playerController.TeleportTo(car.EjectPosition);
+            playerController.Launch(car.transform.forward * forwardSpeed + Vector3.up * upSpeed);
+        }
+
         // Throttled: re-scans for the best interaction target and pushes its verb to the HUD only
         // when it changes. Mirrors the priority order in OnInteract so the prompt never promises
         // something a press wouldn't actually do.

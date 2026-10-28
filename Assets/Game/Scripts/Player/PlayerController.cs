@@ -39,6 +39,17 @@ namespace FPSGame.Player
         [SerializeField] private float crouchHeight = 1.0f;
         [SerializeField] private float crouchTransitionSpeed = 10.0f;
 
+        [Header("Launch (thrown out of a car)")]
+        [Tooltip("How fast the horizontal launch speed bleeds off in the air (1/sec). 0 = keeps it until landing.")]
+        [SerializeField] private float launchAirDrag = 0.3f;
+        [Tooltip("How fast the horizontal launch speed bleeds off once the player lands (1/sec).")]
+        [SerializeField] private float launchGroundDrag = 8f;
+        [Tooltip("Seconds after a launch during which the player's own movement input is weakened.")]
+        [SerializeField] private float launchControlTime = 0.8f;
+        [Tooltip("Share of the movement input kept during Launch Control Time (0 = none, 1 = full).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float launchControlMultiplier = 0.2f;
+
         private CharacterController characterController;
         private CharacterInput fpsfInput;
         private PlayerCamera playerCamera;
@@ -63,6 +74,12 @@ namespace FPSGame.Player
         private Vector3 groundNormal = Vector3.up;
         private float airTime;
         private float carrySpeedMultiplier = 1f;
+
+        // Horizontal speed of a launch, kept apart from velocity: HandleMovement rebuilds velocity.x/z
+        // from input every frame (air control included), which would eat a launch within a few frames.
+        private Vector3 launchVelocity;
+        private float launchControlTimer;
+        private bool launchLeftGround;
 
         // Moving-platform support: the car the player currently stands on and its
         // last sampled position, used to carry the player along as the car drives.
@@ -124,6 +141,7 @@ namespace FPSGame.Player
             CheckOnCar();
             ApplyPlatformMovement();
             HandleCrouch();
+            UpdateLaunch();
             HandleMovement();
             ApplyGravity();
         }
@@ -234,6 +252,8 @@ namespace FPSGame.Player
             float currentSpeed = GetCurrentSpeed();
 
             Vector3 moveDirection = transform.right * moveInput.x + transform.forward * moveInput.y;
+            if (launchControlTimer > 0f)
+                moveDirection *= launchControlMultiplier;
 
             if (isGrounded)
             {
@@ -266,8 +286,41 @@ namespace FPSGame.Player
                 jumpRequested = false;
             }
 
-            characterController.Move((velocity + externalVelocity) * Time.deltaTime);
+            characterController.Move((velocity + externalVelocity + launchVelocity) * Time.deltaTime);
             externalVelocity = Vector3.zero;
+        }
+
+        // Owner-side throw: the vertical part goes into velocity.y like a jump (gravity takes it
+        // from there), the horizontal part into launchVelocity, which drags off on its own.
+        public void Launch(Vector3 worldVelocity)
+        {
+            if (!isOwned || InVehicle)
+                return;
+
+            launchVelocity = new Vector3(worldVelocity.x, 0f, worldVelocity.z);
+            velocity.y = worldVelocity.y;
+            jumpRequested = false;
+            launchControlTimer = launchControlTime;
+            launchLeftGround = false;
+        }
+
+        private void UpdateLaunch()
+        {
+            if (launchControlTimer > 0f)
+                launchControlTimer -= Time.deltaTime;
+
+            if (launchVelocity == Vector3.zero)
+                return;
+
+            // The player may start the launch touching the car; ground friction only kicks in
+            // once they have actually been airborne and come back down.
+            if (!isGrounded)
+                launchLeftGround = true;
+
+            float drag = isGrounded && launchLeftGround ? launchGroundDrag : launchAirDrag;
+            launchVelocity *= Mathf.Exp(-drag * Time.deltaTime);
+            if (launchVelocity.sqrMagnitude < 0.01f)
+                launchVelocity = Vector3.zero;
         }
 
         public void AddExternalVelocity(Vector3 worldVelocity)
@@ -290,6 +343,7 @@ namespace FPSGame.Player
             transform.position = worldPosition;
             velocity = Vector3.zero;
             externalVelocity = Vector3.zero;
+            launchVelocity = Vector3.zero;
             characterController.enabled = wasEnabled;
         }
 
@@ -468,6 +522,8 @@ namespace FPSGame.Player
             {
                 moveInput = Vector2.zero;
                 velocity = Vector3.zero;
+                launchVelocity = Vector3.zero;
+                launchControlTimer = 0f;
                 isSprinting = false;
                 isTacticalSprinting = false;
                 isCrouching = false;
