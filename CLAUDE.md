@@ -49,7 +49,8 @@ Assets/Game/
 │   │   └── ShooterDroidSpawner.cs   # Server spawn loop for droids (on start / players in zone / manual)
 │   ├── Vehicle/
 │   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
-│   │   └── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
+│   │   ├── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
+│   │   └── VehicleWheelVisuals.cs   # Any vehicle: constant wheel spin + steering wheel from sideways movement; cosmetic, all peers
 │   ├── Environment/
 │   │   ├── Enemy.cs                 # Turret enemy: detects players/cars, rotates, fires projectiles
 │   │   ├── EnemyProjectile.cs       # Server-spawned projectile
