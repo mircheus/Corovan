@@ -605,7 +605,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1542761475504806927}
   m_Layer: 0
-  m_Name: Door + Interactable
+  m_Name: Door+Interactable
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
