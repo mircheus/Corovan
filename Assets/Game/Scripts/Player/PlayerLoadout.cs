@@ -247,16 +247,28 @@ namespace FPSGame.Player
             int wanted = inVehicle ? vehicleSlot : selectedSlot;
             int target = HandsBusy || !IsSelectable(wanted) ? -1 : wanted;
             if (target == appliedSlot)
+            {
+                // Same item stays in hand across entering/leaving a car: only the reload block changes.
+                UpdateReloadBlock();
                 return;
+            }
 
             inventory.Switch(target); // -1 deactivates every item
             appliedSlot = target;
 
             EquippedFirearm = target >= 0 ? slots[target].GetComponent<Firearm>() : null;
+            UpdateReloadBlock();
             OnEquippedItemChanged?.Invoke(EquippedItem);
             lastAmmo = lastReserve = int.MinValue; // force a HUD refresh
 
             CmdSetEquipped(target);
+        }
+
+        // No reloading at the wheel: both hands are needed for a magazine.
+        private void UpdateReloadBlock()
+        {
+            if (EquippedFirearm != null)
+                EquippedFirearm.ReloadBlocked = inVehicle;
         }
 
         [Command]
