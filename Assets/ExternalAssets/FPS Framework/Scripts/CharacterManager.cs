@@ -59,7 +59,13 @@ namespace Akila.FPSFramework
 
         private void Update()
         {
-            if (characterController)
+            // CORVAN: a disabled CharacterController (player seated in a vehicle) keeps reporting the
+            // velocity of its last Move, so head bob / weapon bob ran forever. Treat it as standing still.
+            if (characterController && !characterController.enabled)
+            {
+                velocity = Vector3.zero;
+            }
+            else if (characterController)
             {
                 isGrounded = characterController.isGrounded;
                 velocity = characterController.velocity;
@@ -79,6 +85,7 @@ namespace Akila.FPSFramework
         
         public virtual bool IsVelocityZero()
         {
+            if (characterController && !characterController.enabled) return true; // CORVAN: see Update
             if (characterController) return characterController.IsVelocityZero();
             if (!characterController && attachedRigidbody) return attachedRigidbody.IsVelocityZero();
 
