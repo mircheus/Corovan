@@ -53635,6 +53635,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: pistol
   unlockedByDefault: 0
+  usableInVehicle: 1
 --- !u!1001 &6366983493046487813
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -16,8 +16,9 @@ namespace FPSGame.Player
     ///
     /// FPSF's Inventory does the actual swapping (activating one item), but its own Update — which
     /// reads 1-9/scroll and would ignore locks — is switched off; we drive it instead. While the hands
-    /// are busy (carrying loot or a keycard, driving, downed, dead, match over) nothing is held, so
-    /// FPSF weapons cannot fire, aim or reload.
+    /// are busy (carrying loot or a keycard, downed, dead, match over) nothing is held, so FPSF
+    /// weapons cannot fire, aim or reload. While driving only UsableInVehicle slots (the pistol) can be
+    /// in hand; the slot chosen on foot is kept and comes back on exit.
     ///
     /// Ammo lives in the FPSF firearms on the owner (client-side, like hits).
     /// </summary>
@@ -62,7 +63,7 @@ namespace FPSGame.Player
         public int EquippedSlot => equippedSlot;
         public Firearm EquippedFirearm { get; private set; }
         public LoadoutItem EquippedItem => appliedSlot >= 0 && appliedSlot < slots.Count ? slots[appliedSlot] : null;
-        private bool HandsBusy => carrying || downed || inVehicle || triggerLock || paused || disabledForGood;
+        private bool HandsBusy => carrying || downed || triggerLock || paused || disabledForGood;
 
         private void Awake()
         {
@@ -163,9 +164,13 @@ namespace FPSGame.Player
         public bool IsEquipped(string itemId) =>
             appliedSlot >= 0 && appliedSlot < slots.Count && slots[appliedSlot].ItemId == itemId;
 
+        // Unlocked, and holdable where the player is now (in a vehicle: UsableInVehicle only).
+        private bool IsSelectable(int slot) =>
+            IsUnlocked(slot) && slot < slots.Count && (!inVehicle || slots[slot].UsableInVehicle);
+
         public void SelectWeaponSlot(int index)
         {
-            if (!isOwned || !IsUnlocked(index) || index >= slots.Count)
+            if (!isOwned || !IsSelectable(index))
                 return;
             selectedSlot = index;
             Apply();
@@ -180,7 +185,7 @@ namespace FPSGame.Player
             for (int step = 1; step <= n; step++)
             {
                 int idx = ((selectedSlot + dir * step) % n + n) % n;
-                if (IsUnlocked(idx))
+                if (IsSelectable(idx))
                     return idx;
             }
             return selectedSlot;
@@ -203,7 +208,7 @@ namespace FPSGame.Player
             if (!IsUnlocked(selectedSlot))
                 selectedSlot = FirstUnlocked();
 
-            int target = HandsBusy ? -1 : selectedSlot;
+            int target = HandsBusy || !IsSelectable(selectedSlot) ? -1 : selectedSlot;
             if (target == appliedSlot)
                 return;
 

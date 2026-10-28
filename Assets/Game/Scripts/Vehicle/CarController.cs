@@ -312,6 +312,15 @@ namespace FPSGame.Vehicle
             if (isExploded)
                 return;
 
+            // Movement is all MovePosition; the body is dynamic only to collide. Drop any velocity
+            // physics hands it (shell casings ejected into the cabin, FPSF bullet impact force) —
+            // with no drag it would keep the car creeping forever. Vertical speed stays for gravity.
+            if (!rb.isKinematic)
+            {
+                rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+                rb.angularVelocity = Vector3.zero;
+            }
+
             if (HasDriver)
             {
                 if (!isOwned) return;

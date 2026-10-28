@@ -22,6 +22,8 @@ namespace FPSGame.Player
                  "interactable. Wider = more forgiving. Car entry/exit and reviving ignore this.")]
         [Range(5f, 90f)]
         [SerializeField] private float lookAngleThreshold = 40f;
+        [Tooltip("Show the \"[E] Выйти из машины\" prompt while driving. Off by default — it sits next to the crosshair.")]
+        [SerializeField] private bool showExitVehiclePrompt = false;
 
         private PlayerController playerController;
         private PlayerCamera playerCamera;
@@ -359,14 +361,15 @@ namespace FPSGame.Player
                 }
             }
 
-            // Number keys — on foot and not carrying loot. "0" pulls the keycard
-            // into / out of hand; 1-9 select weapon slots (and put any held card away).
-            if (currentVehicle == null && !isCarrying && loadout != null)
+            // Number keys — not while carrying loot. "0" pulls the keycard into / out of hand (on
+            // foot only); 1-9 select weapon slots (and put any held card away). In a vehicle
+            // PlayerLoadout accepts only the slots usable there (the pistol).
+            if (!isCarrying && loadout != null)
             {
                 var kb = Keyboard.current;
                 if (kb != null)
                 {
-                    if (kb[Key.Digit0].wasPressedThisFrame && playerKeycardHand != null)
+                    if (kb[Key.Digit0].wasPressedThisFrame && playerKeycardHand != null && currentVehicle == null)
                     {
                         playerKeycardHand.ToggleEquip();
                     }
@@ -390,7 +393,7 @@ namespace FPSGame.Player
 
         public void OnPrevious(InputValue value)
         {
-            if (!isOwned || currentVehicle != null)
+            if (!isOwned)
                 return;
             if (value.isPressed)
                 loadout?.SelectPreviousWeapon();
@@ -398,7 +401,7 @@ namespace FPSGame.Player
 
         public void OnNext(InputValue value)
         {
-            if (!isOwned || currentVehicle != null)
+            if (!isOwned)
                 return;
             if (value.isPressed)
                 loadout?.SelectNextWeapon();
@@ -611,7 +614,7 @@ namespace FPSGame.Player
 
             // In a vehicle E only exits.
             if (currentVehicle != null)
-                return InteractPrompt.Action("Выйти из машины");
+                return showExitVehiclePrompt ? InteractPrompt.Action("Выйти из машины") : InteractPrompt.None;
 
             // Hands full — E does nothing until the loot/keycard is put down.
             bool isCarrying = playerCarry != null && playerCarry.IsCarrying;

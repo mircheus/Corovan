@@ -13,8 +13,11 @@ namespace FPSGame.Player
         [Tooltip("Id that WeaponPickups grant, e.g. \"pistol\", \"grapple\".")]
         [SerializeField] private string itemId;
         [SerializeField] private bool unlockedByDefault;
+        [Tooltip("Can be held while driving (one-handed). Other slots are put away in a vehicle.")]
+        [SerializeField] private bool usableInVehicle;
 
         public string ItemId => itemId;
         public bool UnlockedByDefault => unlockedByDefault;
+        public bool UsableInVehicle => usableInVehicle;
     }
 }
