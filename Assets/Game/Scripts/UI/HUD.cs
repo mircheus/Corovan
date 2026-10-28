@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FPSGame.Player;
+using FPSGame.Vehicle;
 using Akila.FPSFramework;
 
 namespace FPSGame.UI
@@ -32,6 +33,13 @@ namespace FPSGame.UI
         [SerializeField] private TextMeshProUGUI ammoText;
         [SerializeField] private TextMeshProUGUI reserveAmmoText;
         [SerializeField] private GameObject reloadingIndicator;
+
+        [Header("Vehicle Gun")]
+        [Tooltip("Shown while driving a car that has a CarMachineGun.")]
+        [SerializeField] private GameObject vehicleAmmoRoot;
+        [SerializeField] private TextMeshProUGUI vehicleAmmoText;
+        [Tooltip("{0} = ammo left, {1} = max ammo.")]
+        [SerializeField] private string vehicleAmmoFormat = "{0}";
 
         [Header("Crosshair")]
         [SerializeField] private RectTransform crosshair;
@@ -82,6 +90,7 @@ namespace FPSGame.UI
         [SerializeField] TextMeshProUGUI scoreText;
 
         private float hitMarkerTimer;
+        private int shownVehicleAmmo = int.MinValue;
         private GameObject fpsfCombatHud;
         private ScoreManager _scoreManager;
 
@@ -188,6 +197,29 @@ namespace FPSGame.UI
             UpdateHitMarker();
             UpdateCrosshair();
             UpdateDownedUI();
+            UpdateVehicleGunUI();
+        }
+
+        // Car ammo is the car's SyncVar (plus the driver's shots in flight): polled while driving.
+        private void UpdateVehicleGunUI()
+        {
+            CarMachineGun gun = playerInputHandler != null ? playerInputHandler.CurrentVehicleGun : null;
+            bool show = gun != null;
+
+            if (vehicleAmmoRoot != null && vehicleAmmoRoot.activeSelf != show)
+                vehicleAmmoRoot.SetActive(show);
+
+            if (!show)
+            {
+                shownVehicleAmmo = int.MinValue;
+                return;
+            }
+
+            int ammo = gun.DisplayAmmo;
+            if (ammo == shownVehicleAmmo || vehicleAmmoText == null)
+                return;
+            shownVehicleAmmo = ammo;
+            vehicleAmmoText.text = string.Format(vehicleAmmoFormat, ammo, gun.MaxAmmo);
         }
 
         // The bleedout countdown is derived from a synced deadline rather than streamed, so it is

@@ -49,6 +49,7 @@ Assets/Game/
 │   │   └── ShooterDroidSpawner.cs   # Server spawn loop for droids (on start / players in zone / manual)
 │   ├── Vehicle/
 │   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
+│   │   ├── CarMachineGun.cs         # Car's forward hitscan gun: single shots, car-owned synced ammo
 │   │   ├── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
 │   │   └── VehicleWheelVisuals.cs   # Any vehicle: constant wheel spin + steering wheel from sideways movement; cosmetic, all peers
 │   ├── Environment/
@@ -177,6 +178,7 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 - **Enter/exit flow**: Interact key → `CmdEnterVehicle` → `car.ServerEnter()` → `netIdentity.AssignClientAuthority(conn)` → `[SyncVar] driverNetId` hook hides/shows driver on all clients
 - **Dash**: Shift + A/D → `CarController.TryDash` (owner-only, `dashCooldown`). Sideways impulse along local X kept in its own `dashVelocity` (decays at `dashDecay`, counts toward collision impact speed); on success `PlayerInputHandler` calls `PlayerCamera.PunchFOV` with the car's `dashFovPunch`/`dashFovPunchDuration`
 - Vehicle has health (`vehicleHealth` SyncVar); enemies and barrels call `car.TakeDamage()`
+- **Machine gun** (`CarMachineGun` on `Car_Muscle`): LMB while driving **with empty hands** fires one hitscan shot from `firePoint` along its forward (spread cone + random start offset in the fire point's local X/Y). In a car the hands start empty; the pistol slot key toggles the pistol, scroll cycles empty ↔ pistol (`PlayerLoadout.vehicleSlot`, `HandsFree`) — pistol and gun never share LMB. Owner raycasts (skips own car + driver) → `CmdFire` on the car (driver's authority) → server checks driver alive / ammo / rate / distance, decrements `ammo` (SyncVar, the car's, shared by drivers; `ServerAddAmmo` refills) and applies **its own** `damage` via the driver's `PlayerHitReporter.ServerApplyHit`. FX (flash prefab, built-in `shotEffect` ParticleSystem restarted per shot, sound behind `playFireSound` — off, tracer, impact) local on the owner, `RpcShot` for others. HUD shows `DisplayAmmo` (server ammo minus the owner's shots in flight)
 - `CargoTrigger` child (trigger collider, no Rigidbody) calls `car.ServerDepositLoot()` when a carried object enters — adds to `ScoreManager`
 
 ### Weapon System

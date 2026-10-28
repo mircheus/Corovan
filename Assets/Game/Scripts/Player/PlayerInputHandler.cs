@@ -32,6 +32,7 @@ namespace FPSGame.Player
         private PlayerKeycardHand playerKeycardHand;
         private PlayerKeyring playerKeyring;
         private PlayerHealth playerHealth;
+        private PlayerHitReporter hitReporter;
         private PlayerInput playerInput;
         private CharacterInput fpsfInput;
         // FPSF input is blocked while paused, and for good once dead or the match is over.
@@ -47,6 +48,7 @@ namespace FPSGame.Player
         private bool aimBlockedAfterCarry;
 
         private CarController currentVehicle;
+        private CarMachineGun currentVehicleGun;
 
         private InteractableObject currentInteractTarget;
         private float interactHoldTimer;
@@ -59,6 +61,8 @@ namespace FPSGame.Player
         private bool isReviveHeld;
 
         public bool IsInVehicle => currentVehicle != null;
+        /// <summary>The gun of the car this player drives (null on foot or in a car without one).</summary>
+        public CarMachineGun CurrentVehicleGun => currentVehicleGun;
         private bool IsDowned => playerHealth != null && playerHealth.IsDowned;
 
         // Throttled scan for whatever E would act on right now, so the HUD can show a prompt
@@ -83,6 +87,7 @@ namespace FPSGame.Player
             playerKeycardHand = GetComponent<PlayerKeycardHand>();
             playerKeyring = GetComponent<PlayerKeyring>();
             playerHealth = GetComponent<PlayerHealth>();
+            hitReporter = GetComponent<PlayerHitReporter>();
             playerInput = GetComponent<PlayerInput>();
             fpsfInput = GetComponent<CharacterInput>();
         }
@@ -316,6 +321,14 @@ namespace FPSGame.Player
                     && currentVehicle.TryDash(fpsfInput.moveInput.x))
                 {
                     playerCamera?.PunchFOV(currentVehicle.DashFovPunch, currentVehicle.DashFovPunchDuration);
+                }
+
+                // LMB: the car's gun, one shot per click — only with empty hands. A pistol in hand
+                // takes LMB itself (FPSF), so the two never fire together.
+                if (currentVehicleGun != null && attackAction != null && attackAction.triggered
+                    && loadout != null && loadout.HandsFree)
+                {
+                    currentVehicleGun.TryFire(hitReporter);
                 }
             }
 
@@ -567,6 +580,7 @@ namespace FPSGame.Player
                 CancelInteraction();
 
             currentVehicle = car;
+            currentVehicleGun = car.GetComponent<CarMachineGun>();
             playerController?.SetVehicleMode(true);
 
             // Put any held keycard away before driving.
@@ -592,6 +606,7 @@ namespace FPSGame.Player
                     transform.position = exit.position;
             }
             currentVehicle = null;
+            currentVehicleGun = null;
             playerController?.SetVehicleMode(false);
             loadout?.SetInVehicle(false);
         }
