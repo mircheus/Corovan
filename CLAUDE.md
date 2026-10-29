@@ -49,7 +49,9 @@ Assets/Game/
 │   │   └── ShooterDroidSpawner.cs   # Server spawn loop for droids (on start / players in zone / manual)
 │   ├── Vehicle/
 │   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
-│   │   └── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
+│   │   ├── CarMachineGun.cs         # Car's forward hitscan gun: single shots, car-owned synced ammo
+│   │   ├── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
+│   │   └── VehicleWheelVisuals.cs   # Any vehicle: constant wheel spin + steering wheel from sideways movement; cosmetic, all peers
 │   ├── Environment/
 │   │   ├── Enemy.cs                 # Turret enemy: detects players/cars, rotates, fires projectiles
 │   │   ├── EnemyProjectile.cs       # Server-spawned projectile
@@ -112,7 +114,7 @@ All game scripts: `FPSGame.<Folder>` — `FPSGame.Player`, `FPSGame.Vehicle`, `F
 ### FPS Framework Integration
 FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll and combat HUD, and keep our own movement, health and game logic.
 - **Owner only.** Every FPSF component reads the keyboard through its own `Controls` and drives cameras/UI. `FPSFPlayerBridge` disables all of them (except `Ragdoll`) on other players' copies in `OnStartClient`, before their `Start`. Inventory items are stored **inactive** in `Player.prefab` so FPSF per-item `Awake` (input, Weapon HUD canvas) runs only when the owner's `PlayerLoadout` activates one.
-- **Fork, marked.** Edits to FPSF files carry `// CORVAN:` so an FPSF update can be merged by hand. Hooks we added: `Firearm.ResolveDamageable` / `Firearm.ShotFired`, `Throwable.ThrowOverride`, `Explosive.onExploded`, `CharacterInput.inputBlocked`.
+- **Fork, marked.** Edits to FPSF files carry `// CORVAN:` so an FPSF update can be merged by hand. Hooks we added: `Firearm.ResolveDamageable` / `Firearm.ShotFired`, `Throwable.ThrowOverride`, `Explosive.onExploded`, `CharacterInput.inputBlocked`, `CameraManager.fieldOfViewOffset` (extra FOV on top of the target, used by `PlayerCamera.PunchFOV`).
 - **Movement:** our `PlayerController` reads FPSF `CharacterInput` and implements `ICharacterController`; FPSF's `FirstPersonController` is not used. `PlayerCamera` takes look from `CharacterInput.lookInput` (carries FPSF recoil); FOV/ADS/head bob belong to FPSF `CameraManager`.
 - **Input split, no duplicate keys:** FPSF `Controls` = move/look/jump/crouch/sprint, fire/aim/reload/fire mode, slots. Our `InputSystem_Actions` = Interact (E), Attack/Aim (carry/keycard), Previous/Next. FPSF lean and Drop (B) are unbound. Block FPSF input with `CharacterInput.inputBlocked` (owned by `PlayerInputHandler`: paused OR dead/match over) — never by disabling `CharacterInput` (values would freeze).
 - **Hits are client-authoritative.** The owner's FPSF weapon/axe decides the hit; `FPSFDamageable` → `PlayerHitReporter.CmdReportHit` (server checks shooter alive, distance, damage clamp) → friendly-fire multipliers → `DamageRouter`. Never replay an FPSF projectile on observers — on the host it would deal damage again (`RemoteWeaponView` draws a tracer instead).
@@ -174,7 +176,9 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 - `CarController` is a `NetworkBehaviour` on the car prefab
 - **Arcade movement**: `rb.MovePosition()` in FixedUpdate; velocity tracked in `currentVelocity` (do NOT use `rb.linearVelocity` — network sync overwrites it)
 - **Enter/exit flow**: Interact key → `CmdEnterVehicle` → `car.ServerEnter()` → `netIdentity.AssignClientAuthority(conn)` → `[SyncVar] driverNetId` hook hides/shows driver on all clients
+- **Dash**: Shift + A/D → `CarController.TryDash` (owner-only, `dashCooldown`). Sideways impulse along local X kept in its own `dashVelocity` (decays at `dashDecay`, counts toward collision impact speed); on success `PlayerInputHandler` calls `PlayerCamera.PunchFOV` with the car's `dashFovPunch`/`dashFovPunchDuration`
 - Vehicle has health (`vehicleHealth` SyncVar); enemies and barrels call `car.TakeDamage()`
+- **Machine gun** (`CarMachineGun` on `Car_Muscle`): LMB while driving **with empty hands** fires one hitscan shot from `firePoint` along its forward (spread cone + random start offset in the fire point's local X/Y). In a car the hands start empty; the pistol slot key toggles the pistol, scroll cycles empty ↔ pistol (`PlayerLoadout.vehicleSlot`, `HandsFree`) — pistol and gun never share LMB. Owner raycasts (skips own car + driver) → `CmdFire` on the car (driver's authority) → server checks driver alive / ammo / rate / distance, decrements `ammo` (SyncVar, the car's, shared by drivers; `ServerAddAmmo` refills) and applies **its own** `damage` via the driver's `PlayerHitReporter.ServerApplyHit`. FX (flash prefab, built-in `shotEffect` ParticleSystem restarted per shot, sound behind `playFireSound` — off, tracer, impact) local on the owner, `RpcShot` for others. HUD shows `DisplayAmmo` (server ammo minus the owner's shots in flight)
 - `CargoTrigger` child (trigger collider, no Rigidbody) calls `car.ServerDepositLoot()` when a carried object enters — adds to `ScoreManager`
 
 ### Weapon System

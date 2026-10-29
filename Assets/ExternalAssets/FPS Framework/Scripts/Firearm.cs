@@ -45,6 +45,10 @@ namespace Akila.FPSFramework
 
         public bool IsFiring { get; set; }
         public bool IsReloading { get; set; }
+        /// <summary>
+        /// CORVAN: set by the game to refuse every reload — manual and automatic (the pistol at the wheel).
+        /// </summary>
+        public bool ReloadBlocked { get; set; }
         private float fireTimer;
 
 
@@ -799,6 +803,7 @@ namespace Akila.FPSFramework
         /// </summary>
         public void Reload()
         {
+            if (ReloadBlocked) return; // CORVAN: no reloading while blocked (e.g. at the wheel)
             if (remainingAmmoCount >= magazineCapacity || remainingAmmoTypeCount <= 0 || IsReloading) return;
 
             if (preset.reloadAudio) reloadAudio.Stop();

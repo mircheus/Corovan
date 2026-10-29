@@ -32,6 +32,18 @@ namespace FPSGame.Vehicle
         [SerializeField] private float acceleration = 8f;
         [SerializeField] private float deceleration = 12f;
 
+        [Header("Dash")]
+        [Tooltip("Sideways speed (units/sec, along the car's local X) added instantly on a dash.")]
+        [SerializeField] private float dashForce = 25f;
+        [Tooltip("How fast the dash speed bleeds off, in units/sec². Higher = shorter, snappier dash.")]
+        [SerializeField] private float dashDecay = 60f;
+        [Tooltip("Seconds between two dashes.")]
+        [SerializeField] private float dashCooldown = 1f;
+        [Tooltip("Degrees added to the driver's FOV at the start of a dash.")]
+        [SerializeField] private float dashFovPunch = 8f;
+        [Tooltip("Seconds the FOV punch takes to fade back out.")]
+        [SerializeField] private float dashFovPunchDuration = 0.35f;
+
         [Header("Driverless Behavior")]
         [Tooltip("What the car does once a driver has gotten out: roll backward, or stay put.")]
         [SerializeField] private DriverlessBehavior driverlessBehavior = DriverlessBehavior.RollBackward;
@@ -42,6 +54,16 @@ namespace FPSGame.Vehicle
         [SerializeField] private Transform driverSeat;
         [SerializeField] private Transform exitPoint;
         [SerializeField] private float interactDistance = 4f;
+        [Tooltip("Stand-in driver model (looping Driving animation) inside the car. Shown on every client except the driver's own while the seat is taken. Leave it inactive in the prefab.")]
+        [SerializeField] private GameObject driverVisual;
+
+        [Header("Ejection")]
+        [Tooltip("Where the driver appears when thrown out through the windshield. Place it in front of and above the windshield, clear of the car's colliders. Empty = 2.5 m ahead and 1.5 m up from the car's pivot.")]
+        [SerializeField] private Transform ejectPoint;
+        [Tooltip("Launch speed (units/sec) along the car's forward when the driver is thrown out.")]
+        [SerializeField] private float ejectForwardSpeed = 14f;
+        [Tooltip("Launch speed (units/sec) straight up when the driver is thrown out.")]
+        [SerializeField] private float ejectUpSpeed = 7f;
 
         [Header("Safe")]
         [SerializeField] private SafeMount safeMount;
@@ -102,6 +124,10 @@ namespace FPSGame.Vehicle
 
         private Vector2 moveInput;
         private Vector3 currentVelocity;
+        // Kept apart from currentVelocity so acceleration/deceleration toward the input target
+        // don't eat the dash; it decays on its own at dashDecay.
+        private Vector3 dashVelocity;
+        private float lastDashTime = float.NegativeInfinity;
         private bool isExploded;
         private bool hasBeenDriven; // server-side: true once any player has entered at least once
 
@@ -121,7 +147,12 @@ namespace FPSGame.Vehicle
         }
         public Transform DriverSeat => driverSeat;
         public Transform ExitPoint => exitPoint;
+        public Vector3 EjectPosition => ejectPoint != null
+            ? ejectPoint.position
+            : transform.position + transform.forward * 2.5f + Vector3.up * 1.5f;
         public float InteractDistance => interactDistance;
+        public float DashFovPunch => dashFovPunch;
+        public float DashFovPunchDuration => dashFovPunchDuration;
         public int VehicleHealth => vehicleHealth;
         public int MaxVehicleHealth => maxVehicleHealth;
         public bool VehicleIsAlive => vehicleIsAlive;
@@ -161,6 +192,13 @@ namespace FPSGame.Vehicle
             // Server owns the car until a driver takes the seat. ServerToClient lets the
             // server broadcast its own movement (driverless drift, autopilot) to all clients.
             ServerSetClientDriven(false);
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            // A late joiner gets the car with a driver already in it; don't rely on the hook alone.
+            RefreshDriverVisual();
         }
 
         /// <summary>
@@ -259,6 +297,7 @@ namespace FPSGame.Vehicle
 
             isExploded = true;
             currentVelocity = Vector3.zero;
+            dashVelocity = Vector3.zero;
 
             foreach (var r in GetComponentsInChildren<Renderer>())
                 r.enabled = false;
@@ -285,7 +324,7 @@ namespace FPSGame.Vehicle
             if ((obstacleLayers.value & (1 << collision.gameObject.layer)) == 0)
                 return;
             
-            float impactSpeed = currentVelocity.magnitude;
+            float impactSpeed = (currentVelocity + dashVelocity).magnitude;
             Debug.Log($"impactSpeed: {impactSpeed}");
             if (impactSpeed < minImpactSpeed)
                 return;
@@ -312,6 +351,15 @@ namespace FPSGame.Vehicle
             if (isExploded)
                 return;
 
+            // Movement is all MovePosition; the body is dynamic only to collide. Drop any velocity
+            // physics hands it (shell casings ejected into the cabin, FPSF bullet impact force) —
+            // with no drag it would keep the car creeping forever. Vertical speed stays for gravity.
+            if (!rb.isKinematic)
+            {
+                rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+                rb.angularVelocity = Vector3.zero;
+            }
+
             if (HasDriver)
             {
                 if (!isOwned) return;
@@ -324,10 +372,11 @@ namespace FPSGame.Vehicle
                     : deceleration;
 
                 currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
+                dashVelocity = Vector3.MoveTowards(dashVelocity, Vector3.zero, dashDecay * Time.fixedDeltaTime);
 
                 // Chaos is applied only to this frame's move step, never stored into
                 // currentVelocity, so it can't corrupt collision-impact speed or smoothing.
-                Vector3 frameVelocity = currentVelocity + GetChaosOffset();
+                Vector3 frameVelocity = currentVelocity + dashVelocity + GetChaosOffset();
 
                 if (frameVelocity.sqrMagnitude > 0.001f)
                     rb.MovePosition(rb.position + frameVelocity * Time.fixedDeltaTime);
@@ -441,6 +490,24 @@ namespace FPSGame.Vehicle
             moveInput = input;
         }
 
+        /// <summary>
+        /// Owner-only: sideways dash along the car's local X (direction = sign). The driver moves
+        /// the car with client authority, so no server round trip — NetworkTransform syncs the result.
+        /// Returns false while on cooldown, so the caller knows whether to play the FOV punch.
+        /// </summary>
+        public bool TryDash(float direction)
+        {
+            if (!isOwned || !HasDriver || !vehicleIsAlive || isExploded)
+                return false;
+
+            if (Mathf.Approximately(direction, 0f) || Time.time - lastDashTime < dashCooldown)
+                return false;
+
+            lastDashTime = Time.time;
+            dashVelocity = transform.right * (Mathf.Sign(direction) * dashForce);
+            return true;
+        }
+
         [Server]
         public void ServerEnter(NetworkConnectionToClient conn, NetworkIdentity player)
         {
@@ -490,8 +557,35 @@ namespace FPSGame.Vehicle
             ServerOnDriverExited?.Invoke(this, exitingDriver);
         }
 
+        /// <summary>Server-only: throws the driver out through the windshield with this car's Ejection settings.</summary>
+        [Server]
+        public bool ServerEjectDriver() => ServerEjectDriver(ejectForwardSpeed, ejectUpSpeed);
+
+        /// <summary>
+        /// Server-only: empties the seat and throws the driver forward/up on their own client.
+        /// Returns false when nobody is driving.
+        /// </summary>
+        [Server]
+        public bool ServerEjectDriver(float forwardSpeed, float upSpeed)
+        {
+            var driver = GetCurrentDriverServer();
+            if (driver == null)
+                return false;
+
+            var input = driver.GetComponent<FPSGame.Player.PlayerInputHandler>();
+            ServerExit();
+            if (input != null)
+                input.ServerEjectFromVehicle(this, forwardSpeed, upSpeed);
+            return true;
+        }
+
         private void OnDriverChanged(uint oldId, uint newId)
         {
+            // A dash left over from the previous driver must not shove the car for the next one.
+            dashVelocity = Vector3.zero;
+
+            RefreshDriverVisual();
+
             if (newId != 0)
             {
                 // Driver entered
@@ -511,14 +605,34 @@ namespace FPSGame.Vehicle
                     // was disabled (the spot they entered the car) — a teleport to the entry point.
                     // Setting the position while the CC is still off (vehicle mode) makes it adopt
                     // the new spot when SetDriverVisible re-enables it.
-                    if (exitPoint != null)
-                        driverIdentity.transform.SetPositionAndRotation(exitPoint.position, exitPoint.rotation);
-                    else
-                        driverIdentity.transform.position = transform.position + transform.right * 2.5f;
+                    // An owner who has already left the seat locally placed themselves (exit point, or
+                    // the eject point mid-flight) — moving them again here would yank them back.
+                    var input = driverIdentity.GetComponent<FPSGame.Player.PlayerInputHandler>();
+                    bool placedByOwner = driverIdentity.isOwned && input != null && !input.IsInVehicle;
+                    if (!placedByOwner)
+                    {
+                        if (exitPoint != null)
+                            driverIdentity.transform.SetPositionAndRotation(exitPoint.position, exitPoint.rotation);
+                        else
+                            driverIdentity.transform.position = transform.position + transform.right * 2.5f;
+                    }
 
                     SetDriverVisible(driverIdentity.gameObject, true);
                 }
             }
+        }
+
+        // The driver sees the car from first person, so the stand-in is everyone else's view only.
+        // Compared by netId, not by looking the driver up in NetworkClient.spawned: on a late joiner
+        // the driver's player object may not be spawned yet when the car is.
+        private void RefreshDriverVisual()
+        {
+            if (driverVisual == null)
+                return;
+
+            var localPlayer = NetworkClient.localPlayer;
+            bool localIsDriver = localPlayer != null && localPlayer.netId == driverNetId;
+            driverVisual.SetActive(driverNetId != 0 && !localIsDriver);
         }
 
         private void SetDriverVisible(GameObject driver, bool visible)

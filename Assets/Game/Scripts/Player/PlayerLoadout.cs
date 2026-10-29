@@ -16,8 +16,10 @@ namespace FPSGame.Player
     ///
     /// FPSF's Inventory does the actual swapping (activating one item), but its own Update — which
     /// reads 1-9/scroll and would ignore locks — is switched off; we drive it instead. While the hands
-    /// are busy (carrying loot or a keycard, driving, downed, dead, match over) nothing is held, so
-    /// FPSF weapons cannot fire, aim or reload.
+    /// are busy (carrying loot or a keycard, downed, dead, match over) nothing is held, so FPSF
+    /// weapons cannot fire, aim or reload. While driving the hands start empty (LMB is the car's gun) and
+    /// only UsableInVehicle slots (the pistol) can be taken out — their key toggles them, scroll cycles
+    /// through "empty" too. The slot chosen on foot is kept and comes back on exit.
     ///
     /// Ammo lives in the FPSF firearms on the owner (client-side, like hits).
     /// </summary>
@@ -41,6 +43,7 @@ namespace FPSGame.Player
 
         // Owner-side state.
         private int selectedSlot = -1;
+        private int vehicleSlot = -1; // what is in hand while driving; -1 = empty (the car's gun fires)
         private int appliedSlot = -1;
         private bool carrying;
         private bool downed;
@@ -62,7 +65,9 @@ namespace FPSGame.Player
         public int EquippedSlot => equippedSlot;
         public Firearm EquippedFirearm { get; private set; }
         public LoadoutItem EquippedItem => appliedSlot >= 0 && appliedSlot < slots.Count ? slots[appliedSlot] : null;
-        private bool HandsBusy => carrying || downed || inVehicle || triggerLock || paused || disabledForGood;
+        private bool HandsBusy => carrying || downed || triggerLock || paused || disabledForGood;
+        /// <summary>Owner: nothing in hand and nothing keeping the hands busy — a vehicle's gun may fire.</summary>
+        public bool HandsFree => !HandsBusy && appliedSlot < 0;
 
         private void Awake()
         {
@@ -149,7 +154,7 @@ namespace FPSGame.Player
 
         public void SetCarryingMode(bool value) { carrying = value; Apply(); }
         public void SetDowned(bool value) { downed = value; Apply(); }
-        public void SetInVehicle(bool value) { inVehicle = value; Apply(); }
+        public void SetInVehicle(bool value) { inVehicle = value; vehicleSlot = -1; Apply(); }
         /// <summary>Keep weapons away while the LMB/RMB press that threw or dropped loot is held.</summary>
         public void SetTriggerLock(bool value) { if (value != triggerLock) { triggerLock = value; Apply(); } }
         public void SetPaused(bool value) { paused = value; Apply(); }
@@ -163,16 +168,52 @@ namespace FPSGame.Player
         public bool IsEquipped(string itemId) =>
             appliedSlot >= 0 && appliedSlot < slots.Count && slots[appliedSlot].ItemId == itemId;
 
+        // Unlocked, and holdable where the player is now (in a vehicle: UsableInVehicle only).
+        private bool IsSelectable(int slot) =>
+            IsUnlocked(slot) && slot < slots.Count && (!inVehicle || slots[slot].UsableInVehicle);
+
         public void SelectWeaponSlot(int index)
         {
-            if (!isOwned || !IsUnlocked(index) || index >= slots.Count)
+            if (!isOwned || !IsSelectable(index))
                 return;
-            selectedSlot = index;
+            // Driving: the key takes the slot out, or puts it back away.
+            if (inVehicle)
+                vehicleSlot = vehicleSlot == index ? -1 : index;
+            else
+                selectedSlot = index;
             Apply();
         }
 
-        public void SelectNextWeapon() => SelectWeaponSlot(FindNextUnlocked(1));
-        public void SelectPreviousWeapon() => SelectWeaponSlot(FindNextUnlocked(-1));
+        public void SelectNextWeapon() => Cycle(1);
+        public void SelectPreviousWeapon() => Cycle(-1);
+
+        private void Cycle(int dir)
+        {
+            if (!isOwned)
+                return;
+            if (inVehicle)
+            {
+                vehicleSlot = FindNextVehicleSlot(dir);
+                Apply();
+            }
+            else
+            {
+                SelectWeaponSlot(FindNextUnlocked(dir));
+            }
+        }
+
+        // Driving: steps through "empty hands" (-1) and the slots usable in a vehicle.
+        private int FindNextVehicleSlot(int dir)
+        {
+            int n = slots.Count + 1; // position 0 = empty hands
+            for (int step = 1; step <= n; step++)
+            {
+                int idx = ((vehicleSlot + 1 + dir * step) % n + n) % n - 1;
+                if (idx < 0 || IsSelectable(idx))
+                    return idx;
+            }
+            return vehicleSlot;
+        }
 
         private int FindNextUnlocked(int dir)
         {
@@ -180,7 +221,7 @@ namespace FPSGame.Player
             for (int step = 1; step <= n; step++)
             {
                 int idx = ((selectedSlot + dir * step) % n + n) % n;
-                if (IsUnlocked(idx))
+                if (IsSelectable(idx))
                     return idx;
             }
             return selectedSlot;
@@ -203,18 +244,31 @@ namespace FPSGame.Player
             if (!IsUnlocked(selectedSlot))
                 selectedSlot = FirstUnlocked();
 
-            int target = HandsBusy ? -1 : selectedSlot;
+            int wanted = inVehicle ? vehicleSlot : selectedSlot;
+            int target = HandsBusy || !IsSelectable(wanted) ? -1 : wanted;
             if (target == appliedSlot)
+            {
+                // Same item stays in hand across entering/leaving a car: only the reload block changes.
+                UpdateReloadBlock();
                 return;
+            }
 
             inventory.Switch(target); // -1 deactivates every item
             appliedSlot = target;
 
             EquippedFirearm = target >= 0 ? slots[target].GetComponent<Firearm>() : null;
+            UpdateReloadBlock();
             OnEquippedItemChanged?.Invoke(EquippedItem);
             lastAmmo = lastReserve = int.MinValue; // force a HUD refresh
 
             CmdSetEquipped(target);
+        }
+
+        // No reloading at the wheel: both hands are needed for a magazine.
+        private void UpdateReloadBlock()
+        {
+            if (EquippedFirearm != null)
+                EquippedFirearm.ReloadBlocked = inVehicle;
         }
 
         [Command]

@@ -22,6 +22,8 @@ namespace FPSGame.Player
                  "interactable. Wider = more forgiving. Car entry/exit and reviving ignore this.")]
         [Range(5f, 90f)]
         [SerializeField] private float lookAngleThreshold = 40f;
+        [Tooltip("Show the \"[E] Выйти из машины\" prompt while driving. Off by default — it sits next to the crosshair.")]
+        [SerializeField] private bool showExitVehiclePrompt = false;
 
         private PlayerController playerController;
         private PlayerCamera playerCamera;
@@ -30,6 +32,7 @@ namespace FPSGame.Player
         private PlayerKeycardHand playerKeycardHand;
         private PlayerKeyring playerKeyring;
         private PlayerHealth playerHealth;
+        private PlayerHitReporter hitReporter;
         private PlayerInput playerInput;
         private CharacterInput fpsfInput;
         // FPSF input is blocked while paused, and for good once dead or the match is over.
@@ -45,6 +48,7 @@ namespace FPSGame.Player
         private bool aimBlockedAfterCarry;
 
         private CarController currentVehicle;
+        private CarMachineGun currentVehicleGun;
 
         private InteractableObject currentInteractTarget;
         private float interactHoldTimer;
@@ -57,6 +61,8 @@ namespace FPSGame.Player
         private bool isReviveHeld;
 
         public bool IsInVehicle => currentVehicle != null;
+        /// <summary>The gun of the car this player drives (null on foot or in a car without one).</summary>
+        public CarMachineGun CurrentVehicleGun => currentVehicleGun;
         private bool IsDowned => playerHealth != null && playerHealth.IsDowned;
 
         // Throttled scan for whatever E would act on right now, so the HUD can show a prompt
@@ -81,6 +87,7 @@ namespace FPSGame.Player
             playerKeycardHand = GetComponent<PlayerKeycardHand>();
             playerKeyring = GetComponent<PlayerKeyring>();
             playerHealth = GetComponent<PlayerHealth>();
+            hitReporter = GetComponent<PlayerHitReporter>();
             playerInput = GetComponent<PlayerInput>();
             fpsfInput = GetComponent<CharacterInput>();
         }
@@ -307,6 +314,22 @@ namespace FPSGame.Player
                 var kb = Keyboard.current;
                 if (kb != null && kb[Key.G].wasPressedThisFrame)
                     CmdDetachSafe(currentVehicle.netIdentity);
+
+                // Shift + A/D: sideways dash. Shift is sprint on foot and unused in the car.
+                if (kb != null && fpsfInput != null && kb[Key.LeftShift].wasPressedThisFrame
+                    && Mathf.Abs(fpsfInput.moveInput.x) > 0.5f
+                    && currentVehicle.TryDash(fpsfInput.moveInput.x))
+                {
+                    playerCamera?.PunchFOV(currentVehicle.DashFovPunch, currentVehicle.DashFovPunchDuration);
+                }
+
+                // LMB: the car's gun, one shot per click — only with empty hands. A pistol in hand
+                // takes LMB itself (FPSF), so the two never fire together.
+                if (currentVehicleGun != null && attackAction != null && attackAction.triggered
+                    && loadout != null && loadout.HandsFree)
+                {
+                    currentVehicleGun.TryFire(hitReporter);
+                }
             }
 
             // Advance the revive hold. The server re-checks all of this before it lets the
@@ -359,14 +382,15 @@ namespace FPSGame.Player
                 }
             }
 
-            // Number keys — on foot and not carrying loot. "0" pulls the keycard
-            // into / out of hand; 1-9 select weapon slots (and put any held card away).
-            if (currentVehicle == null && !isCarrying && loadout != null)
+            // Number keys — not while carrying loot. "0" pulls the keycard into / out of hand (on
+            // foot only); 1-9 select weapon slots (and put any held card away). In a vehicle
+            // PlayerLoadout accepts only the slots usable there (the pistol).
+            if (!isCarrying && loadout != null)
             {
                 var kb = Keyboard.current;
                 if (kb != null)
                 {
-                    if (kb[Key.Digit0].wasPressedThisFrame && playerKeycardHand != null)
+                    if (kb[Key.Digit0].wasPressedThisFrame && playerKeycardHand != null && currentVehicle == null)
                     {
                         playerKeycardHand.ToggleEquip();
                     }
@@ -390,7 +414,7 @@ namespace FPSGame.Player
 
         public void OnPrevious(InputValue value)
         {
-            if (!isOwned || currentVehicle != null)
+            if (!isOwned)
                 return;
             if (value.isPressed)
                 loadout?.SelectPreviousWeapon();
@@ -398,7 +422,7 @@ namespace FPSGame.Player
 
         public void OnNext(InputValue value)
         {
-            if (!isOwned || currentVehicle != null)
+            if (!isOwned)
                 return;
             if (value.isPressed)
                 loadout?.SelectNextWeapon();
@@ -556,6 +580,7 @@ namespace FPSGame.Player
                 CancelInteraction();
 
             currentVehicle = car;
+            currentVehicleGun = car.GetComponent<CarMachineGun>();
             playerController?.SetVehicleMode(true);
 
             // Put any held keycard away before driving.
@@ -581,8 +606,40 @@ namespace FPSGame.Player
                     transform.position = exit.position;
             }
             currentVehicle = null;
+            currentVehicleGun = null;
             playerController?.SetVehicleMode(false);
             loadout?.SetInVehicle(false);
+        }
+
+        /// <summary>
+        /// Server-only: the car has already emptied the seat (<c>CarController.ServerEjectDriver</c>);
+        /// throws this player out through the windshield on their own client.
+        /// </summary>
+        [Server]
+        public void ServerEjectFromVehicle(CarController car, float forwardSpeed, float upSpeed)
+        {
+            TargetEjectFromVehicle(car.netIdentity, forwardSpeed, upSpeed);
+        }
+
+        [TargetRpc]
+        private void TargetEjectFromVehicle(NetworkIdentity carIdentity, float forwardSpeed, float upSpeed)
+        {
+            CarController car = carIdentity != null ? carIdentity.GetComponent<CarController>() : currentVehicle;
+
+            if (currentVehicle != null)
+                currentVehicle.SetMoveInput(Vector2.zero);
+            currentVehicle = null;
+            currentVehicleGun = null;
+            playerController?.SetVehicleMode(false);
+            loadout?.SetInVehicle(false);
+
+            if (car == null || playerController == null)
+                return;
+
+            // TeleportTo turns the CharacterController off for the move, so the spot sticks even if
+            // the driver-changed hook has already re-enabled it.
+            playerController.TeleportTo(car.EjectPosition);
+            playerController.Launch(car.transform.forward * forwardSpeed + Vector3.up * upSpeed);
         }
 
         // Throttled: re-scans for the best interaction target and pushes its verb to the HUD only
@@ -611,7 +668,7 @@ namespace FPSGame.Player
 
             // In a vehicle E only exits.
             if (currentVehicle != null)
-                return InteractPrompt.Action("Выйти из машины");
+                return showExitVehiclePrompt ? InteractPrompt.Action("Выйти из машины") : InteractPrompt.None;
 
             // Hands full — E does nothing until the loot/keycard is put down.
             bool isCarrying = playerCarry != null && playerCarry.IsCarrying;

@@ -39,6 +39,8 @@ namespace Akila.FPSFramework
         private float movemnetPercentage;
         [HideInInspector] public float fieldOfView;
         [HideInInspector] public float overlayFieldOfView;
+        // CORVAN: extra degrees on top of the target main FOV (car dash punch); ADS and FOV kick stay intact.
+        [HideInInspector] public float fieldOfViewOffset;
 
         private CharacterInput characterInput;
 
@@ -153,7 +155,7 @@ namespace Akila.FPSFramework
             }
 
             if (mainCamera)
-                mainCamera.fieldOfView = Mathf.Lerp(mainCamera.fieldOfView, fieldOfView + FOVKickResult(), Time.deltaTime * FOVKickSmoothness);
+                mainCamera.fieldOfView = Mathf.Lerp(mainCamera.fieldOfView, fieldOfView + FOVKickResult() + fieldOfViewOffset /* CORVAN */, Time.deltaTime * FOVKickSmoothness);
 
             if (overlayCamera)
                 overlayCamera.fieldOfView = Mathf.Lerp(overlayCamera.fieldOfView, overlayFieldOfView + OverlayFOVKickResult(), Time.deltaTime * FOVKickSmoothness);
