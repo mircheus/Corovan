@@ -65,7 +65,8 @@ Assets/Game/
 │   │   └── InfiniteRoad.cs          # Client-side scrolling tile recycler (no networking)
 │   ├── Hazards/
 │   │   ├── Barrel.cs                # Pooled kinematic barrel; bounces on AnimationCurve, damages car/player
-│   │   └── BarrelSpawner.cs         # Server-side object pool + timed spawn loop
+│   │   ├── BarrelSpawner.cs         # Server-side object pool + timed spawn loop
+│   │   └── Explodable.cs            # Stationary Barrel: damage threshold / car-player contact → explosion FX, hide, onExploded
 │   ├── Networking/
 │   │   ├── CustomNetworkManager.cs  # Spawn point rotation; registers players with GameStateManager
 │   │   ├── GameStateManager.cs      # Singleton NetworkBehaviour; SyncVar MatchResult, defeat on squad wipe
@@ -93,6 +94,7 @@ Assets/Game/
 │   │   └── SceneBalance.cs          # Scene component: picks the BalanceConfig (static Current)
 │   ├── Utility/
 │   │   ├── SceneReloader.cs         # F9 hot-reload
+│   │   ├── ObjectSpawner.cs         # Universal spawner: prefab at own position every N s, hotkey toggle (networked prefab → server only)
 │   │   ├── AutoTile.cs
 │   │   ├── AxisSpacer.cs
 │   │   └── TestEvent.cs
