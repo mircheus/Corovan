@@ -37,6 +37,25 @@ namespace FPSGame.Environment
         [Tooltip("Minimum seconds between two damage effects — shotgun pellets and machine-gun bursts send one RPC, not one per hit.")]
         [SerializeField, Min(0f)] private float damageEffectCooldown = 0.1f;
 
+        [Header("Wreck")]
+        [Tooltip("Swapped onto every mesh slot of the car when it dies. Empty = keep the original materials.")]
+        [SerializeField] private Material burntMaterial;
+        [Tooltip("Inactive children with looping Play On Awake particles (fire, smoke), switched on for good when the car dies. " +
+                 "State, not a one-shot: late joiners see the wreck burning too. Empty = none.")]
+        [SerializeField] private GameObject[] burningEffects;
+        [Tooltip("Child objects deactivated when the car dies (glass, lights, gun — whatever the wreck shouldn't show). " +
+                 "Applied from the hook, so late joiners see the same wreck. Empty = none.")]
+        [SerializeField] private GameObject[] hideOnDeath;
+        [Tooltip("Disabled RoadBody on this object. Enabled on death: the wreck launches, lands on the road and drifts back. " +
+                 "Auto-grabbed in Awake if empty.")]
+        [SerializeField] private RoadBody roadBody;
+        [Tooltip("Random upward launch speed (m/s), min..max.")]
+        [SerializeField] private Vector2 launchUpSpeed = new(6f, 9f);
+        [Tooltip("Max random sideways launch speed (m/s), either direction along world X.")]
+        [SerializeField, Min(0f)] private float launchSideSpeed = 1.5f;
+        [Tooltip("Max random spin (rad/s) per axis given at launch.")]
+        [SerializeField, Min(0f)] private float launchSpin = 1.5f;
+
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 8f;
         [SerializeField] private float angularSpeed = 0f;
@@ -88,16 +107,17 @@ namespace FPSGame.Environment
         [SyncVar]
         private int currentHealth;
 
-        // Cached while the effects are still inactive, so hiding the car never hides them.
+        // Cached while the effects are still inactive, so the burnt material never lands on them.
         private Renderer[] renderers;
-        private Collider[] colliders;
 
         public bool IsDead => isDead;
 
         private void Awake()
         {
             renderers = GetComponentsInChildren<Renderer>();
-            colliders = GetComponentsInChildren<Collider>();
+            if (roadBody == null) roadBody = GetComponent<RoadBody>();
+            // Dormant while alive: its despawn check and phase logic only make sense for the wreck.
+            if (roadBody != null) roadBody.enabled = false;
 
             rb = GetComponent<Rigidbody>();
             rb.isKinematic = true;
@@ -119,6 +139,14 @@ namespace FPSGame.Environment
             base.OnStartServer();
             ApplyBalance();
             currentHealth = maxHealth;
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            // A late joiner gets isDead without the hook firing.
+            if (isDead)
+                ApplyWreckState();
         }
 
         // Prefab values stay unless the scene has a BalanceConfig.
@@ -223,6 +251,8 @@ namespace FPSGame.Environment
         {
             currentCarTarget = null;
             currentPlayerTarget = null;
+            // Keep the chase momentum: the wreck carries on from where the car was going.
+            Vector3 velocity = agent.enabled ? agent.velocity : Vector3.zero;
             if (agent.isOnNavMesh)
                 agent.ResetPath();
             agent.enabled = false;
@@ -230,6 +260,28 @@ namespace FPSGame.Environment
             // An RPC (not the hook) so a client joining later doesn't replay the effects.
             RpcPlayDestructionEffects();
             isDead = true;
+
+            ServerLaunchWreck(velocity);
+        }
+
+        // From here on RoadBody owns the wreck: flight, landing, drift back, despawn.
+        [Server]
+        private void ServerLaunchWreck(Vector3 velocity)
+        {
+            if (roadBody == null)
+            {
+                Debug.LogWarning($"[EnemyCar] {name}: no RoadBody, the wreck stays where it died.", this);
+                return;
+            }
+
+            rb.constraints = RigidbodyConstraints.None;
+            rb.useGravity = true;
+            roadBody.enabled = true;
+
+            velocity.y = Random.Range(launchUpSpeed.x, launchUpSpeed.y);
+            velocity.x += Random.Range(-launchSideSpeed, launchSideSpeed);
+            roadBody.ServerLaunch(velocity); // makes the body dynamic
+            rb.angularVelocity = Random.insideUnitSphere * launchSpin;
         }
 
         [ClientRpc]
@@ -240,12 +292,39 @@ namespace FPSGame.Environment
 
         private void OnDeadChanged(bool oldValue, bool newValue)
         {
-            if (!newValue)
-                return;
+            if (newValue)
+                ApplyWreckState();
+        }
 
-            // Hidden, not deactivated: the object stays active so its child effects can play.
-            foreach (Renderer r in renderers) r.enabled = false;
-            foreach (Collider c in colliders) c.enabled = false;
+        private void ApplyWreckState()
+        {
+            // Clients run RoadBody too: its Settled phase extrapolates the wreck from RoadScroll.
+            if (roadBody != null)
+                roadBody.enabled = true;
+
+            DestructionEffects.Play(burningEffects);
+
+            if (hideOnDeath != null)
+            {
+                foreach (GameObject part in hideOnDeath)
+                {
+                    if (part != null)
+                        part.SetActive(false);
+                }
+            }
+
+            if (burntMaterial == null)
+                return;
+            foreach (Renderer r in renderers)
+            {
+                // Mesh renderers only — particle systems on the car keep their own materials.
+                if (r is not MeshRenderer && r is not SkinnedMeshRenderer)
+                    continue;
+                var materials = new Material[r.sharedMaterials.Length];
+                for (int i = 0; i < materials.Length; i++)
+                    materials[i] = burntMaterial;
+                r.sharedMaterials = materials;
+            }
         }
 
         void IAttackerListener.ServerOnHitBy(GameObject attacker)
@@ -397,8 +476,9 @@ namespace FPSGame.Environment
         private void LateUpdate()
         {
             // All clients (and host) apply the synced yaw locally so remote
-            // viewers see the gun track its target.
-            ApplyGunYaw();
+            // viewers see the gun track its target. A wreck's gun stays put on the tumbling body.
+            if (!isDead)
+                ApplyGunYaw();
         }
 
         private void UpdateGunAimServer()
