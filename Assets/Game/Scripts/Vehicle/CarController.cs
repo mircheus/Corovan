@@ -65,6 +65,10 @@ namespace FPSGame.Vehicle
         [Tooltip("Launch speed (units/sec) straight up when the driver is thrown out.")]
         [SerializeField] private float ejectUpSpeed = 7f;
 
+        [Header("Enemy Aim")]
+        [Tooltip("Point enemies aim their shots at (e.g. the cabin / roof). Empty = the car's pivot.")]
+        [SerializeField] private Transform aimPoint;
+
         [Header("Safe")]
         [SerializeField] private SafeMount safeMount;
 
@@ -150,6 +154,8 @@ namespace FPSGame.Vehicle
         public Vector3 EjectPosition => ejectPoint != null
             ? ejectPoint.position
             : transform.position + transform.forward * 2.5f + Vector3.up * 1.5f;
+        /// <summary>World position enemies should shoot at: the Aim Point child, else the car's pivot.</summary>
+        public Vector3 AimPosition => aimPoint != null ? aimPoint.position : transform.position;
         public float InteractDistance => interactDistance;
         public float DashFovPunch => dashFovPunch;
         public float DashFovPunchDuration => dashFovPunchDuration;
@@ -641,6 +647,14 @@ namespace FPSGame.Vehicle
             var localPlayer = NetworkClient.localPlayer;
             bool localIsDriver = localPlayer != null && localPlayer.netId == driverNetId;
             driverVisual.SetActive(driverNetId != 0 && !localIsDriver);
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            if (aimPoint == null)
+                return;
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(aimPoint.position, 0.3f);
         }
 
         private void SetDriverVisible(GameObject driver, bool visible)

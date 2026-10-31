@@ -31,6 +31,12 @@ namespace FPSGame.Environment
                  "a wreck model. The car's own renderers and colliders are hidden. Empty = none.")]
         [SerializeField] private GameObject[] destructionEffects;
 
+        [Header("Damage FX (played locally on every client)")]
+        [Tooltip("Particle systems on the car (sparks, smoke puff) restarted on every non-lethal hit. Empty = none.")]
+        [SerializeField] private ParticleSystem[] damageEffects;
+        [Tooltip("Minimum seconds between two damage effects — shotgun pellets and machine-gun bursts send one RPC, not one per hit.")]
+        [SerializeField, Min(0f)] private float damageEffectCooldown = 0.1f;
+
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 8f;
         [SerializeField] private float angularSpeed = 0f;
@@ -72,6 +78,7 @@ namespace FPSGame.Environment
         private readonly Dictionary<CarController, PlayerHealth> lastDriverByCar = new();
         private float repathCooldown;
         private float fireCooldown;
+        private double nextDamageEffectTime;
 
         [SyncVar] private float gunYaw;
 
@@ -182,7 +189,33 @@ namespace FPSGame.Environment
 
             currentHealth = Mathf.Max(0, currentHealth - damage);
             if (currentHealth == 0)
-                ServerDie();
+            {
+                ServerDie(); // destruction effects take over
+                return;
+            }
+
+            if (damageEffects != null && damageEffects.Length > 0 && NetworkTime.time >= nextDamageEffectTime)
+            {
+                nextDamageEffectTime = NetworkTime.time + damageEffectCooldown;
+                RpcPlayDamageEffects();
+            }
+        }
+
+        // Unreliable: a dropped puff of sparks doesn't matter, and late joiners never replay it.
+        [ClientRpc(channel = Channels.Unreliable)]
+        private void RpcPlayDamageEffects()
+        {
+            if (isDead)
+                return;
+
+            foreach (ParticleSystem effect in damageEffects)
+            {
+                if (effect == null)
+                    continue;
+                // Stop emitting (live particles finish) and restart, so a burst replays on every hit.
+                effect.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                effect.Play(true);
+            }
         }
 
         [Server]
@@ -342,7 +375,7 @@ namespace FPSGame.Environment
         {
             if (currentPlayerTarget != null)
                 return currentPlayerTarget.transform.position + Vector3.up;
-            return currentCarTarget.transform.position;
+            return currentCarTarget.AimPosition;
         }
 
         private void UpdatePathServer()
@@ -354,7 +387,10 @@ namespace FPSGame.Environment
             if (repathCooldown > 0f)
                 return;
 
-            agent.SetDestination(GetTargetPosition());
+            // Navigate to the car's pivot (on the ground), not its raised aim point.
+            agent.SetDestination(currentPlayerTarget != null
+                ? currentPlayerTarget.transform.position
+                : currentCarTarget.transform.position);
             repathCooldown = repathInterval;
         }
 
