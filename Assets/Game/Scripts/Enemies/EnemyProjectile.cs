@@ -113,7 +113,12 @@ namespace FPSGame.Environment
             {
                 RaycastHit hit = castBuffer[best];
                 rb.position = origin + direction * hit.distance;
-                Hit(hit.collider, hit.point, hit.normal);
+                // A target that moved into the sphere since the last step (a car driving at the shot)
+                // is already overlapping: the cast then reports distance 0 and point (0,0,0).
+                if (hit.distance <= 0f)
+                    Hit(hit.collider, hit.collider.ClosestPoint(origin), -direction);
+                else
+                    Hit(hit.collider, hit.point, hit.normal);
                 return;
             }
 
@@ -137,7 +142,8 @@ namespace FPSGame.Environment
         [ClientRpc]
         private void RpcHit(Vector3 point, Vector3 normal)
         {
-            if (fx != null)
+            // The host already played it in Hit().
+            if (fx != null && !isServer)
                 fx.PlayHit(point, normal);
         }
 
@@ -145,7 +151,13 @@ namespace FPSGame.Environment
         {
             hasHit = true;
             if (fx != null)
+            {
+                // On the host the RPC is queued and handled next update, but NetworkServer.Destroy below
+                // removes the object from the host client at once, so the RPC is dropped. Play it here.
+                if (isClient)
+                    fx.PlayHit(point, normal);
                 RpcHit(point, normal);
+            }
             if (logHits)
                 Debug.Log($"[EnemyProjectile] {name} hit '{col.name}' " +
                           $"(layer {LayerMask.LayerToName(col.gameObject.layer)}, " +

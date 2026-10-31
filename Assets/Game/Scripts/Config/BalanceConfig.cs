@@ -12,6 +12,7 @@ namespace FPSGame.Config
     {
         public PlayerBalance player = new PlayerBalance();
         public ShooterDroidBalance shooterDroid = new ShooterDroidBalance();
+        public EnemyCarBalance enemyCar = new EnemyCarBalance();
     }
 
     // All players share one section for now.
@@ -34,5 +35,13 @@ namespace FPSGame.Config
         [Min(1)] public int maxHealth = 100;
         [Min(0)] public int projectileDamage = 8;
         [Min(0.1f)] public float projectileSpeed = 25f;
+    }
+
+    [Serializable]
+    public class EnemyCarBalance
+    {
+        [Min(1)] public int maxHealth = 300;
+        [Min(0)] public int projectileDamage = 10;
+        [Min(0.1f)] public float projectileSpeed = 20f;
     }
 }

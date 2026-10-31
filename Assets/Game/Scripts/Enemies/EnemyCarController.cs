@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 using UnityEngine.AI;
+using FPSGame.Combat;
+using FPSGame.Config;
 using FPSGame.Player;
 using FPSGame.Vehicle;
 
@@ -11,8 +13,24 @@ namespace FPSGame.Environment
 
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(NavMeshAgent))]
-    public class EnemyCarController : NetworkBehaviour
+    public class EnemyCarController : NetworkBehaviour, IDamageReceiver, IAttackerListener
     {
+        int IDamageReceiver.CurrentHealth => currentHealth;
+        int IDamageReceiver.MaxHealth => maxHealth;
+        bool IDamageReceiver.IsDead => isDead;
+        void IDamageReceiver.TakeDamage(int damage) => TakeDamage(damage);
+
+        [Header("Health")]
+        [Tooltip("Total weapon damage needed to destroy the car.")]
+        [SerializeField, Min(1)] private int maxHealth = 300;
+        [Tooltip("An idle car (no target) turns on whoever shoots it: their car if they drive, else the player on foot.")]
+        [SerializeField] private bool aggroOnDamage = true;
+
+        [Header("Destruction FX (played locally on every client)")]
+        [Tooltip("Inactive children (Play On Awake) activated once when the car is destroyed — explosion, fire, " +
+                 "a wreck model. The car's own renderers and colliders are hidden. Empty = none.")]
+        [SerializeField] private GameObject[] destructionEffects;
+
         [Header("Movement")]
         [SerializeField] private float moveSpeed = 8f;
         [SerializeField] private float angularSpeed = 0f;
@@ -57,8 +75,23 @@ namespace FPSGame.Environment
 
         [SyncVar] private float gunYaw;
 
+        [SyncVar(hook = nameof(OnDeadChanged))]
+        private bool isDead;
+
+        [SyncVar]
+        private int currentHealth;
+
+        // Cached while the effects are still inactive, so hiding the car never hides them.
+        private Renderer[] renderers;
+        private Collider[] colliders;
+
+        public bool IsDead => isDead;
+
         private void Awake()
         {
+            renderers = GetComponentsInChildren<Renderer>();
+            colliders = GetComponentsInChildren<Collider>();
+
             rb = GetComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
@@ -74,9 +107,30 @@ namespace FPSGame.Environment
             agent.autoBraking = true;
         }
 
+        public override void OnStartServer()
+        {
+            base.OnStartServer();
+            ApplyBalance();
+            currentHealth = maxHealth;
+        }
+
+        // Prefab values stay unless the scene has a BalanceConfig.
+        [Server]
+        private void ApplyBalance()
+        {
+            BalanceConfig config = SceneBalance.Current;
+            if (config == null)
+                return;
+
+            EnemyCarBalance balance = config.enemyCar;
+            maxHealth = balance.maxHealth;
+            projectileDamage = balance.projectileDamage;
+            projectileSpeed = balance.projectileSpeed;
+        }
+
         private void Update()
         {
-            if (!isServer)
+            if (!isServer || isDead)
                 return;
 
             if (!HasValidTarget())
@@ -118,6 +172,89 @@ namespace FPSGame.Environment
             lastDriverByCar.Remove(car);
             if (currentCarTarget == car)
                 currentCarTarget = null;
+        }
+
+        [Server]
+        public void TakeDamage(int damage)
+        {
+            if (isDead || damage <= 0)
+                return;
+
+            currentHealth = Mathf.Max(0, currentHealth - damage);
+            if (currentHealth == 0)
+                ServerDie();
+        }
+
+        [Server]
+        private void ServerDie()
+        {
+            currentCarTarget = null;
+            currentPlayerTarget = null;
+            if (agent.isOnNavMesh)
+                agent.ResetPath();
+            agent.enabled = false;
+
+            // An RPC (not the hook) so a client joining later doesn't replay the effects.
+            RpcPlayDestructionEffects();
+            isDead = true;
+        }
+
+        [ClientRpc]
+        private void RpcPlayDestructionEffects()
+        {
+            DestructionEffects.Play(destructionEffects);
+        }
+
+        private void OnDeadChanged(bool oldValue, bool newValue)
+        {
+            if (!newValue)
+                return;
+
+            // Hidden, not deactivated: the object stays active so its child effects can play.
+            foreach (Renderer r in renderers) r.enabled = false;
+            foreach (Collider c in colliders) c.enabled = false;
+        }
+
+        void IAttackerListener.ServerOnHitBy(GameObject attacker)
+        {
+            if (!aggroOnDamage || isDead || HasValidTarget() || attacker == null)
+                return;
+
+            var player = attacker.GetComponent<PlayerHealth>();
+            if (player == null || !player.IsTargetable)
+                return;
+
+            // A driver shoots with the car's machine gun; the hit reports the player, so find their car.
+            CarController drivenCar = FindCarDrivenBy(player);
+            if (drivenCar != null)
+            {
+                RegisterTarget(drivenCar);
+                currentCarTarget = drivenCar;
+                currentPlayerTarget = null;
+            }
+            else
+            {
+                currentCarTarget = null;
+                currentPlayerTarget = player;
+            }
+            repathCooldown = 0f; // plan a path this frame
+        }
+
+        private CarController FindCarDrivenBy(PlayerHealth player)
+        {
+            foreach (var car in candidates)
+            {
+                if (car != null && car.GetCurrentDriverServer() == player)
+                    return car;
+            }
+
+            // Shot from outside the aggro zone: rare, so a scene search is fine.
+            foreach (var car in FindObjectsByType<CarController>(FindObjectsSortMode.None))
+            {
+                if (car.GetCurrentDriverServer() == player)
+                    return car;
+            }
+            return null;
         }
 
         private void OnCarDriverExited(CarController car, PlayerHealth exitingDriver)
@@ -291,14 +428,19 @@ namespace FPSGame.Environment
             }
 
             NetworkServer.Spawn(obj);
-            RpcPlayShotFx();
+            RpcPlayShotFx(direction);
         }
 
         [ClientRpc]
-        private void RpcPlayShotFx()
+        private void RpcPlayShotFx(Vector3 direction)
         {
             if (shotEffect != null)
                 shotEffect.Play();
+
+            // The projectile prefab owns its look; the car only asks it for the muzzle flash.
+            if (projectilePrefab != null && firePoint != null &&
+                projectilePrefab.TryGetComponent(out EnemyProjectile shot) && shot.Fx != null)
+                shot.Fx.PlayMuzzle(firePoint.position, direction);
         }
 
         private void OnDrawGizmosSelected()
