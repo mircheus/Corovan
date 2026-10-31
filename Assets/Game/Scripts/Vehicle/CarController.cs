@@ -106,7 +106,7 @@ namespace FPSGame.Vehicle
         [SyncVar(hook = nameof(OnDriverChanged))]
         private uint driverNetId;
 
-        [SyncVar]
+        [SyncVar(hook = nameof(OnVehicleHealthHook))]
         private int vehicleHealth;
 
         [SyncVar]
@@ -155,6 +155,9 @@ namespace FPSGame.Vehicle
         public float DashFovPunchDuration => dashFovPunchDuration;
         public int VehicleHealth => vehicleHealth;
         public int MaxVehicleHealth => maxVehicleHealth;
+
+        /// <summary>Client-side (host included): vehicle health changed (old, new).</summary>
+        public event System.Action<int, int> OnVehicleHealthChanged;
         public bool VehicleIsAlive => vehicleIsAlive;
 
         /// <summary>Toggle the chaotic jitter on/off at runtime (e.g. from a power-up or settings menu).</summary>
@@ -577,6 +580,11 @@ namespace FPSGame.Vehicle
             if (input != null)
                 input.ServerEjectFromVehicle(this, forwardSpeed, upSpeed);
             return true;
+        }
+
+        private void OnVehicleHealthHook(int oldHealth, int newHealth)
+        {
+            OnVehicleHealthChanged?.Invoke(oldHealth, newHealth);
         }
 
         private void OnDriverChanged(uint oldId, uint newId)
