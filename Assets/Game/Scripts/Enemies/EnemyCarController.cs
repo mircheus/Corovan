@@ -11,6 +11,10 @@ namespace FPSGame.Environment
 {
     public enum DriverExitBehavior { ShootPlayer, ShootCar }
 
+    /// <summary>
+    /// Core of every enemy car: health, destruction, wreck, target registration and selection.
+    /// What the car does with its target lives in an <see cref="EnemyCarBehaviour"/> on the same object.
+    /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(NavMeshAgent))]
     public class EnemyCarController : NetworkBehaviour, IDamageReceiver, IAttackerListener
@@ -56,50 +60,33 @@ namespace FPSGame.Environment
         [Tooltip("Max random spin (rad/s) per axis given at launch.")]
         [SerializeField, Min(0f)] private float launchSpin = 1.5f;
 
-        [Header("Movement")]
-        [SerializeField] private float moveSpeed = 8f;
-        [SerializeField] private float angularSpeed = 0f;
-        [SerializeField] private float acceleration = 12f;
-        [Tooltip("Stop chasing once within this distance (no ramming).")]
-        [SerializeField] private float stopDistance = 12f;
-        [Tooltip("Re-issue SetDestination this often (seconds) while target is moving.")]
-        [SerializeField] private float repathInterval = 0.25f;
-
         [Header("Targeting")]
-        [Tooltip("After the player leaves their car, who to keep shooting at — the player on foot, or the abandoned car.")]
+        [Tooltip("After the player leaves their car, who to keep targeting — the player on foot, or the abandoned car.")]
         [SerializeField] private DriverExitBehavior onDriverExit = DriverExitBehavior.ShootPlayer;
 
-        [Header("Combat")]
-        [SerializeField] private GameObject projectilePrefab;
-        [SerializeField] private Transform firePoint;
-        [Tooltip("Shots per second.")]
-        [SerializeField] private float fireRate = 0.5f;
-        [SerializeField] private float attackRange = 30f;
-        [SerializeField] private int projectileDamage = 10;
-        [SerializeField] private float projectileSpeed = 20f;
-
-        [Header("Gun Aim")]
-        [Tooltip("Root transform of the machine-gun that yaws toward the target. FirePoint should be its child so it rotates along.")]
-        [SerializeField] private Transform gunPivot;
-        [Tooltip("Degrees per second the gun rotates toward the target.")]
-        [SerializeField] private float gunRotationSpeed = 180f;
-
-        [Header("Shooting FX")]
-        [SerializeField] private ParticleSystem shotEffect;
+        [Header("Proximity aggro (in addition to EnemyAggroZone)")]
+        [Tooltip("A player car closer than this (distance on the ground plane) becomes a target candidate. 0 = off.")]
+        [SerializeField, Min(0f)] private float proximityAggroRadius = 0f;
+        [Tooltip("A car found by proximity is forgotten again beyond this distance. Keep it above the aggro radius so the " +
+                 "car doesn't flicker at the edge. Must exceed the largest gap a behaviour holds (e.g. the obstacle layer's max Z offset).")]
+        [SerializeField, Min(0f)] private float proximityLoseRadius = 0f;
+        [Tooltip("Seconds between two proximity scans.")]
+        [SerializeField, Min(0.05f)] private float proximityScanInterval = 0.5f;
 
         private Rigidbody rb;
         private NavMeshAgent agent;
+        private EnemyCarBehaviour behaviour;
         private CarController currentCarTarget;
         private PlayerHealth currentPlayerTarget;
+        private Object notifiedTarget;
         private readonly HashSet<CarController> candidates = new();
+        // Cars added by the proximity scan (not by a zone), the only ones the scan may remove again.
+        private readonly HashSet<CarController> proximityCandidates = new();
         // Remembers the last driver of each candidate car so we can keep
-        // shooting at the player on foot after they leave the seat.
+        // targeting the player on foot after they leave the seat.
         private readonly Dictionary<CarController, PlayerHealth> lastDriverByCar = new();
-        private float repathCooldown;
-        private float fireCooldown;
+        private float nextProximityScan;
         private double nextDamageEffectTime;
-
-        [SyncVar] private float gunYaw;
 
         [SyncVar(hook = nameof(OnDeadChanged))]
         private bool isDead;
@@ -111,6 +98,23 @@ namespace FPSGame.Environment
         private Renderer[] renderers;
 
         public bool IsDead => isDead;
+        public NavMeshAgent Agent => agent;
+
+        public bool HasTarget => currentCarTarget != null || currentPlayerTarget != null;
+        public CarController TargetCar => currentCarTarget;
+        public PlayerHealth TargetPlayer => currentPlayerTarget;
+
+        /// <summary>The target's ground position — what to drive to. Only valid while <see cref="HasTarget"/>.</summary>
+        public Vector3 TargetPosition => currentPlayerTarget != null
+            ? currentPlayerTarget.transform.position
+            : currentCarTarget.transform.position;
+
+        /// <summary>The target's aim point — what to shoot at. Only valid while <see cref="HasTarget"/>.</summary>
+        public Vector3 TargetAimPosition => currentPlayerTarget != null
+            ? currentPlayerTarget.transform.position + Vector3.up
+            : currentCarTarget.AimPosition;
+
+        public float ProximityLoseRadius => Mathf.Max(proximityLoseRadius, proximityAggroRadius);
 
         private void Awake()
         {
@@ -125,13 +129,12 @@ namespace FPSGame.Environment
             rb.constraints = RigidbodyConstraints.FreezeRotation;
 
             agent = GetComponent<NavMeshAgent>();
-            // Body stays orientation-locked; only the gun pivot rotates.
+            // Body stays orientation-locked; a behaviour may rotate parts of it (the gun), never the root.
             agent.updateRotation = false;
-            agent.speed = moveSpeed;
-            agent.angularSpeed = angularSpeed;
-            agent.acceleration = acceleration;
-            agent.stoppingDistance = stopDistance;
-            agent.autoBraking = true;
+
+            behaviour = GetComponent<EnemyCarBehaviour>();
+            if (behaviour == null)
+                Debug.LogError($"[EnemyCar] {name}: no EnemyCarBehaviour on the object, the car will just sit there.", this);
         }
 
         public override void OnStartServer()
@@ -157,10 +160,9 @@ namespace FPSGame.Environment
             if (config == null)
                 return;
 
-            EnemyCarBalance balance = config.enemyCar;
-            maxHealth = balance.maxHealth;
-            projectileDamage = balance.projectileDamage;
-            projectileSpeed = balance.projectileSpeed;
+            maxHealth = config.enemyCar.maxHealth;
+            if (behaviour != null)
+                behaviour.ServerApplyBalance(config.enemyCar);
         }
 
         private void Update()
@@ -168,22 +170,31 @@ namespace FPSGame.Environment
             if (!isServer || isDead)
                 return;
 
+            ProximityScan();
+
             if (!HasValidTarget())
-            {
                 PickTarget();
-                repathCooldown = 0f;
-            }
 
-            if (!HasTarget())
-            {
-                if (agent.isOnNavMesh && agent.hasPath)
-                    agent.ResetPath();
+            NotifyTargetChange();
+
+            if (behaviour == null)
                 return;
-            }
 
-            UpdatePathServer();
-            UpdateGunAimServer();
-            TryFire();
+            if (HasTarget)
+                behaviour.ServerTick();
+            else
+                behaviour.ServerIdle();
+        }
+
+        // Tells the behaviour once per change of target (including "got one after having none").
+        private void NotifyTargetChange()
+        {
+            Object current = currentPlayerTarget != null ? currentPlayerTarget : currentCarTarget;
+            if (current == notifiedTarget)
+                return;
+            notifiedTarget = current;
+            if (current != null && behaviour != null)
+                behaviour.ServerOnTargetChanged();
         }
 
         // Called by EnemyAggroZone on the server when a player car enters its trigger.
@@ -202,11 +213,49 @@ namespace FPSGame.Environment
         {
             if (car == null)
                 return;
+            proximityCandidates.Remove(car);
             if (candidates.Remove(car))
                 car.ServerOnDriverExited -= OnCarDriverExited;
             lastDriverByCar.Remove(car);
             if (currentCarTarget == car)
                 currentCarTarget = null;
+        }
+
+        // Polled, not a trigger: the car keeps its band ahead of the player, so the player is never "entering" anything.
+        private void ProximityScan()
+        {
+            if (proximityAggroRadius <= 0f || Time.time < nextProximityScan)
+                return;
+            nextProximityScan = Time.time + proximityScanInterval;
+
+            float aggroSqr = proximityAggroRadius * proximityAggroRadius;
+            float loseRadius = ProximityLoseRadius;
+            float loseSqr = loseRadius * loseRadius;
+            Vector3 myPos = transform.position;
+
+            foreach (CarController car in FindObjectsByType<CarController>(FindObjectsSortMode.None))
+            {
+                float sqr = FlatSqrDistance(car.transform.position, myPos);
+                if (car.VehicleIsAlive && sqr <= aggroSqr)
+                {
+                    if (!candidates.Contains(car))
+                    {
+                        RegisterTarget(car);
+                        proximityCandidates.Add(car);
+                    }
+                }
+                else if (sqr > loseSqr && proximityCandidates.Contains(car))
+                {
+                    UnregisterTarget(car);
+                }
+            }
+        }
+
+        private static float FlatSqrDistance(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x;
+            float dz = a.z - b.z;
+            return dx * dx + dz * dz;
         }
 
         [Server]
@@ -252,10 +301,13 @@ namespace FPSGame.Environment
             currentCarTarget = null;
             currentPlayerTarget = null;
             // Keep the chase momentum: the wreck carries on from where the car was going.
-            Vector3 velocity = agent.enabled ? agent.velocity : Vector3.zero;
+            Vector3 velocity = behaviour != null ? behaviour.ServerVelocity : Vector3.zero;
             if (agent.isOnNavMesh)
                 agent.ResetPath();
             agent.enabled = false;
+
+            if (behaviour != null)
+                behaviour.ServerOnDied();
 
             // An RPC (not the hook) so a client joining later doesn't replay the effects.
             RpcPlayDestructionEffects();
@@ -349,7 +401,6 @@ namespace FPSGame.Environment
                 currentCarTarget = null;
                 currentPlayerTarget = player;
             }
-            repathCooldown = 0f; // plan a path this frame
         }
 
         private CarController FindCarDrivenBy(PlayerHealth player)
@@ -385,8 +436,6 @@ namespace FPSGame.Environment
             }
         }
 
-        private bool HasTarget() => currentCarTarget != null || currentPlayerTarget != null;
-
         private bool HasValidTarget()
         {
             if (currentPlayerTarget != null && currentPlayerTarget.IsTargetable)
@@ -394,7 +443,7 @@ namespace FPSGame.Environment
             if (currentCarTarget != null && currentCarTarget.VehicleIsAlive)
             {
                 // Still valid only if it matches our exit-behavior expectation:
-                // driver present → always valid; driver gone → only if we chose to keep shooting the car.
+                // driver present → always valid; driver gone → only if we chose to keep targeting the car.
                 if (currentCarTarget.HasDriver)
                     return true;
                 if (onDriverExit == DriverExitBehavior.ShootCar)
@@ -450,121 +499,14 @@ namespace FPSGame.Environment
             }
         }
 
-        private Vector3 GetTargetPosition()
-        {
-            if (currentPlayerTarget != null)
-                return currentPlayerTarget.transform.position + Vector3.up;
-            return currentCarTarget.AimPosition;
-        }
-
-        private void UpdatePathServer()
-        {
-            if (!agent.isOnNavMesh)
-                return;
-
-            repathCooldown -= Time.deltaTime;
-            if (repathCooldown > 0f)
-                return;
-
-            // Navigate to the car's pivot (on the ground), not its raised aim point.
-            agent.SetDestination(currentPlayerTarget != null
-                ? currentPlayerTarget.transform.position
-                : currentCarTarget.transform.position);
-            repathCooldown = repathInterval;
-        }
-
-        private void LateUpdate()
-        {
-            // All clients (and host) apply the synced yaw locally so remote
-            // viewers see the gun track its target. A wreck's gun stays put on the tumbling body.
-            if (!isDead)
-                ApplyGunYaw();
-        }
-
-        private void UpdateGunAimServer()
-        {
-            if (gunPivot == null)
-                return;
-
-            Vector3 toTarget = GetTargetPosition() - gunPivot.position;
-            toTarget.y = 0f;
-            if (toTarget.sqrMagnitude < 0.0001f)
-                return;
-
-            float desiredYaw = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
-            gunYaw = Mathf.MoveTowardsAngle(gunYaw, desiredYaw, gunRotationSpeed * Time.deltaTime);
-        }
-
-        private void ApplyGunYaw()
-        {
-            if (gunPivot == null)
-                return;
-            // Yaw is in world space; the body never rotates, so a world-space
-            // rotation on the pivot is unambiguous and avoids parent-rotation drift.
-            gunPivot.rotation = Quaternion.Euler(0f, gunYaw, 0f);
-        }
-
-        private void TryFire()
-        {
-            fireCooldown -= Time.deltaTime;
-            if (fireCooldown > 0f)
-                return;
-
-            Vector3 targetPos = GetTargetPosition();
-            float dist = Vector3.Distance(firePoint != null ? firePoint.position : transform.position, targetPos);
-            if (dist > attackRange)
-                return;
-
-            FireAt(targetPos);
-            fireCooldown = 1f / Mathf.Max(0.0001f, fireRate);
-        }
-
-        private void FireAt(Vector3 targetPos)
-        {
-            if (projectilePrefab == null)
-            {
-                Debug.LogError($"[EnemyCar] {name}: projectilePrefab is not assigned!");
-                return;
-            }
-            if (firePoint == null)
-            {
-                Debug.LogError($"[EnemyCar] {name}: firePoint is not assigned!");
-                return;
-            }
-
-            Vector3 direction = (targetPos - firePoint.position).normalized;
-            var obj = Instantiate(projectilePrefab, firePoint.position, Quaternion.LookRotation(direction));
-
-            var projectile = obj.GetComponent<EnemyProjectile>();
-            if (projectile != null)
-            {
-                projectile.Initialize(direction, projectileDamage, projectileSpeed);
-                foreach (var col in GetComponentsInChildren<Collider>())
-                    projectile.IgnoreCollider(col);
-            }
-
-            NetworkServer.Spawn(obj);
-            RpcPlayShotFx(direction);
-        }
-
-        [ClientRpc]
-        private void RpcPlayShotFx(Vector3 direction)
-        {
-            if (shotEffect != null)
-                shotEffect.Play();
-
-            // The projectile prefab owns its look; the car only asks it for the muzzle flash.
-            if (projectilePrefab != null && firePoint != null &&
-                projectilePrefab.TryGetComponent(out EnemyProjectile shot) && shot.Fx != null)
-                shot.Fx.PlayMuzzle(firePoint.position, direction);
-        }
-
         private void OnDrawGizmosSelected()
         {
-            Gizmos.color = new Color(1f, 0.4f, 0f, 1f);
-            Gizmos.DrawWireSphere(transform.position, attackRange);
-            Gizmos.color = new Color(1f, 0f, 0f, 1f);
-            Gizmos.DrawWireSphere(transform.position, stopDistance);
+            if (proximityAggroRadius <= 0f)
+                return;
+            Gizmos.color = new Color(1f, 0.9f, 0f, 1f);
+            Gizmos.DrawWireSphere(transform.position, proximityAggroRadius);
+            Gizmos.color = new Color(1f, 0.9f, 0f, 0.35f);
+            Gizmos.DrawWireSphere(transform.position, ProximityLoseRadius);
         }
     }
 }

@@ -87,6 +87,11 @@ namespace FPSGame.Vehicle
         [SerializeField] private float damagePerImpactSpeed = 2f;
         [SerializeField] private float collisionDamageCooldown = 0.5f;
 
+        [Header("Obstacle Push")]
+        [Tooltip("A push (see ApplyPush) keeps acting this long after its last refresh, so it survives a frame the trigger " +
+                 "doesn't report the overlap. Seconds.")]
+        [SerializeField, Min(0.02f)] private float pushHoldTime = 0.1f;
+
         [Header("Autopilot")]
         [SerializeField] private float autopilotSpeed = 8f;
         [SerializeField] private float autopilotArriveThreshold = 0.3f;
@@ -132,6 +137,10 @@ namespace FPSGame.Vehicle
         // don't eat the dash; it decays on its own at dashDecay.
         private Vector3 dashVelocity;
         private float lastDashTime = float.NegativeInfinity;
+        // Set by an obstacle every physics step it overlaps the car; added to the move step on top of the driver's input.
+        private Vector3 pushVelocity;
+        private float pushUntil = float.NegativeInfinity;
+        private float pushActiveFrom;
         private bool isExploded;
         private bool hasBeenDriven; // server-side: true once any player has entered at least once
 
@@ -383,12 +392,28 @@ namespace FPSGame.Vehicle
                 currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
                 dashVelocity = Vector3.MoveTowards(dashVelocity, Vector3.zero, dashDecay * Time.fixedDeltaTime);
 
+                Vector3 push = PushActive ? pushVelocity : Vector3.zero;
+                if (push.sqrMagnitude > 0f)
+                {
+                    // The crash: whatever speed the car had into the obstacle is gone, and it doesn't build
+                    // back up while the obstacle holds it (so the car doesn't lurch forward once released).
+                    CancelVelocityAgainst(ref currentVelocity, push);
+                    CancelVelocityAgainst(ref dashVelocity, push);
+                }
+
                 // Chaos is applied only to this frame's move step, never stored into
                 // currentVelocity, so it can't corrupt collision-impact speed or smoothing.
-                Vector3 frameVelocity = currentVelocity + dashVelocity + GetChaosOffset();
+                Vector3 frameVelocity = currentVelocity + dashVelocity + GetChaosOffset() + push;
 
                 if (frameVelocity.sqrMagnitude > 0.001f)
                     rb.MovePosition(rb.position + frameVelocity * Time.fixedDeltaTime);
+            }
+            else if (isServer && vehicleIsAlive && PushActive)
+            {
+                // An empty car (driver thrown out, or never driven) is carried by the obstacle; it overrides
+                // the driverless drift and the autopilot for as long as it holds the car.
+                currentVelocity = Vector3.zero;
+                rb.MovePosition(rb.position + pushVelocity * Time.fixedDeltaTime);
             }
             else if (isServer && autopilotActive && vehicleIsAlive)
             {
@@ -404,6 +429,41 @@ namespace FPSGame.Vehicle
                 Vector3 step = -transform.forward * (driverlessReverseSpeed * Time.fixedDeltaTime);
                 rb.MovePosition(rb.position + step);
             }
+        }
+
+        /// <summary>
+        /// Owner-only: an obstacle is shoving the car. While it keeps calling this (every physics step it
+        /// overlaps), the car's motion into the obstacle is cancelled and it is carried along at
+        /// <paramref name="velocity"/>; sideways and away-from-obstacle driving still work, so the driver can
+        /// steer out of it. An empty car is pushed by the server, which moves it. No-op on every other peer.
+        /// <paramref name="delay"/>: seconds of uninterrupted contact before a driven car's push starts to act
+        /// (an empty car is pushed at once).
+        /// </summary>
+        public void ApplyPush(Vector3 velocity, float delay = 0f)
+        {
+            bool drivenHere = isOwned && HasDriver;
+            bool emptyOnServer = isServer && !HasDriver;
+            if ((!drivenHere && !emptyOnServer) || !vehicleIsAlive || isExploded)
+                return;
+
+            float now = Time.time;
+            if (now > pushUntil)
+                pushActiveFrom = now + delay; // a fresh contact, not a continuing one
+            pushVelocity = velocity;
+            pushUntil = now + pushHoldTime;
+        }
+
+        // A driven car waits out the push delay (the server must get the chance to eject the driver first);
+        // an empty car has nothing left to eject, so it is pushed straight away.
+        private bool PushActive => Time.time <= pushUntil && (!HasDriver || Time.time >= pushActiveFrom);
+
+        // Removes the part of v that points against `direction` (into whatever moves along it).
+        private static void CancelVelocityAgainst(ref Vector3 v, Vector3 direction)
+        {
+            Vector3 d = direction.normalized;
+            float along = Vector3.Dot(v, d);
+            if (along < 0f)
+                v -= d * along;
         }
 
         /// <summary>
