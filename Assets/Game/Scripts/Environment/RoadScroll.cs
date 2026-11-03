@@ -29,6 +29,14 @@ namespace FPSGame.Environment
         [Tooltip("Belt speed (m/s) the server starts with. Change at runtime only via SetSpeed.")]
         [SerializeField] private float startSpeed = 20f;
 
+        [Header("Road visual (shader scroll)")]
+        [Tooltip("Road material (e.g. Road_shader). Its _ScrollSpeedY is set once on scene start.")]
+        [SerializeField] private Material roadMaterial;
+        [Tooltip("Written as-is into the material's _ScrollSpeedY (UV units/sec). 0 = road texture stands still.")]
+        [SerializeField] private float scrollSpeedY = -0.3f;
+
+        private static readonly int ScrollSpeedYId = Shader.PropertyToID("_ScrollSpeedY");
+
         // _t0    : NetworkTime.time of the last speed change.
         // _d0    : distance already accumulated at _t0.
         // _speed : current convoy speed V (m/s).
@@ -45,7 +53,13 @@ namespace FPSGame.Environment
         /// <summary>Belt velocity in world space (the truck's frame of reference).</summary>
         public Vector3 BeltVelocity => new Vector3(0f, 0f, -_speed);
 
-        private void Awake() => Instance = this;
+        private void Awake()
+        {
+            Instance = this;
+            // Every peer (host, client) applies it locally — the shader is purely visual.
+            if (roadMaterial != null)
+                roadMaterial.SetFloat(ScrollSpeedYId, scrollSpeedY);
+        }
 
         private void OnDestroy()
         {
