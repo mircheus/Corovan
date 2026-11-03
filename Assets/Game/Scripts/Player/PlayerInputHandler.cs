@@ -77,6 +77,8 @@ namespace FPSGame.Player
         // Fires with whatever E would do right now (an action verb, or a "requirement not met"
         // warning), or InteractPrompt.None when nothing is in reach. Drives the HUD prompt line.
         public event System.Action<InteractPrompt> OnInteractPromptChanged;
+        /// <summary>Owner-side: the player got into a car (the car) or out of one (null).</summary>
+        public event System.Action<CarController> OnVehicleChanged;
 
         private void Awake()
         {
@@ -579,7 +581,7 @@ namespace FPSGame.Player
             if (isInteractHeld)
                 CancelInteraction();
 
-            currentVehicle = car;
+            SetCurrentVehicle(car);
             currentVehicleGun = car.GetComponent<CarMachineGun>();
             playerController?.SetVehicleMode(true);
 
@@ -589,6 +591,12 @@ namespace FPSGame.Player
             // Clear shooting states
             loadout?.SetInVehicle(true);
             playerController?.SetSprinting(false);
+        }
+
+        private void SetCurrentVehicle(CarController car)
+        {
+            currentVehicle = car;
+            OnVehicleChanged?.Invoke(car);
         }
 
         private void ExitVehicle()
@@ -605,7 +613,7 @@ namespace FPSGame.Player
                 if (exit != null)
                     transform.position = exit.position;
             }
-            currentVehicle = null;
+            SetCurrentVehicle(null);
             currentVehicleGun = null;
             playerController?.SetVehicleMode(false);
             loadout?.SetInVehicle(false);
@@ -628,7 +636,7 @@ namespace FPSGame.Player
 
             if (currentVehicle != null)
                 currentVehicle.SetMoveInput(Vector2.zero);
-            currentVehicle = null;
+            SetCurrentVehicle(null);
             currentVehicleGun = null;
             playerController?.SetVehicleMode(false);
             loadout?.SetInVehicle(false);

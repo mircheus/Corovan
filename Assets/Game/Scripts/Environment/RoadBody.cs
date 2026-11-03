@@ -174,6 +174,7 @@ namespace FPSGame.Environment
         [ServerCallback]
         private void OnCollisionStay(Collision c)
         {
+            if (!enabled) return;      // collision messages reach disabled behaviours too (dormant EnemyCar wreck)
             _contactLastStep = true;   // any contact means we're resting, not airborne
             if (_phase != RoadPhase.OnRoad) return;
             if (!c.collider.TryGetComponent(out RoadSurface road)) return;
@@ -235,6 +236,7 @@ namespace FPSGame.Environment
         [ServerCallback]
         private void OnCollisionEnter(Collision c)
         {
+            if (!enabled) return;
             bool isRoad = c.collider.GetComponent<RoadSurface>() != null;
 
             // Touching the RoadSurface means the prop is on the road by definition — no matter

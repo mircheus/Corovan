@@ -17,7 +17,7 @@ namespace FPSGame.Hazards
         [Tooltip("Where the flight starts; its forward (blue arrow) is the flight direction. Empty = this object's own scene position and forward.")]
         [SerializeField] private Transform startPoint;
         [Tooltip("Flight speed, units/sec.")]
-        [SerializeField] private float speed = 15f;
+        [SerializeField, SyncVar] private float speed = 15f;
         [Tooltip("Distance flown before the trigger disappears.")]
         [SerializeField] private float travelDistance = 60f;
         [Tooltip("Start flying by itself when the server starts. Off = wait for ServerLaunch (e.g. from a UnityEvent).")]
@@ -26,12 +26,18 @@ namespace FPSGame.Hazards
         [SerializeField] private float startDelay = 2f;
 
         [Header("Ejection")]
+        [Tooltip("Throw the driver of a touched car out through the windshield. Off = the trigger only flies (e.g. a CarPushTrigger " +
+                 "on the same object shoves cars instead).")]
+        [SerializeField] private bool ejectDriver = true;
         [Tooltip("Off = the car's own Ejection speeds are used.")]
         [SerializeField] private bool overrideLaunch;
         [SerializeField] private float forwardSpeed = 14f;
         [SerializeField] private float upSpeed = 7f;
         [Tooltip("Disappear after throwing a driver out instead of flying on.")]
         [SerializeField] private bool disappearOnHit = true;
+        [Tooltip("Despawn the networked object when the flight is over or it hit a car, instead of just hiding it. " +
+                 "For runtime-spawned obstacles; leave off for a scene object that is launched again.")]
+        [SerializeField] private bool destroyOnFinish;
 
         // Visible from spawn until the flight is over; the flight happens once.
         [SyncVar(hook = nameof(OnVisibleChanged))]
@@ -44,7 +50,14 @@ namespace FPSGame.Hazards
         private Vector3 direction;
         private float travelled;
         private float launchTime = float.PositiveInfinity;
-        private bool flying;
+        // Synced so every peer knows whether the trigger is moving (a standing wall must not push anything).
+        [SyncVar] private bool flying;
+
+        /// <summary>
+        /// Current velocity on every peer: along this object's forward at the flight speed while flying, else zero.
+        /// Assumes Start Point is empty (the flight runs along the object's own forward).
+        /// </summary>
+        public Vector3 Velocity => flying && visible ? transform.forward * speed : Vector3.zero;
 
         private void Awake()
         {
@@ -73,6 +86,9 @@ namespace FPSGame.Hazards
             base.OnStartClient();
             ApplyVisible(visible);
         }
+
+        /// <summary>Overrides the flight speed (units/sec). For a spawner, call before <c>NetworkServer.Spawn</c>; only the server moves the trigger.</summary>
+        public void SetSpeed(float value) => speed = Mathf.Max(0f, value);
 
         /// <summary>Starts the one flight now. Safe to call from a UnityEvent on any peer — only the server acts.</summary>
         public void ServerLaunch()
@@ -104,7 +120,7 @@ namespace FPSGame.Hazards
 
         private void OnTriggerEnter(Collider other)
         {
-            if (!isServer || !flying || !visible)
+            if (!isServer || !ejectDriver || !flying || !visible)
                 return;
 
             CarController car = other.GetComponentInParent<CarController>();
@@ -125,6 +141,9 @@ namespace FPSGame.Hazards
             flying = false;
             visible = false;
             ApplyVisible(false);
+
+            if (destroyOnFinish)
+                NetworkServer.Destroy(gameObject);
         }
 
         private void OnVisibleChanged(bool oldValue, bool newValue) => ApplyVisible(newValue);
