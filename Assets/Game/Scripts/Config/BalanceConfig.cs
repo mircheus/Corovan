@@ -13,6 +13,7 @@ namespace FPSGame.Config
         public PlayerBalance player = new PlayerBalance();
         public ShooterDroidBalance shooterDroid = new ShooterDroidBalance();
         public EnemyCarBalance enemyCar = new EnemyCarBalance();
+        public ZombieBalance zombie = new ZombieBalance();
     }
 
     // All players share one section for now.
@@ -35,6 +36,14 @@ namespace FPSGame.Config
         [Min(1)] public int maxHealth = 100;
         [Min(0)] public int projectileDamage = 8;
         [Min(0.1f)] public float projectileSpeed = 25f;
+    }
+
+    [Serializable]
+    public class ZombieBalance
+    {
+        [Min(1)] public int maxHealth = 80;
+        [Tooltip("Damage of one scratch.")]
+        [Min(0)] public int attackDamage = 15;
     }
 
     [Serializable]
