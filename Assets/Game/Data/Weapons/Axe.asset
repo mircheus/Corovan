@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61bae804462e9cd45919528de100b53c, type: 3}
   m_Name: Axe
   m_EditorClassIdentifier: 
-  weaponName: Axe
+  weaponName: Crowbar
   weaponIcon: {fileID: 0}
   isMelee: 1
   isAutomatic: 0

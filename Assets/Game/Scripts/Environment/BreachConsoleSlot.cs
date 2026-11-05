@@ -14,6 +14,7 @@ namespace FPSGame.Environment
     //   1. player action  -> operator presses Interact again
     //   2. operator down   -> operator's PlayerHealth reports dead
     //   3. operator leaves  -> operator moves beyond interactRange
+    //                          (only if BreachConsole.RequireOperatorNearby is on)
     // Insertion requires the operator to hold the matching key-card (PlayerKeyring).
     public class BreachConsoleSlot : NetworkBehaviour
     {
@@ -119,8 +120,8 @@ namespace FPSGame.Environment
                 return;
             }
 
-            // Operator left the interaction zone.
-            if (!InRange(operatorIdentity.transform.position))
+            // Operator left the interaction zone (skipped when the console lets them walk away).
+            if (console.RequireOperatorNearby && !InRange(operatorIdentity.transform.position))
             {
                 ServerPullOut();
             }
