@@ -59,8 +59,12 @@ namespace FPSGame.Player
         public event System.Action<int, int> OnAmmoChangedEvent;
         /// <summary>Owner: the slot in hand changed (null = hands empty or busy).</summary>
         public event System.Action<LoadoutItem> OnEquippedItemChanged;
+        /// <summary>Owner: the set of unlocked slots changed (also raised once when the local player starts).</summary>
+        public event System.Action OnUnlockedChanged;
 
         public int WeaponCount => slots.Count;
+        /// <summary>Slot index of the item with this id, or -1.</summary>
+        public int IndexOfItem(string itemId) => slots.FindIndex(s => s.ItemId == itemId);
         public LoadoutItem GetSlot(int index) => index >= 0 && index < slots.Count ? slots[index] : null;
         public int EquippedSlot => equippedSlot;
         public Firearm EquippedFirearm { get; private set; }
@@ -110,6 +114,7 @@ namespace FPSGame.Player
             ApplyWeaponBalance();
             selectedSlot = FirstUnlocked();
             Apply();
+            OnUnlockedChanged?.Invoke();
         }
 
         // Hits are decided on the owner, so weapon damage only matters here. The FPSF preset is a
@@ -285,6 +290,7 @@ namespace FPSGame.Player
                 selectedSlot = FirstUnlocked();
                 Apply();
             }
+            OnUnlockedChanged?.Invoke();
         }
 
         // ---------- pickups (server) ----------
@@ -340,6 +346,8 @@ namespace FPSGame.Player
         {
             // The SyncVar may land after this RPC; unlock locally so the selection sticks.
             unlockedMask |= 1 << slot;
+            // Set locally, so the SyncVar hook may not fire when the server value arrives.
+            OnUnlockedChanged?.Invoke();
             SelectWeaponSlot(slot);
         }
 
