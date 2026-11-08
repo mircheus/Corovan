@@ -73,7 +73,9 @@ Assets/Game/
 │   ├── Hazards/
 │   │   ├── Barrel.cs                # Pooled kinematic barrel; bounces on AnimationCurve, damages car/player
 │   │   ├── BarrelSpawner.cs         # Server-side object pool + timed spawn loop
-│   │   └── Explodable.cs            # Stationary Barrel: damage threshold / car-player contact → explosion FX, hide, onExploded
+│   │   ├── Explodable.cs            # Stationary Barrel: damage threshold / car-player contact → explosion FX, hide, onExploded
+│   │   ├── FlameHazard.cs           # Fire zone: periodic damage to players/cars in its trigger; optional on/off cycle, public TurnOn/TurnOff
+│   │   └── FlameHazardController.cs # Runs a FlameHazard[] through looping step patterns (which flames, duration, pause); server-only
 │   ├── Networking/
 │   │   ├── CustomNetworkManager.cs  # Spawn point rotation; registers players with GameStateManager
 │   │   ├── GameStateManager.cs      # Singleton NetworkBehaviour; SyncVar MatchResult, defeat on squad wipe
@@ -216,6 +218,8 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 ### Hazard System
 - `BarrelSpawner`: server-side object pool (`poolSize` pre-spawned barrels). Returns barrel to pool after despawn delay
 - `Barrel`: kinematic Rigidbody, moves via `rb.MovePosition()`; bounces using an `AnimationCurve`; damages car or player on trigger contact, then deactivates
+- `FlameHazard` (`Prefabs/Hazards/FlameHazard.prefab`; place in a scene, or add to `runtimeSpawnPrefabs` if spawned at runtime): server-only damage per target every `damageInterval`, first hit on contact, cooldown survives leaving the zone. Cars are tracked with `OnTriggerEnter/Exit`; players are tested geometrically against the same collider (`ClosestPoint` + the disabled `CharacterController` shape), because other players' copies fire no triggers on the server. `isBurning` SyncVar drives `flameVisual`. `TurnOn`/`TurnOff` take over from the cycle until `StartCycle`; all are safe to call on any peer (UnityEvents)
+- `FlameHazardController`: plain `MonoBehaviour` (no `NetworkIdentity`, so flames can be its children) acting on the server only. `patterns[]` → `steps[]` (`flames` indices, `duration`, `pauseAfter`), looped. `Play` / `PlayPattern(int)` / `Stop`; a request waits until the flames are spawned. It calls `TurnOn`/`TurnOff`, so it overrides each flame's own cycle
 
 ### Interaction System
 - `InteractableObject`: hold-E with configurable `HoldDuration`; progress tracked in `PlayerInputHandler`; on completion `CmdInteract` → `ServerInteract` → `RpcOnInteracted` → UnityEvent fires on all clients
