@@ -68,7 +68,7 @@ Assets/Game/
 │   │   ├── DestructionTarget.cs     # Single destructible tracked by DestructionObjective
 │   │   ├── DestructionObjective.cs  # Tracks N targets; fires UnityEvent when complete
 │   │   ├── ExtractionZone.cs        # Win condition: hold the driven car in the zone N seconds (IWinCondition)
-│   │   ├── DoorOpener.cs
+│   │   ├── DoorOpener.cs            # SyncVar open/closed door; optional server auto-close timer with doorway check
 │   │   └── InfiniteRoad.cs          # Client-side scrolling tile recycler (no networking)
 │   ├── Hazards/
 │   │   ├── Barrel.cs                # Pooled kinematic barrel; bounces on AnimationCurve, damages car/player
@@ -223,6 +223,7 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 
 ### Interaction System
 - `InteractableObject`: hold-E with configurable `HoldDuration`; progress tracked in `PlayerInputHandler`; on completion `CmdInteract` → `ServerInteract` → `RpcOnInteracted` → UnityEvent fires on all clients
+- Doors: `InteractObjective` → UnityEvent → `DoorOpener.OpenDoor`. `autoCloseDelay` > 0 = server deadline (`NetworkTime`), re-opening while open restarts it; closing waits while a non-dead, non-driving player's capsule touches the doorway (`doorwayArea` box or the door's own colliders; geometric test, as in `FlameHazard`). `onClosed` (server) → `InteractObjective.ResetObjective` re-arms the latched objective; `refireWhileCompleted` lets interactions on an open door extend the timer
 - `CarryableObject`: pickup assigns client authority; drop/throw removes it; `SetCarriedLocally` gives instant feedback; SyncVar confirms on other clients
 
 ### Score / Objective

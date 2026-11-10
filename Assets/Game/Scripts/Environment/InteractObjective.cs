@@ -14,6 +14,9 @@ namespace FPSGame.Environment
         [Tooltip("How many interactions are required to trigger the objective. 0 = targets.Length. Repeated interactions with the same object also count. Ignored when Repeatable is true.")]
         [SerializeField] private int requiredCount = 0;
 
+        [Tooltip("Non-repeatable only: interactions after completion fire the event again (e.g. restart an auto-closing door's timer). The objective stays completed until ResetObjective.")]
+        [SerializeField] private bool refireWhileCompleted = false;
+
         [Space]
         [SerializeField] private UnityEvent onObjectiveCompleted;
 
@@ -53,13 +56,27 @@ namespace FPSGame.Environment
                 return;
             }
 
-            if (isCompleted) return;
+            if (isCompleted)
+            {
+                if (refireWhileCompleted)
+                    RpcInvokeObjective();
+                return;
+            }
 
             interactionCount++;
 
             int required = requiredCount > 0 ? requiredCount : targets.Length;
             if (interactionCount >= required)
                 isCompleted = true;
+        }
+
+        // Re-arms a latched objective: the next requiredCount interactions complete it again.
+        // Wire e.g. DoorOpener.onClosed here so an auto-closed door can be opened again.
+        [Server]
+        public void ResetObjective()
+        {
+            interactionCount = 0;
+            isCompleted = false;
         }
 
         // Runs on all clients via SyncVar hook — invokes the UnityEvent so any
