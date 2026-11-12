@@ -8,7 +8,7 @@ namespace FPSGame.Vehicle
     /// In-car top-down radar. A private ortho camera renders a small uGUI canvas (background, car marker,
     /// pooled blips) into a RenderTexture, which is put on the material of an in-cab screen mesh.
     /// Client-side only: runs on the peer that drives the car (isOwned + HasDriver), idle elsewhere.
-    /// Threats come from the <see cref="RadarTarget"/> registry.
+    /// Threats come from the <see cref="RadarTarget"/> registry, fixed map points from the scene's <see cref="RadarPoints"/>.
     /// </summary>
     [RequireComponent(typeof(CarController))]
     public class CarRadar : MonoBehaviour
@@ -136,47 +136,67 @@ namespace FPSGame.Vehicle
                 carMarker.anchoredPosition = new Vector2(0f, (rangeBack / totalZ - 0.5f) * h);
 
             int used = 0;
+
+            // Scene points first: drawn below the threats.
+            var lists = RadarPoints.All;
+            for (int l = 0; l < lists.Count; l++)
+            {
+                var points = lists[l].Points;
+                for (int i = 0; i < points.Count; i++)
+                {
+                    RadarPoints.Point p = points[i];
+                    if (p == null || !p.visible || p.target == null || p.style == null) continue;
+                    if (!p.target.gameObject.activeInHierarchy) continue;
+                    DrawBlip(p.target.position, p.style, carPos, toLocal, totalZ, w, h, ref used);
+                }
+            }
+
             var all = RadarTarget.All;
             for (int i = 0; i < all.Count; i++)
             {
                 RadarTarget t = all[i];
-                if (t == null || t.transform.IsChildOf(transform)) continue;
-
-                Vector3 delta = t.transform.position - carPos;
-                delta.y = 0f;
-                if (delta.sqrMagnitude > trackDistance * trackDistance) continue;
-                delta = toLocal * delta;
-
-                float x01 = delta.x / (2f * rangeSide) + 0.5f;
-                float y01 = (delta.z + rangeBack) / totalZ;
-
-                float alpha = 1f;
-                bool outside = x01 < 0f || x01 > 1f || y01 < 0f || y01 > 1f;
-                if (outside)
-                {
-                    if (!clampToEdge) continue;
-                    float mx = t.size * 0.5f;
-                    float my = t.size * 0.5f * w / h;
-                    x01 = Mathf.Clamp(x01, mx, 1f - mx);
-                    y01 = Mathf.Clamp(y01, my, 1f - my);
-                    alpha = edgeAlpha;
-                }
-
-                if (t.pulse)
-                    alpha *= 0.55f + 0.45f * Mathf.Sin(Time.time * t.pulseSpeed);
-
-                Image img = GetBlip(used++);
-                RectTransform rtf = img.rectTransform;
-                rtf.anchoredPosition = new Vector2((x01 - 0.5f) * w, (y01 - 0.5f) * h);
-                float px = t.size * w;
-                rtf.sizeDelta = new Vector2(px, px);
-                img.sprite = t.icon;
-                Color c = t.color;
-                c.a *= alpha;
-                img.color = c;
-                if (!img.gameObject.activeSelf) img.gameObject.SetActive(true);
+                if (t == null || t.style == null || t.transform.IsChildOf(transform)) continue;
+                DrawBlip(t.transform.position, t.style, carPos, toLocal, totalZ, w, h, ref used);
             }
             HideBlipsFrom(used);
+        }
+
+        private void DrawBlip(Vector3 worldPos, RadarBlipStyle s, Vector3 carPos, Quaternion toLocal,
+                              float totalZ, float w, float h, ref int used)
+        {
+            Vector3 delta = worldPos - carPos;
+            delta.y = 0f;
+            if (!s.alwaysTrack && delta.sqrMagnitude > trackDistance * trackDistance) return;
+            delta = toLocal * delta;
+
+            float x01 = delta.x / (2f * rangeSide) + 0.5f;
+            float y01 = (delta.z + rangeBack) / totalZ;
+
+            float alpha = 1f;
+            bool outside = x01 < 0f || x01 > 1f || y01 < 0f || y01 > 1f;
+            if (outside)
+            {
+                if (!clampToEdge && !s.alwaysTrack) return;
+                float mx = s.size * 0.5f;
+                float my = s.size * 0.5f * w / h;
+                x01 = Mathf.Clamp(x01, mx, 1f - mx);
+                y01 = Mathf.Clamp(y01, my, 1f - my);
+                alpha = edgeAlpha;
+            }
+
+            if (s.pulse)
+                alpha *= 0.55f + 0.45f * Mathf.Sin(Time.time * s.pulseSpeed);
+
+            Image img = GetBlip(used++);
+            RectTransform rtf = img.rectTransform;
+            rtf.anchoredPosition = new Vector2((x01 - 0.5f) * w, (y01 - 0.5f) * h);
+            float px = s.size * w;
+            rtf.sizeDelta = new Vector2(px, px);
+            img.sprite = s.icon;
+            Color c = s.color;
+            c.a *= alpha;
+            img.color = c;
+            if (!img.gameObject.activeSelf) img.gameObject.SetActive(true);
         }
 
         private Image GetBlip(int index)

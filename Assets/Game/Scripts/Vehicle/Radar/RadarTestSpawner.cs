@@ -67,8 +67,8 @@ namespace FPSGame.Vehicle
         {
             var go = new GameObject(orbit ? "RadarFake_Orbiter" : "RadarFake_Approacher");
             var target = go.AddComponent<RadarTarget>();
-            target.color = orbit ? new Color(1f, 0.6f, 0.1f) : Color.red;
-            target.pulse = !orbit;
+            target.style.color = orbit ? new Color(1f, 0.6f, 0.1f) : Color.red;
+            target.style.pulse = !orbit;
             var f = new Fake { t = go.transform, orbit = orbit };
             if (orbit)
             {
