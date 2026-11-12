@@ -22,12 +22,23 @@ namespace FPSGame.Environment
         [SyncVar(hook = nameof(OnCarriedChanged))]
         private bool isCarried;
 
+        // Stowed in a car's cargo bed (CargoTrigger in Stow mode): pinned to the car on every peer at a
+        // fixed local pose. Declared before the hooked id so the pose is in place when the hook runs.
+        [SyncVar] private Vector3 stowedLocalPos;
+        [SyncVar] private Quaternion stowedLocalRot = Quaternion.identity;
+        [SyncVar(hook = nameof(OnStowedChanged))]
+        private uint stowedInNetId;
+
         private Rigidbody rb;
         private BoxCollider[] colliders;
         private NetworkTransformBase netTransform;
         private RoadBody roadBody;
+        private Transform stowedIn;
 
         public bool IsCarried => isCarried;
+        public bool IsStowed => stowedInNetId != 0;
+        public uint StowedInNetId => stowedInNetId;
+        public NetworkTransformBase NetTransform => netTransform;
         public float PickupRange => pickupRange;
         public float ThrowForce => throwForce;
         public int Value => value;
@@ -72,14 +83,22 @@ namespace FPSGame.Environment
 
         private void ApplyCarriedState(bool carried)
         {
+            bool stowed = IsStowed;
+
             // Physics authority: the server simulates free loot (so MotionDirector's lateral
             // push is real and replicates), while every non-server peer keeps it kinematic and
             // just follows the NetworkTransform. Carried loot is kinematic everywhere — it rides
-            // the carrier's hand and its world position is streamed by the owner.
-            rb.isKinematic = carried || !isServer;
+            // the carrier's hand and its world position is streamed by the owner. Stowed loot is
+            // kinematic too: every peer pins it to its own view of the car (LateUpdate).
+            rb.isKinematic = carried || stowed || !isServer;
 
             foreach (var col in colliders)
-                col.enabled = !carried;
+                col.enabled = !carried && !stowed;
+
+            // No snapshots while stowed: the car's position is already replicated, the loot follows it.
+            // (Re-enabled in RestoreNetTransform; otherwise RoadBody owns this switch.)
+            if (netTransform != null && stowed)
+                netTransform.enabled = false;
 
             // While carried, the owning client drives the transform (ClientToServer). While free,
             // the server drives it (ServerToClient) so server-side physics reaches all clients.
@@ -118,6 +137,83 @@ namespace FPSGame.Environment
             isCarried = false;
             ApplyCarriedState(false);
             rb.AddForce(impulse, ForceMode.Impulse);
+        }
+
+        // ── Stowing (cargo bed) ───────────────────────────────────────────
+
+        /// <summary>
+        /// Server: attach free loot to <paramref name="holder"/> (a car) at <paramref name="worldPose"/>.
+        /// It stays kinematic, collider-less and pinned to the holder on every peer until <see cref="ServerUnstow"/>.
+        /// </summary>
+        [Server]
+        public void ServerStow(NetworkIdentity holder, Vector3 worldPosition, Quaternion worldRotation)
+        {
+            if (holder == null || isCarried || IsStowed)
+                return;
+
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            if (roadBody != null)
+                roadBody.ServerResetToTruck(); // no airstream / road state while it rides the car
+
+            Transform frame = holder.transform;
+            stowedLocalPos = frame.InverseTransformPoint(worldPosition);
+            stowedLocalRot = Quaternion.Inverse(frame.rotation) * worldRotation;
+            stowedInNetId = holder.netId;
+            stowedIn = frame;
+            ApplyCarriedState(false);
+            PinToHolder();
+        }
+
+        /// <summary>Server: release stowed loot where it is (free physics again).</summary>
+        [Server]
+        public void ServerUnstow()
+        {
+            if (!IsStowed)
+                return;
+
+            stowedInNetId = 0;
+            stowedIn = null;
+            ApplyCarriedState(isCarried);
+            RestoreNetTransform();
+        }
+
+        private void OnStowedChanged(uint oldId, uint newId)
+        {
+            stowedIn = null;
+            ApplyCarriedState(isCarried);
+            if (newId == 0)
+                RestoreNetTransform();
+        }
+
+        private void RestoreNetTransform()
+        {
+            if (netTransform != null)
+                netTransform.enabled = roadBody == null || roadBody.Phase != RoadPhase.Settled;
+        }
+
+        private void LateUpdate()
+        {
+            if (IsStowed)
+                PinToHolder();
+        }
+
+        private void PinToHolder()
+        {
+            if (stowedIn == null)
+            {
+                var spawned = isServer ? NetworkServer.spawned : NetworkClient.spawned;
+                if (!spawned.TryGetValue(stowedInNetId, out NetworkIdentity holder) || holder == null)
+                    return;
+                stowedIn = holder.transform;
+            }
+
+            // RoadBody re-enables the sync component on its own phase hook; keep it off while stowed.
+            if (netTransform != null && netTransform.enabled)
+                netTransform.enabled = false;
+
+            transform.SetPositionAndRotation(stowedIn.TransformPoint(stowedLocalPos),
+                                             stowedIn.rotation * stowedLocalRot);
         }
     }
 }

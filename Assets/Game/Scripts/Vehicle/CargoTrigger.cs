@@ -1,6 +1,7 @@
 using Mirror;
 using UnityEngine;
 using FPSGame.Environment;
+using FPSGame.Networking;
 
 namespace FPSGame.Vehicle
 {
@@ -9,7 +10,25 @@ namespace FPSGame.Vehicle
     [RequireComponent(typeof(Collider))]
     public class CargoTrigger : MonoBehaviour
     {
+        public enum CargoMode
+        {
+            Deposit,  // loot is destroyed and its value added to the score (original behaviour)
+            Stow      // loot is attached to the car (kinematic, follows it) and its value added to the score
+        }
+
+        [Tooltip("Deposit = destroy the loot and score it. Stow = keep it in the bed, pinned to the car (and score it).")]
+        [SerializeField] private CargoMode mode = CargoMode.Deposit;
+
+        [Tooltip("Stow mode: where stowed loot is placed. Empty = this transform.")]
+        [SerializeField] private Transform stowPoint;
+
+        [Tooltip("Stow mode: offset between consecutive stowed items along the stow point's local Z.")]
+        [SerializeField] private float stowSpacing = 0.6f;
+
         private CarController car;
+        private int stowedCount;
+
+        public CargoMode Mode => mode;
 
         private void Awake()
         {
@@ -28,10 +47,23 @@ namespace FPSGame.Vehicle
                 return;
 
             var carryable = other.GetComponentInParent<CarryableObject>();
-            if (carryable == null || carryable.IsCarried)
+            if (carryable == null || carryable.IsCarried || carryable.IsStowed)
                 return;
 
-            car.ServerDepositLoot(carryable);
+            if (mode == CargoMode.Deposit)
+            {
+                car.ServerDepositLoot(carryable);
+                return;
+            }
+
+            Transform point = stowPoint != null ? stowPoint : transform;
+            Vector3 position = point.position + point.forward * (stowSpacing * stowedCount);
+            carryable.ServerStow(car.netIdentity, position, point.rotation);
+            stowedCount++;
+            Debug.Log($"[CargoTrigger] {carryable.name} stowed in {car.name}.");
+
+            if (ScoreManager.Instance != null)
+                ScoreManager.Instance.AddScore(carryable.Value);
         }
     }
 }

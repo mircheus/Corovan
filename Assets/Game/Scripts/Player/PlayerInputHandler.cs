@@ -50,6 +50,13 @@ namespace FPSGame.Player
         private CarController currentVehicle;
         private CarMachineGun currentVehicleGun;
 
+        [Header("Code console keypad")]
+        [Tooltip("Max length of the aim ray that picks a keypad key, metres.")]
+        [SerializeField] private float keypadRayLength = 4f;
+
+        // Riding as a passenger (not the driver). Owner-side state; the seat's SyncVar mirrors it.
+        private CarPassengerSeat currentSeat;
+
         private InteractableObject currentInteractTarget;
         private float interactHoldTimer;
         private bool isInteractHeld;
@@ -61,6 +68,8 @@ namespace FPSGame.Player
         private bool isReviveHeld;
 
         public bool IsInVehicle => currentVehicle != null;
+        /// <summary>Owner-side: riding a car as its passenger.</summary>
+        public bool IsPassenger => currentSeat != null;
         /// <summary>The gun of the car this player drives (null on foot or in a car without one).</summary>
         public CarMachineGun CurrentVehicleGun => currentVehicleGun;
         private bool IsDowned => playerHealth != null && playerHealth.IsDowned;
@@ -157,6 +166,8 @@ namespace FPSGame.Player
                 CmdExitVehicle(currentVehicle.netIdentity);
                 ExitVehicle();
             }
+            if (currentSeat != null)
+                LeavePassengerSeat(false);
 
             loadout?.DisableForGood();
             playerController?.SetSprinting(false);
@@ -184,6 +195,8 @@ namespace FPSGame.Player
                 CmdExitVehicle(currentVehicle.netIdentity);
                 ExitVehicle();
             }
+            if (currentSeat != null)
+                LeavePassengerSeat(false);
         }
 
         // Unlike death, the downed player keeps their PlayerInput: they still get to look around
@@ -197,6 +210,8 @@ namespace FPSGame.Player
                 CmdExitVehicle(currentVehicle.netIdentity);
                 ExitVehicle();
             }
+            if (currentSeat != null)
+                LeavePassengerSeat(false);
 
             playerCarry?.ForceDrop();
             playerKeycardHand?.Unequip();
@@ -270,6 +285,9 @@ namespace FPSGame.Player
 
             if (currentVehicle != null && currentVehicle.DriverSeat != null)
                 transform.position = currentVehicle.DriverSeat.position;
+
+            if (currentSeat != null)
+                transform.position = currentSeat.SeatPosition;
 
             bool isCarrying = playerCarry != null && playerCarry.IsCarrying;
             bool cardInHand = playerKeycardHand != null && playerKeycardHand.IsEquipped;
@@ -445,11 +463,27 @@ namespace FPSGame.Player
                     return;
                 }
 
+                // A passenger's E only gets them out.
+                if (currentSeat != null)
+                {
+                    LeavePassengerSeat(true);
+                    return;
+                }
+
                 // Can't pick up or interact while already carrying loot or holding a card.
                 if (playerCarry != null && playerCarry.IsCarrying)
                     return;
                 if (playerKeycardHand != null && playerKeycardHand.IsEquipped)
                     return;
+
+                // A keypad key under the crosshair: a single press, no hold. Picked by the aim ray, so
+                // it's an explicit intent and goes before everything else on foot.
+                CodeConsoleButton key = FindAimedKeypadButton();
+                if (key != null)
+                {
+                    key.Console.RequestPress(key);
+                    return;
+                }
 
                 // Picking a teammate up outranks everything else on foot — a body dropped next to
                 // the car or a crate must not be shadowed by boarding or looting.
@@ -470,6 +504,15 @@ namespace FPSGame.Player
                 {
                     CmdEnterVehicle(car.netIdentity);
                     EnterVehicle(car);
+                    return;
+                }
+
+                // Driver seat taken (or out of reach) → the passenger seat: from the roof, mid-air above
+                // the car, or standing next to it.
+                CarPassengerSeat passengerSeat = FindBoardablePassengerSeat();
+                if (passengerSeat != null)
+                {
+                    BoardPassengerSeat(passengerSeat);
                     return;
                 }
 
@@ -677,6 +720,8 @@ namespace FPSGame.Player
             // In a vehicle E only exits.
             if (currentVehicle != null)
                 return showExitVehiclePrompt ? InteractPrompt.Action("Выйти из машины") : InteractPrompt.None;
+            if (currentSeat != null)
+                return InteractPrompt.Action("Выйти из машины");
 
             // Hands full — E does nothing until the loot/keycard is put down.
             bool isCarrying = playerCarry != null && playerCarry.IsCarrying;
@@ -684,12 +729,19 @@ namespace FPSGame.Player
             if (isCarrying || cardInHand)
                 return InteractPrompt.None;
 
+            CodeConsoleButton key = FindAimedKeypadButton();
+            if (key != null)
+                return InteractPrompt.Action($"Нажать {key.Digit}");
+
             if (FindNearbyDownedPlayer() != null)
                 return InteractPrompt.Action("Поднять напарника");
 
             CarController car = FindNearbyCar();
             if (car != null && !car.HasDriver)
                 return InteractPrompt.Action("Сесть в машину");
+
+            if (FindBoardablePassengerSeat() != null)
+                return InteractPrompt.Action("Сесть пассажиром");
 
             if (playerCarry != null)
             {
@@ -858,6 +910,107 @@ namespace FPSGame.Player
 
             var revive = targetIdentity.GetComponent<PlayerRevive>();
             revive?.ServerCompleteRevive(gameObject);
+        }
+
+        // ── Code console keypad ──────────────────────────────────────────
+
+        // Layers the keypad ray never stops on: the viewmodel (18) and player hitboxes (21).
+        private const int KeypadRayMask = ~((1 << 18) | (1 << 21));
+
+        // The key the crosshair is on, if any and in range. A precise ray, not the forgiving look cone the
+        // other world objects use: ten keys sit side by side.
+        private CodeConsoleButton FindAimedKeypadButton()
+        {
+            if (playerCamera == null)
+                return null;
+
+            Ray aim = playerCamera.GetAimRay();
+            if (!Physics.Raycast(aim, out RaycastHit hit, keypadRayLength, KeypadRayMask, QueryTriggerInteraction.Ignore))
+                return null;
+
+            var key = hit.collider.GetComponent<CodeConsoleButton>();
+            if (key == null || key.Console == null)
+                return null;
+
+            float dist = Vector3.Distance(transform.position, key.Console.transform.position);
+            return dist <= key.Console.PressRange ? key : null;
+        }
+
+        // ── Passenger seat ───────────────────────────────────────────────
+
+        // A free passenger seat the player can take with E right now: inside its boarding box (standing on
+        // the roof or in the air above the car) or within the car's interact distance on foot.
+        private CarPassengerSeat FindBoardablePassengerSeat()
+        {
+            if (playerController == null || playerController.InVehicle)
+                return null;
+
+            var seats = CarPassengerSeat.All;
+            for (int i = 0; i < seats.Count; i++)
+            {
+                CarPassengerSeat seat = seats[i];
+                if (seat == null || seat.Car == null || !seat.CanBoard(netId))
+                    continue;
+
+                bool inReach = seat.InBoardingBox(transform.position)
+                    || Vector3.Distance(transform.position, seat.Car.transform.position) <= seat.Car.InteractDistance;
+                if (inReach)
+                    return seat;
+            }
+            return null;
+        }
+
+        // Owner-side: take the passenger seat (on E — see OnInteract).
+        private void BoardPassengerSeat(CarPassengerSeat seat)
+        {
+            AbandonHolds();
+            currentSeat = seat;
+            // Vehicle mode: CharacterController off, our movement stops; the camera keeps looking around.
+            playerController.SetVehicleMode(true);
+            transform.position = seat.SeatPosition;
+            CmdBoardSeat(seat.netIdentity);
+            OnVehicleChanged?.Invoke(seat.Car);
+        }
+
+        // Owner-side. launch = popped up above the car so the player can jump to the platform (E);
+        // otherwise just placed at the exit point (death, downed, match over, server refused the seat).
+        private void LeavePassengerSeat(bool launch)
+        {
+            CarPassengerSeat seat = currentSeat;
+            if (seat == null)
+                return;
+
+            currentSeat = null;
+            CmdLeaveSeat(seat.netIdentity);
+
+            // Place first, while the CharacterController is still off (see ExitVehicle).
+            transform.position = seat.ExitPosition;
+            playerController?.SetVehicleMode(false);
+            if (launch)
+                playerController?.Launch(Vector3.up * seat.ExitUpSpeed);
+            OnVehicleChanged?.Invoke(null);
+        }
+
+        [Command]
+        private void CmdBoardSeat(NetworkIdentity seatIdentity)
+        {
+            var seat = seatIdentity != null ? seatIdentity.GetComponent<CarPassengerSeat>() : null;
+            if (seat == null || (playerHealth != null && playerHealth.IsIncapacitated) || !seat.ServerBoard(netIdentity))
+                TargetSeatRefused(seatIdentity);
+        }
+
+        [Command]
+        private void CmdLeaveSeat(NetworkIdentity seatIdentity)
+        {
+            var seat = seatIdentity != null ? seatIdentity.GetComponent<CarPassengerSeat>() : null;
+            seat?.ServerLeave(netId);
+        }
+
+        [TargetRpc]
+        private void TargetSeatRefused(NetworkIdentity seatIdentity)
+        {
+            if (currentSeat != null && currentSeat.netIdentity == seatIdentity)
+                LeavePassengerSeat(false);
         }
 
         private BreachConsoleSlot FindNearbyConsoleSlot()

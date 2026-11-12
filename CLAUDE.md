@@ -57,7 +57,8 @@ Assets/Game/
 │   ├── Vehicle/
 │   │   ├── CarController.cs         # Arcade car: MovePosition, authority assignment, vehicle health
 │   │   ├── CarMachineGun.cs         # Car's forward hitscan gun: single shots, car-owned synced ammo
-│   │   ├── CargoTrigger.cs          # Trigger child on car; deposits loot into ScoreManager
+│   │   ├── CargoTrigger.cs          # Trigger child on car; Deposit (destroy + score) or Stow (pin loot to the car + score)
+│   │   ├── CarPassengerSeat.cs      # Passenger seat: E (driver seat taken) from the roof / mid-jump / next to the car; E to leave
 │   │   └── VehicleWheelVisuals.cs   # Any vehicle: constant wheel spin + steering wheel from sideways movement; cosmetic, all peers
 │   ├── Environment/
 │   │   ├── Enemy.cs                 # Turret enemy: detects players/cars, rotates, fires projectiles
@@ -69,7 +70,13 @@ Assets/Game/
 │   │   ├── DestructionObjective.cs  # Tracks N targets; fires UnityEvent when complete
 │   │   ├── ExtractionZone.cs        # Win condition: hold the driven car in the zone N seconds (IWinCondition)
 │   │   ├── DoorOpener.cs            # SyncVar open/closed door; optional server auto-close timer with doorway check
-│   │   └── InfiniteRoad.cs          # Client-side scrolling tile recycler (no networking)
+│   │   ├── InfiniteRoad.cs          # Client-side scrolling tile recycler (no networking)
+│   │   └── CodeVault/               # Scenario "code from the radar" (layer 0), see Code Vault below
+│   │       ├── DecryptParkingZone.cs  # Box + anchor; server-polled ParkingStatus (no car / no driver / too far / dashing)
+│   │       ├── CodeVaultController.cs # Server state machine Idle→Decrypting⇄Paused→InputWindow→Solved; opens a DoorOpener
+│   │       ├── CodeConsole.cs         # World keypad: Cmd(requiresAuthority=false) → ServerPressDigit → RpcFeedback; screen
+│   │       ├── CodeConsoleButton.cs   # One key (digit + collider), picked by PlayerInputHandler's aim ray
+│   │       └── LootReturnToVault.cs   # Loot that hits the road goes back to the vault after a delay
 │   ├── Hazards/
 │   │   ├── Barrel.cs                # Pooled kinematic barrel; bounces on AnimationCurve, damages car/player
 │   │   ├── BarrelSpawner.cs         # Server-side object pool + timed spawn loop
@@ -226,6 +233,15 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 - `InteractableObject`: hold-E with configurable `HoldDuration`; progress tracked in `PlayerInputHandler`; on completion `CmdInteract` → `ServerInteract` → `RpcOnInteracted` → UnityEvent fires on all clients
 - Doors: `InteractObjective` → UnityEvent → `DoorOpener.OpenDoor`. `autoCloseDelay` > 0 = server deadline (`NetworkTime`), re-opening while open restarts it; closing waits while a non-dead, non-driving player's capsule touches the doorway (`doorwayArea` box or the door's own colliders; geometric test, as in `FlameHazard`). `onClosed` (server) → `InteractObjective.ResetObjective` re-arms the latched objective; `refireWhileCompleted` lets interactions on an open door extend the timer
 - `CarryableObject`: pickup assigns client authority; drop/throw removes it; `SetCarriedLocally` gives instant feedback; SyncVar confirms on other clients
+
+### Code Vault (scenario «Код с радара», layer 0 — scene `8_CodeRadar`)
+- Spec: `_meta/handoff-layer0.md`, `_meta/scenario-code.md`. Raid end = the usual `ExtractionZone`.
+- `CodeVaultController` (server) polls `DecryptParkingZone.Evaluate` each frame. Everything is a SyncVar, the code included (co-op, no anti-cheat); only `DriverCodeHUD` (IMGUI, local driver only) shows it. Input window = `NetworkTime` deadline; `rotateCodeOnWindowExpire` (layer 3) regenerates the code.
+- The dash runs on the driver's client only, so `CarController.TryDash` reports it with `CmdReportDash` → `ServerLastDashTime`; the zone blocks for `DashDuration + dashCooldownBlock`.
+- Keypad keys are picked by a precise aim ray (`PlayerInputHandler.FindAimedKeypadButton`), not the look cone — ten keys side by side. Typing ahead of the reveal is ignored, a wrong digit wipes the input.
+- Host debug: F5 overlay (off by default — it shows the code), F6 reveal all, F7 solve.
+- Stowed loot (`CarryableObject.ServerStow`): kinematic, colliders and NetworkTransform off, pinned to the car's local pose in `LateUpdate` on every peer. `RoadBody.ServerResetToTruck` clears the road phase on stow/return.
+- Passenger: E boards only if the driver seat is taken (a free driver seat always wins) and the player is in the board box (roof / mid-jump) or within the car's `InteractDistance`. The owner boards locally (vehicle mode, pinned to the seat), `CmdBoardSeat` confirms; other peers pin the passenger in `CarPassengerSeat.LateUpdate` (skipping their own player). Weapons stay usable.
 
 ### Score / Objective
 - `ScoreManager`: singleton `NetworkBehaviour`; `[SyncVar] totalScore`; `AddScore(int)` called server-side when loot deposited via `CargoTrigger`

@@ -277,6 +277,21 @@ namespace FPSGame.Environment
             SetPhase(RoadPhase.InAir);
         }
 
+        /// <summary>
+        /// Back to "on the truck": no airstream, no road friction, replication on. Used when loot is
+        /// stowed in a car or returned to its vault after a missed throw. Server only.
+        /// </summary>
+        [Server]
+        public void ServerResetToTruck()
+        {
+            if (!_rb.isKinematic)
+            {
+                _rb.linearVelocity = Vector3.zero;
+                _rb.angularVelocity = Vector3.zero;
+            }
+            SetPhase(RoadPhase.OnTruck);
+        }
+
         [Server]
         private void SetPhase(RoadPhase p)
         {

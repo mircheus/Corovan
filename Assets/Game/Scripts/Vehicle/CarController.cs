@@ -582,7 +582,21 @@ namespace FPSGame.Vehicle
 
             lastDashTime = Time.time;
             dashVelocity = transform.right * (Mathf.Sign(direction) * dashForce);
+            CmdReportDash();
             return true;
+        }
+
+        /// <summary>Server: Time.time of the last dash the driver reported. The dash itself runs on the owner
+        /// only, so this is how server-side rules (DecryptParkingZone) learn about it.</summary>
+        public float ServerLastDashTime { get; private set; } = float.NegativeInfinity;
+
+        /// <summary>Seconds a dash keeps pushing the car (its speed bleeding off at dashDecay).</summary>
+        public float DashDuration => dashDecay > 0f ? dashForce / dashDecay : 0f;
+
+        [Command]
+        private void CmdReportDash()
+        {
+            ServerLastDashTime = Time.time;
         }
 
         [Server]
