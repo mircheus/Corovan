@@ -66,7 +66,12 @@ namespace FPSGame.UI
             bool solved = vault.IsSolved;
 
             const float cell = 54f, gap = 8f;
-            float panelWidth = Mathf.Max(360f, length * (cell + gap) + 40f);
+            string status = StatusText();
+            string typed = $"Напарник ввёл: {entered}/{length}";
+            // The panel grows to fit the longest line, so no status ever gets clipped.
+            float textWidth = Mathf.Max(statusStyle.CalcSize(new GUIContent(status)).x,
+                                        statusStyle.CalcSize(new GUIContent(typed)).x);
+            float panelWidth = Mathf.Max(360f, length * (cell + gap) + 40f, textWidth + 40f);
             float x0 = (Screen.width - panelWidth) * 0.5f;
             float y = topMargin;
 
@@ -101,11 +106,11 @@ namespace FPSGame.UI
             y += 16f;
 
             statusStyle.normal.textColor = paused ? pausedColor : Color.white;
-            GUI.Label(new Rect(x0, y, panelWidth, 26f), StatusText(), statusStyle);
+            GUI.Label(new Rect(x0, y, panelWidth, 26f), status, statusStyle);
             y += 26f;
 
             statusStyle.normal.textColor = enteredColor;
-            GUI.Label(new Rect(x0, y, panelWidth, 26f), $"Напарник ввёл: {entered}/{length}", statusStyle);
+            GUI.Label(new Rect(x0, y, panelWidth, 26f), typed, statusStyle);
         }
 
         private string StatusText()
@@ -122,7 +127,7 @@ namespace FPSGame.UI
                     float left = vault.WindowRemaining;
                     return left > 0f || vault.RotatesCode
                         ? $"Окно ввода: {Mathf.CeilToInt(left)} с"
-                        : "Окно ввода истекло — можно вводить";
+                        : "Время вышло, код в силе";
                 case CodeVaultState.Solved:
                     return "Открыто";
             }
@@ -134,7 +139,7 @@ namespace FPSGame.UI
             switch (status)
             {
                 case ParkingStatus.Dashing: return "без рывков";
-                case ParkingStatus.TooFar: return "вернись к точке стоянки";
+                case ParkingStatus.TooFar: return "вернись к точке";
                 default: return "вернись в зону";
             }
         }
