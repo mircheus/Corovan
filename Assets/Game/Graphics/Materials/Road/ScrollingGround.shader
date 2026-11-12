@@ -74,7 +74,6 @@ Shader "Custom/ScrollingGround"
                 float3 normalWS    : TEXCOORD2;
                 float3 tangentWS   : TEXCOORD3;
                 float3 bitangentWS : TEXCOORD4;
-                float  fogFactor   : TEXCOORD5;
             };
 
             Varyings vert(Attributes IN)
@@ -89,7 +88,6 @@ Shader "Custom/ScrollingGround"
                 OUT.normalWS     = norInputs.normalWS;
                 OUT.tangentWS    = norInputs.tangentWS;
                 OUT.bitangentWS  = norInputs.bitangentWS;
-                OUT.fogFactor    = ComputeFogFactor(posInputs.positionCS.z);
 
                 // Прокрутка UV — одинаковая для обеих текстур
                 float2 scroll = float2(_ScrollSpeedX, _ScrollSpeedY) * _Time.y;
@@ -112,13 +110,18 @@ Shader "Custom/ScrollingGround"
                 float3x3 TBN      = float3x3(IN.tangentWS, IN.bitangentWS, IN.normalWS);
                 float3   normalWS = normalize(mul(normalTS, TBN));
 
+                // Туман только попиксельно: дорога — пара треугольников 320 м, а URP обнуляет
+                // глубину вершин за камерой, и вершинный туман ложился бы на дорогу у самых ног
+                float viewZ     = -TransformWorldToView(IN.positionWS).z;
+                real  fogFactor = ComputeFogFactorZ0ToFar(max(viewZ - _ProjectionParams.y, 0));
+
                 InputData inputData       = (InputData)0;
                 inputData.positionWS      = IN.positionWS;
                 inputData.positionCS      = IN.positionHCS;
                 inputData.normalWS        = normalWS;
                 inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(IN.positionWS);
                 inputData.shadowCoord     = TransformWorldToShadowCoord(IN.positionWS);
-                inputData.fogCoord        = IN.fogFactor;
+                inputData.fogCoord        = fogFactor;
                 // Ambient (Environment Lighting) — без него всё, что не освещено солнцем напрямую, чёрное
                 inputData.bakedGI         = SampleSH(normalWS);
                 inputData.shadowMask      = half4(1, 1, 1, 1);
@@ -133,7 +136,7 @@ Shader "Custom/ScrollingGround"
                 surfaceData.occlusion   = 1.0;
 
                 half4 color = UniversalFragmentPBR(inputData, surfaceData);
-                color.rgb   = MixFog(color.rgb, IN.fogFactor);
+                color.rgb   = MixFog(color.rgb, fogFactor);
 
                 return color;
             }

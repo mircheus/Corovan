@@ -14,6 +14,12 @@ namespace FPSGame.Environment
     // clients use them for cosmetics only (indicators, light, shake).
     public class BreachConsole : NetworkBehaviour
     {
+        [Header("Operator")]
+        [Tooltip("On: the operator must stay within the slot's interact range or the card is pulled out " +
+                 "(doors close). Off: once inserted, the card stays in however far the operator walks " +
+                 "(still ejected if they go down, die or disconnect).")]
+        [SerializeField] private bool requireOperatorNearby = true;
+
         [Header("Warm-up")]
         [Tooltip("Delay for Breaching -> Open.")]
         [SerializeField] private float warmupDuration = 2f;
@@ -37,6 +43,7 @@ namespace FPSGame.Environment
         // --- Public contract (hooks for other systems) ---
         public ConsoleState State => state;
         public float HeatNormalized => heat;
+        public bool RequireOperatorNearby => requireOperatorNearby; // read by BreachConsoleSlot
         public bool IsVaultOpen => state == ConsoleState.Open;         // for the vault system
         public bool IsCardHeld => state == ConsoleState.Breaching ||    // for aggro / restricted fire
                                   state == ConsoleState.Open;

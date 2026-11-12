@@ -403,7 +403,8 @@ namespace FPSGame.Vehicle
 
                 // Chaos is applied only to this frame's move step, never stored into
                 // currentVelocity, so it can't corrupt collision-impact speed or smoothing.
-                Vector3 frameVelocity = currentVelocity + dashVelocity + GetChaosOffset() + push;
+                Vector3 frameVelocity = currentVelocity + dashVelocity
+                                      + GetChaosOffset(currentVelocity.sqrMagnitude >= 0.01f) + push;
 
                 if (frameVelocity.sqrMagnitude > 0.001f)
                     rb.MovePosition(rb.position + frameVelocity * Time.fixedDeltaTime);
@@ -427,7 +428,14 @@ namespace FPSGame.Vehicle
                 // Pre-driven cars stay still; new driver entering halts the drift via HasDriver branch.
                 // StayInPlace does nothing here, so the car remains where the driver left it.
                 Vector3 step = -transform.forward * (driverlessReverseSpeed * Time.fixedDeltaTime);
+                step += GetChaosOffset(true) * Time.fixedDeltaTime;
                 rb.MovePosition(rb.position + step);
+            }
+            else if (isServer && vehicleIsAlive && enableChaoticMovement && !chaosOnlyWhileMoving)
+            {
+                // Standing car (never driven, or StayInPlace): chaos still twitches it when the
+                // "only while moving" restriction is off.
+                rb.MovePosition(rb.position + GetChaosOffset(false) * Time.fixedDeltaTime);
             }
         }
 
@@ -471,12 +479,12 @@ namespace FPSGame.Vehicle
         /// Smoothly wandering at low <see cref="chaosFrequency"/>, frantically twitchy at high values.
         /// Returns zero when disabled, so a driver-controlled car drives perfectly straight.
         /// </summary>
-        private Vector3 GetChaosOffset()
+        private Vector3 GetChaosOffset(bool isMoving)
         {
             if (!enableChaoticMovement || chaosStrength <= 0f)
                 return Vector3.zero;
 
-            if (chaosOnlyWhileMoving && currentVelocity.sqrMagnitude < 0.01f)
+            if (chaosOnlyWhileMoving && !isMoving)
                 return Vector3.zero;
 
             float t = Time.time * chaosFrequency;
@@ -522,7 +530,7 @@ namespace FPSGame.Vehicle
             }
 
             currentVelocity = step / Time.fixedDeltaTime;
-            rb.MovePosition(pos + step);
+            rb.MovePosition(pos + step + GetChaosOffset(true) * Time.fixedDeltaTime);
         }
 
         [Server]

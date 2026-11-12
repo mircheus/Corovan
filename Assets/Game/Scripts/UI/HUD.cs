@@ -20,6 +20,8 @@ namespace FPSGame.UI
         [SerializeField] private PlayerRevive playerRevive;
         [Tooltip("Optional — resolved from the PlayerHealth object when left empty.")]
         [SerializeField] private PlayerCarry playerCarry;
+        [Tooltip("Optional — weapon selection panel (owned weapons + the one in hand).")]
+        [SerializeField] private WeaponPanelUI weaponPanel;
 
         [Header("Health UI")]
         [SerializeField] private Slider healthBar;
@@ -139,11 +141,16 @@ namespace FPSGame.UI
             if (loadout == null && playerHealth != null)
                 loadout = playerHealth.GetComponent<PlayerLoadout>();
 
+            if (weaponPanel == null)
+                weaponPanel = GetComponentInChildren<WeaponPanelUI>(true);
+
             if (loadout != null)
             {
                 loadout.OnAmmoChangedEvent += UpdateAmmoUI;
                 loadout.OnEquippedItemChanged += ApplyWeaponHud;
                 ApplyWeaponHud(loadout.EquippedItem);
+                if (weaponPanel != null)
+                    weaponPanel.Bind(loadout);
             }
 
             if (playerInputHandler != null)
@@ -409,6 +416,8 @@ namespace FPSGame.UI
                 loadout.OnAmmoChangedEvent += UpdateAmmoUI;
                 loadout.OnEquippedItemChanged += ApplyWeaponHud;
                 ApplyWeaponHud(loadout.EquippedItem);
+                if (weaponPanel != null)
+                    weaponPanel.Bind(loadout);
             }
 
             if (inputHandler != null)
