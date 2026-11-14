@@ -45,15 +45,68 @@ namespace FPSGame.Editor
         public bool autoUpdate = false;
     }
 
+    /// <summary>Why an edge sample did not become a drop.</summary>
+    public enum DropReject
+    {
+        OtherAgentType,   // the edge belongs to another agent type's NavMesh
+        WallAhead,        // a collider right past the edge (wall, railing)
+        NoGroundBelow,    // the ground ray hit nothing within maxDrop (+1.5 m)
+        TooShallow,       // ground below is less than minDrop lower (a step, the floor goes on)
+        NoNavMeshBelow,   // ground found, but no NavMesh of this agent type near it
+        LandingOffGround, // the nearest NavMesh is on another level than the ground hit
+        TooDeep,          // landing NavMesh deeper than maxDrop
+        TooFar,           // landing too far from the edge (maxForward) or behind it
+    }
+
     /// <summary>What one pass found, for the window and the test.</summary>
     public struct DropLinkStats
     {
         public int boundaryEdges;
         public int samples;
+        public int outsideLimit;
         public int validSamples;
         public int links;
+        public int[] rejects; // indexed by DropReject
+
+        public int Rejected(DropReject r) => rejects == null ? 0 : rejects[(int)r];
+
         public override string ToString() =>
-            $"boundary edges {boundaryEdges}, samples {samples}, valid {validSamples}, links {links}";
+            $"boundary edges {boundaryEdges}, samples {samples}, valid {validSamples}, links {links}" +
+            (outsideLimit > 0 ? $", outside selection {outsideLimit}" : "");
+
+        /// <summary>Non-zero reject counts, biggest first, with what to change.</summary>
+        public string RejectReport()
+        {
+            if (rejects == null)
+                return "";
+            var counts = rejects;
+            var order = new List<int>();
+            for (int i = 0; i < counts.Length; i++)
+                if (counts[i] > 0)
+                    order.Add(i);
+            order.Sort((a, b) => counts[b].CompareTo(counts[a]));
+
+            var sb = new System.Text.StringBuilder("Rejected samples:");
+            foreach (int i in order)
+                sb.Append($"\n  {(DropReject)i}: {counts[i]} — {Hint((DropReject)i)}");
+            return sb.ToString();
+        }
+
+        private static string Hint(DropReject r)
+        {
+            switch (r)
+            {
+                case DropReject.OtherAgentType: return "edges of another agent type (normal if the scene has several)";
+                case DropReject.WallAhead: return "walls/railings past the edge; check Obstacle Layers";
+                case DropReject.NoGroundBelow: return "nothing below within Max Drop; raise it, or the ground isn't on Obstacle Layers";
+                case DropReject.TooShallow: return "floor continues or a step lower than Min Drop (normal for inner edges)";
+                case DropReject.NoNavMeshBelow: return "ground below has no baked NavMesh for this agent";
+                case DropReject.LandingOffGround: return "NavMesh near the landing is on another level";
+                case DropReject.TooDeep: return "landing deeper than Max Drop; raise it";
+                case DropReject.TooFar: return "landing farther than Max Forward from the edge";
+                default: return "";
+            }
+        }
     }
 
     /// <summary>
@@ -141,6 +194,7 @@ namespace FPSGame.Editor
         public static List<Segment> FindSegments(DropLinkSettings s, Bounds? limit, out DropLinkStats stats)
         {
             stats = default;
+            stats.rejects = new int[Enum.GetValues(typeof(DropReject)).Length];
             Physics.SyncTransforms(); // edit mode: freshly moved colliders aren't in the physics scene yet
 
             var agent = NavMesh.GetSettingsByID(s.agentTypeID);
@@ -175,10 +229,15 @@ namespace FPSGame.Editor
                         if (!limit.HasValue || limit.Value.Contains(p))
                         {
                             stats.samples++;
-                            valid = TestSample(p, n, s, filter, wallRayLength, kneeHeight, height, out drop, out fwd);
+                            var reject = TestSample(p, n, s, filter, wallRayLength, kneeHeight, height, out drop, out fwd);
+                            valid = reject == null;
                             if (valid)
                                 stats.validSamples++;
+                            else
+                                stats.rejects[(int)reject.Value]++;
                         }
+                        else
+                            stats.outsideLimit++;
                     }
 
                     if (valid)
@@ -213,7 +272,8 @@ namespace FPSGame.Editor
             SplitLongSegments(segments, s.maxLinkWidth);
             return segments;
 
-            bool TestSample(Vector3 p, Vector3 n, DropLinkSettings st, NavMeshQueryFilter f, float wallRay,
+            // null = a valid drop; otherwise why not.
+            DropReject? TestSample(Vector3 p, Vector3 n, DropLinkSettings st, NavMeshQueryFilter f, float wallRay,
                 float knee, float agentHeight, out float drop, out float fwd)
             {
                 drop = fwd = 0f;
@@ -221,31 +281,37 @@ namespace FPSGame.Editor
                 // The triangulation holds every agent type: keep only edges of ours.
                 if (!NavMesh.SamplePosition(p, out var onMesh, 0.3f, f) ||
                     (onMesh.position - p).sqrMagnitude > 0.3f * 0.3f)
-                    return false;
+                    return DropReject.OtherAgentType;
 
                 // A wall or railing right past the edge: the border is there because of it, not a ledge.
                 if (Physics.Raycast(p + Vector3.up * knee, n, wallRay, st.obstacleMask, noTriggers) ||
                     Physics.Raycast(p + Vector3.up * (agentHeight - 0.1f), n, wallRay, st.obstacleMask, noTriggers))
-                    return false;
+                    return DropReject.WallAhead;
 
                 // Ground below the landing spot: agent centre lands radius + clearance past the physical ledge.
                 Vector3 q = p + n * wallRay;
                 if (!Physics.Raycast(q + Vector3.up * 0.5f, Vector3.down, out var hit, st.maxDrop + 1.5f,
                         st.obstacleMask, noTriggers))
-                    return false;
+                    return DropReject.NoGroundBelow;
 
                 float groundDrop = p.y - hit.point.y;
                 if (groundDrop < st.minDrop)
-                    return false; // floor goes on (obstacle erosion, a step) or a lip blocks it
+                    return DropReject.TooShallow; // floor goes on (obstacle erosion, a step) or a lip blocks it
 
                 if (!NavMesh.SamplePosition(hit.point, out var land, radius + 1f, f))
-                    return false;
+                    return DropReject.NoNavMeshBelow;
                 if (Mathf.Abs(land.position.y - hit.point.y) > 0.6f)
-                    return false; // the nearest NavMesh is another level, not the ground we hit
+                    return DropReject.LandingOffGround; // the nearest NavMesh is another level, not the ground we hit
 
                 drop = p.y - land.position.y;
                 fwd = Vector3.Dot(land.position - p, n);
-                return drop >= st.minDrop && drop <= st.maxDrop && fwd > 0.05f && fwd <= st.maxForward;
+                if (drop > st.maxDrop)
+                    return DropReject.TooDeep;
+                if (drop < st.minDrop)
+                    return DropReject.TooShallow;
+                if (fwd <= 0.05f || fwd > st.maxForward)
+                    return DropReject.TooFar;
+                return null;
             }
         }
 

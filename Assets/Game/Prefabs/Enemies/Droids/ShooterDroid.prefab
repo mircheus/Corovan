@@ -243,8 +243,8 @@ MonoBehaviour:
   firePoint: {fileID: 1055750098485254403}
   fireRate: 1
   projectileDamage: 8
-  projectileSpeed: 25
-  fireRange: 20
+  projectileSpeed: 35
+  fireRange: 50
   spreadAngle: 1.5
   sightMask:
     serializedVersion: 2

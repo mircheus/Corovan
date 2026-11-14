@@ -123,7 +123,12 @@ namespace FPSGame.Editor
             }
 
             var root = NavMeshDropLinkGenerator.Generate(settings, limit, parent, out var stats);
-            status = root != null ? $"Created {stats.links} links.\n{stats}" : $"No drops found.\n{stats}";
+            status = (root != null ? $"Created {stats.links} links.\n{stats}" : $"No drops found.\n{stats}") +
+                     "\n" + stats.RejectReport();
+            if (stats.boundaryEdges == 0)
+                status += "\nThe NavMesh is empty: bake it first (or it was baked for another scene).";
+            else if (limitToSelection && stats.samples == 0)
+                status += "\nNo NavMesh edge lies inside the selection bounds.";
             if (root != null)
                 EditorGUIUtility.PingObject(root);
             SceneView.RepaintAll();
