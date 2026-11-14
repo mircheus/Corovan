@@ -70,6 +70,7 @@ namespace FPSGame.Enemies
         private RagdollEnemy body;
         private NavMeshAgent agent;
         private Animator animator;
+        private AgentLinkJumper linkJumper; // optional: jumps NavMesh links instead of gliding
 
         private PlayerHealth target;
         private float thinkTimer;
@@ -85,6 +86,7 @@ namespace FPSGame.Enemies
             body = GetComponent<RagdollEnemy>();
             agent = GetComponent<NavMeshAgent>();
             animator = GetComponent<Animator>();
+            linkJumper = GetComponent<AgentLinkJumper>();
         }
 
         public override void OnStartServer()
@@ -133,6 +135,10 @@ namespace FPSGame.Enemies
 
             attackCooldownLeft -= Time.deltaTime;
             attackLockLeft -= Time.deltaTime;
+
+            // Airborne on a NavMesh link: the jumper owns the body; no re-pathing, facing or swings.
+            if (linkJumper != null && linkJumper.IsJumping)
+                return;
 
             if (target != null && !ShouldKeepTarget())
                 ClearTarget();

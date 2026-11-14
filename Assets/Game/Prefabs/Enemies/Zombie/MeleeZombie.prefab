@@ -96,6 +96,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8240701879346396193, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5216468668015273001}
+    - targetCorrespondingSourceObject: {fileID: 8240701879346396193, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5805743457045094882}
   m_SourcePrefab: {fileID: 100100000, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}
 --- !u!1 &253481546498506899 stripped
 GameObject:
@@ -206,6 +209,22 @@ MonoBehaviour:
   maxWalkRate: 2.2
   speedSmoothTime: 0.15
   teleportDistance: 2
+--- !u!114 &5805743457045094882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 253481546498506899}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c8d8054d36882341b78c235d516b6c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jumpHeight: 0.4
+  gravity: 18
+  turnSpeed: 12
+  landingPause: 0.15
 --- !u!4 &4151613732033690733 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5207612646810747103, guid: 0b70ea982f25ec34d8d4ee300eb29075, type: 3}

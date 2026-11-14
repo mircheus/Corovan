@@ -89,6 +89,7 @@ namespace FPSGame.Enemies
 
         private RagdollEnemy body;
         private NavMeshAgent agent;
+        private AgentLinkJumper linkJumper; // optional: jumps NavMesh links instead of gliding
         private Collider[] ownColliders;
 
         private PlayerHealth target;
@@ -107,6 +108,7 @@ namespace FPSGame.Enemies
             body = GetComponent<RagdollEnemy>();
             agent = GetComponent<NavMeshAgent>();
             ownColliders = GetComponentsInChildren<Collider>(true);
+            linkJumper = GetComponent<AgentLinkJumper>();
         }
 
         public override void OnStartServer()
@@ -153,6 +155,10 @@ namespace FPSGame.Enemies
         private void Update()
         {
             if (!isServer || state == DroidState.Dead)
+                return;
+
+            // Airborne on a NavMesh link: the jumper owns the body; no re-pathing, facing or shots.
+            if (linkJumper != null && linkJumper.IsJumping)
                 return;
 
             if (target != null && !ShouldKeepTarget())
