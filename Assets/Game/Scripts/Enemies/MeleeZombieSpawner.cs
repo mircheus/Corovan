@@ -240,19 +240,32 @@ namespace FPSGame.Enemies
 
         private void OnDrawGizmosSelected()
         {
-            Gizmos.color = new Color(0.4f, 1f, 0.3f, 1f);
+            Color fill = new Color(0.4f, 1f, 0.3f, 0.45f);
+            Color wire = new Color(0.4f, 1f, 0.3f, 1f);
             if (spawnPoints == null || spawnPoints.Length == 0)
             {
-                Gizmos.DrawWireSphere(transform.position, 0.5f);
+                DrawSpawnPoint(transform.position, transform.forward, fill, wire);
                 return;
             }
             foreach (Transform p in spawnPoints)
             {
                 if (p == null)
                     continue;
-                Gizmos.DrawWireSphere(p.position, 0.5f);
+                DrawSpawnPoint(p.position, p.forward, fill, wire);
+                Gizmos.color = wire;
                 Gizmos.DrawLine(transform.position, p.position);
             }
+        }
+
+        // Solid translucent sphere + wire outline + a short arrow showing the spawn facing.
+        private static void DrawSpawnPoint(Vector3 position, Vector3 forward, Color fill, Color wire)
+        {
+            const float radius = 0.5f;
+            Gizmos.color = fill;
+            Gizmos.DrawSphere(position, radius);
+            Gizmos.color = wire;
+            Gizmos.DrawWireSphere(position, radius);
+            Gizmos.DrawLine(position, position + forward * (radius * 2f));
         }
     }
 }

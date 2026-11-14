@@ -53,7 +53,6 @@ namespace FPSGame.Player
         private CharacterController characterController;
         private CharacterInput fpsfInput;
         private PlayerCamera playerCamera;
-        private PlayerCarry playerCarry;
         private Vector3 velocity;
         private Vector3 externalVelocity;
         private Vector2 moveInput;
@@ -110,7 +109,6 @@ namespace FPSGame.Player
 
             fpsfInput = GetComponent<CharacterInput>();
             playerCamera = GetComponentInChildren<PlayerCamera>();
-            playerCarry = GetComponent<PlayerCarry>();
             ResetSpeed();
         }
 
@@ -158,8 +156,7 @@ namespace FPSGame.Player
             if (!isDowned)
                 isTacticalSprinting = fpsfInput.tacticalSprintInput;
 
-            // No jumping while carrying loot.
-            if (fpsfInput.jumpInput && (playerCarry == null || !playerCarry.IsCarrying))
+            if (fpsfInput.jumpInput)
                 Jump();
 
             // FPSF toggles crouchInput itself; we may refuse to stand (low ceiling, downed), so the
