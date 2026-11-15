@@ -33,8 +33,12 @@ namespace FPSGame.Vehicle
         [SerializeField] private float deceleration = 12f;
 
         [Header("Dash")]
-        [Tooltip("Sideways speed (units/sec, along the car's local X) added instantly on a dash.")]
+        [Tooltip("Sideways speed (units/sec, along the car's local X) added instantly on a side dash (Shift + A/D).")]
         [SerializeField] private float dashForce = 25f;
+        [Tooltip("Forward speed (units/sec, along the car's local Z) added instantly on a forward dash.")]
+        [SerializeField] private float dashForwardForce = 25f;
+        [Tooltip("Backward speed (units/sec, along the car's local -Z) added instantly on a backward dash.")]
+        [SerializeField] private float dashBackwardForce = 25f;
         [Tooltip("How fast the dash speed bleeds off, in units/sec². Higher = shorter, snappier dash.")]
         [SerializeField] private float dashDecay = 60f;
         [Tooltip("Seconds between two dashes.")]
@@ -568,20 +572,31 @@ namespace FPSGame.Vehicle
         }
 
         /// <summary>
-        /// Owner-only: sideways dash along the car's local X (direction = sign). The driver moves
-        /// the car with client authority, so no server round trip — NetworkTransform syncs the result.
-        /// Returns false while on cooldown, so the caller knows whether to play the FOV punch.
+        /// Owner-only: dash along one of the car's local axes, picked from <paramref name="direction"/>
+        /// (the move input): the dominant axis wins, a tie goes sideways. X = sideways (dashForce),
+        /// +Y = forward (dashForwardForce), -Y = backward (dashBackwardForce); all share one cooldown.
+        /// The driver moves the car with client authority, so no server round trip — NetworkTransform
+        /// syncs the result. Returns false while on cooldown, so the caller knows whether to play the FOV punch.
         /// </summary>
-        public bool TryDash(float direction)
+        public bool TryDash(Vector2 direction)
         {
             if (!isOwned || !HasDriver || !vehicleIsAlive || isExploded)
                 return false;
 
-            if (Mathf.Approximately(direction, 0f) || Time.time - lastDashTime < dashCooldown)
+            if (direction.sqrMagnitude < 0.0001f || Time.time - lastDashTime < dashCooldown)
                 return false;
 
+            Vector3 dash = Mathf.Abs(direction.x) >= Mathf.Abs(direction.y)
+                ? transform.right * (Mathf.Sign(direction.x) * dashForce)
+                : direction.y > 0f
+                    ? transform.forward * dashForwardForce
+                    : -transform.forward * dashBackwardForce;
+
+            if (dash.sqrMagnitude < 0.0001f)
+                return false; // that direction's force is set to 0 = disabled
+
             lastDashTime = Time.time;
-            dashVelocity = transform.right * (Mathf.Sign(direction) * dashForce);
+            dashVelocity = dash;
             CmdReportDash();
             return true;
         }
@@ -590,8 +605,10 @@ namespace FPSGame.Vehicle
         /// only, so this is how server-side rules (DecryptParkingZone) learn about it.</summary>
         public float ServerLastDashTime { get; private set; } = float.NegativeInfinity;
 
-        /// <summary>Seconds a dash keeps pushing the car (its speed bleeding off at dashDecay).</summary>
-        public float DashDuration => dashDecay > 0f ? dashForce / dashDecay : 0f;
+        /// <summary>Seconds the longest dash keeps pushing the car (its speed bleeding off at dashDecay).</summary>
+        public float DashDuration => dashDecay > 0f
+            ? Mathf.Max(dashForce, dashForwardForce, dashBackwardForce) / dashDecay
+            : 0f;
 
         [Command]
         private void CmdReportDash()

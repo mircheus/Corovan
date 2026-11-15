@@ -619,6 +619,26 @@ MonoBehaviour:
   projectileSpeed: 30
   gunPivot: {fileID: 3041052900403332135}
   gunRotationSpeed: 180
+  sightProbeRadius: 0.3
+  sightCheckInterval: 0.1
+  lostSightGrace: 0.4
+  holdReleaseFactor: 1.15
+  useFiringPositions: 1
+  searchInterval: 0.5
+  minFiringRange: 10
+  maxFiringRange: 26
+  preferredRange: 22
+  ringCount: 3
+  samplesPerRing: 12
+  leadTime: 0.5
+  navMeshSnap: 2
+  pathChecks: 4
+  pathCostWeight: 1
+  rangeCostWeight: 1.5
+  keepSpotBonus: 6
+  stayBonus: 8
+  arriveTolerance: 1.5
+  drawDebug: 1
   shotEffect: {fileID: 8570515725438202963}
 --- !u!1 &2296485547408066999
 GameObject:
