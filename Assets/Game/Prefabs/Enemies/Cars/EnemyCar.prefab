@@ -498,35 +498,6 @@ MonoBehaviour:
   proximityAggroRadius: 0
   proximityLoseRadius: 0
   proximityScanInterval: 0.5
---- !u!114 &7200000000000000001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1735258007964980220}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 06a9622e4b7b3ad4ca1efe5cf4184403, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  syncDirection: 0
-  syncMode: 0
-  syncInterval: 0
-  moveSpeed: 8
-  angularSpeed: 0
-  acceleration: 12
-  stopDistance: 25
-  repathInterval: 0.25
-  projectilePrefab: {fileID: 7107704593863642029, guid: b8666afe6d27bcd4e848d7c5854f5ce2, type: 3}
-  firePoint: {fileID: 8939897400006189981}
-  fireRate: 0.5
-  attackRange: 30
-  projectileDamage: 10
-  projectileSpeed: 20
-  gunPivot: {fileID: 3041052900403332135}
-  gunRotationSpeed: 180
-  shotEffect: {fileID: 8570515725438202963}
 --- !u!114 &1690348286635498563
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -620,6 +591,35 @@ MonoBehaviour:
   netSync: {fileID: 429502477337996935}
   landingEffectPrefab: {fileID: 0}
   settleEffectPrefab: {fileID: 0}
+--- !u!114 &7200000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1735258007964980220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06a9622e4b7b3ad4ca1efe5cf4184403, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  moveSpeed: 14
+  angularSpeed: 0
+  acceleration: 12
+  stopDistance: 25
+  repathInterval: 0.25
+  projectilePrefab: {fileID: 7107704593863642029, guid: b8666afe6d27bcd4e848d7c5854f5ce2, type: 3}
+  firePoint: {fileID: 8939897400006189981}
+  fireRate: 0.5
+  attackRange: 30
+  projectileDamage: 10
+  projectileSpeed: 30
+  gunPivot: {fileID: 3041052900403332135}
+  gunRotationSpeed: 180
+  shotEffect: {fileID: 8570515725438202963}
 --- !u!1 &2296485547408066999
 GameObject:
   m_ObjectHideFlags: 0

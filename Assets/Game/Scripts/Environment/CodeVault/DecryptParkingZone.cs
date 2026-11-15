@@ -39,8 +39,12 @@ namespace FPSGame.Environment
         [Tooltip("How often the list of cars in the scene is refreshed, seconds.")]
         [SerializeField, Min(0.1f)] private float carScanInterval = 1f;
 
+        [Tooltip("Server: once a second, log every car's pivot (world + zone-local) and whether it counts as inside.")]
+        [SerializeField] private bool debugLog;
+
         private CarController[] cars = new CarController[0];
         private float nextScanTime;
+        private float nextLogTime;
 
         public Transform Anchor => anchor != null ? anchor : transform;
         public float ParkingTolerance => parkingTolerance;
@@ -66,8 +70,22 @@ namespace FPSGame.Environment
 
             // Best status wins: one driven car standing correctly is enough, whatever else is around.
             ParkingStatus best = ParkingStatus.NoCar;
+            bool log = debugLog && Time.time >= nextLogTime;
+            if (log)
+            {
+                nextLogTime = Time.time + 1f;
+                Debug.Log($"[ParkingZone] {name}: zone={(zone != null ? zone.name : "NULL")}, cars found={cars.Length}", this);
+            }
             foreach (CarController car in cars)
             {
+                if (log && car != null)
+                {
+                    Vector3 p = car.transform.position;
+                    Vector3 local = zone != null ? zone.transform.InverseTransformPoint(p) : Vector3.zero;
+                    Debug.Log($"[ParkingZone]   {car.name}: alive={car.VehicleIsAlive}, pivot={p}, local={local}, " +
+                              $"box center={zone?.center} size={zone?.size}, inside={Contains(p)}", car);
+                }
+
                 if (car == null || !car.VehicleIsAlive || !Contains(car.transform.position))
                     continue;
 
