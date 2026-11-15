@@ -327,18 +327,28 @@ namespace FPSGame.Player
 
             if (currentVehicle != null)
             {
+                // Reloading at the wheel takes one hand off it: only forward/backward stays,
+                // no steering left/right and no dash in any direction.
+                bool reloading = loadout != null && loadout.IsReloading;
+
                 // On foot PlayerController reads the move keys itself; in the car they steer.
                 if (fpsfInput != null)
-                    currentVehicle.SetMoveInput(fpsfInput.moveInput);
+                {
+                    Vector2 move = fpsfInput.moveInput;
+                    if (reloading)
+                        move.x = 0f;
+                    currentVehicle.SetMoveInput(move);
+                }
 
                 var kb = Keyboard.current;
                 if (kb != null && kb[Key.G].wasPressedThisFrame)
                     CmdDetachSafe(currentVehicle.netIdentity);
 
-                // Shift + A/D: sideways dash. Shift is sprint on foot and unused in the car.
-                if (kb != null && fpsfInput != null && kb[Key.LeftShift].wasPressedThisFrame
-                    && Mathf.Abs(fpsfInput.moveInput.x) > 0.5f
-                    && currentVehicle.TryDash(fpsfInput.moveInput.x))
+                // Shift + A/D: sideways dash, Shift + W/S: forward/backward dash (dominant axis wins).
+                // Shift is sprint on foot and unused in the car.
+                if (!reloading && kb != null && fpsfInput != null && kb[Key.LeftShift].wasPressedThisFrame
+                    && (Mathf.Abs(fpsfInput.moveInput.x) > 0.5f || Mathf.Abs(fpsfInput.moveInput.y) > 0.5f)
+                    && currentVehicle.TryDash(fpsfInput.moveInput))
                 {
                     playerCamera?.PunchFOV(currentVehicle.DashFovPunch, currentVehicle.DashFovPunchDuration);
                 }
