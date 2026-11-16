@@ -20,8 +20,17 @@ namespace FPSGame.Enemies
     {
         [Header("Enemy car")]
         [SerializeField] private EnemyCarController carPrefab;
+        [Tooltip("Zone handed to every spawned car with ObstacleLayerZoneCarBehaviour (EnemyCarObstacleLayerZone). " +
+                 "Empty = the car picks the zone nearest to where it spawned. Other cars ignore it.")]
+        [SerializeField] private ObstacleLayerZone obstacleLayerZone;
 
         protected override NetworkBehaviour Prefab => carPrefab;
+
+        protected override void ConfigureBeforeSpawn(NetworkBehaviour enemy)
+        {
+            if (obstacleLayerZone != null && enemy.TryGetComponent(out ObstacleLayerZoneCarBehaviour zoneCar))
+                zoneCar.SetZone(obstacleLayerZone);
+        }
         protected override bool IsEnemyDead(NetworkBehaviour enemy) => ((EnemyCarController)enemy).IsDead;
         protected override Color GizmoColor => new Color(1f, 0.6f, 0.1f, 1f);
 

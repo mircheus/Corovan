@@ -124,6 +124,9 @@ namespace FPSGame.Enemies
 
         protected virtual Color GizmoColor => new Color(1f, 0.3f, 0.3f, 1f);
 
+        /// <summary>Set up a fresh instance before <c>NetworkServer.Spawn</c> (its OnStartServer hasn't run yet).</summary>
+        protected virtual void ConfigureBeforeSpawn(NetworkBehaviour enemy) { }
+
         // ── Lifecycle / public API ──────────────────────────────────────────────────────
 
         public override void OnStartServer()
@@ -244,6 +247,7 @@ namespace FPSGame.Enemies
             if (!TryGetSpawnPose(out Vector3 position, out Quaternion rotation))
                 return null;
             NetworkBehaviour enemy = Instantiate(prefab, position, rotation);
+            ConfigureBeforeSpawn(enemy);
             NetworkServer.Spawn(enemy.gameObject);
             alive.Add(enemy);
             return enemy;
