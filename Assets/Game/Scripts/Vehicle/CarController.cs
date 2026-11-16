@@ -114,6 +114,26 @@ namespace FPSGame.Vehicle
         [Tooltip("When on, the car only jitters while actually moving; when off, it twitches even while standing still.")]
         [SerializeField] private bool chaosOnlyWhileMoving = true;
 
+        [Header("Wall Blocking")]
+        [Tooltip("Layers a driven car can't move through. Before each move step the car's colliders are swept along " +
+                 "it (any direction: forward, sideways dash, diagonal) and the step stops at the first hit — " +
+                 "MovePosition alone teleports, and depenetration can't keep up with a dash.")]
+        [SerializeField] private LayerMask blockingLayers = (1 << 0) | (1 << 3) | (1 << 8) | (1 << 10); // Default, Ground, Obstacles, Floor
+        [Tooltip("Gap (m) the car keeps from a blocking surface. Must stay below the contact offsets so OnCollisionEnter still fires.")]
+        [SerializeField, Min(0.001f)] private float blockSkin = 0.01f;
+        [Tooltip("Obstacles whose top is lower than this above the car's bottom are ignored (road seams, curbs), as are " +
+                 "floor-like surfaces (normal pointing up). Measured on the obstacle's collider bounds, not the contact " +
+                 "point — a flat side against a flat wall reports an arbitrary point, often at the car's bottom edge.")]
+        [SerializeField, Min(0f)] private float blockStepHeight = 0.3f;
+        [Tooltip("Log every sweep hit during a dash and why it was taken or skipped. For hunting a wall the car still passes.")]
+        [SerializeField] private bool debugWallBlocking;
+
+        private const float FloorNormalY = 0.7f;
+        private Collider[] ownColliders;
+        // Speed the car had at its last move step before a wall cancelled it — the collision damage uses it,
+        // since by OnCollisionEnter the velocity into the wall is already gone.
+        private float lastStepSpeed;
+
         private float lastCollisionDamageTime;
 
         [SyncVar(hook = nameof(OnDriverChanged))]
@@ -200,6 +220,8 @@ namespace FPSGame.Vehicle
 
             if (networkTransform == null)
                 networkTransform = GetComponent<NetworkTransformBase>();
+
+            ownColliders = GetComponentsInChildren<Collider>(true);
 
             chaosSeedX = Random.value * 1000f;
             chaosSeedZ = Random.value * 1000f;
@@ -346,7 +368,7 @@ namespace FPSGame.Vehicle
             if ((obstacleLayers.value & (1 << collision.gameObject.layer)) == 0)
                 return;
             
-            float impactSpeed = (currentVelocity + dashVelocity).magnitude;
+            float impactSpeed = Mathf.Max(lastStepSpeed, (currentVelocity + dashVelocity).magnitude);
             Debug.Log($"impactSpeed: {impactSpeed}");
             if (impactSpeed < minImpactSpeed)
                 return;
@@ -410,8 +432,9 @@ namespace FPSGame.Vehicle
                 Vector3 frameVelocity = currentVelocity + dashVelocity
                                       + GetChaosOffset(currentVelocity.sqrMagnitude >= 0.01f) + push;
 
+                lastStepSpeed = (currentVelocity + dashVelocity).magnitude;
                 if (frameVelocity.sqrMagnitude > 0.001f)
-                    rb.MovePosition(rb.position + frameVelocity * Time.fixedDeltaTime);
+                    rb.MovePosition(rb.position + SweepBlockedStep(frameVelocity * Time.fixedDeltaTime));
             }
             else if (isServer && vehicleIsAlive && PushActive)
             {
@@ -468,6 +491,66 @@ namespace FPSGame.Vehicle
         // A driven car waits out the push delay (the server must get the chance to eject the driver first);
         // an empty car has nothing left to eject, so it is pushed straight away.
         private bool PushActive => Time.time <= pushUntil && (!HasDriver || Time.time >= pushActiveFrom);
+
+        /// <summary>
+        /// Owner: cuts a move step at the first wall along it. The car's colliders are swept along the step
+        /// (whatever its direction), the step stops <see cref="blockSkin"/> short of the hit, and the drive and
+        /// dash speed into the wall are dropped — so the next steps slide along it instead of pressing in.
+        /// </summary>
+        private Vector3 SweepBlockedStep(Vector3 step)
+        {
+            float distance = step.magnitude;
+            if (distance < 0.0001f)
+                return step;
+
+            Vector3 dir = step / distance;
+            RaycastHit[] hits = rb.SweepTestAll(dir, distance + blockSkin, QueryTriggerInteraction.Ignore);
+            if (hits.Length == 0)
+                return step;
+
+            float bottom = float.PositiveInfinity;
+            foreach (var c in ownColliders)
+                if (c != null && c.enabled && !c.isTrigger && c.attachedRigidbody == rb)
+                    bottom = Mathf.Min(bottom, c.bounds.min.y);
+            float minTopY = bottom + blockStepHeight;
+            bool log = debugWallBlocking && dashVelocity.sqrMagnitude > 0.01f;
+
+            bool blocked = false;
+            RaycastHit nearest = default;
+            foreach (var hit in hits)
+            {
+                string skip = null;
+                if (hit.collider == null || (blockingLayers.value & (1 << hit.collider.gameObject.layer)) == 0)
+                    skip = "layer not in blockingLayers";
+                else if (hit.collider.transform.IsChildOf(transform))
+                    skip = "own child";
+                else if (hit.normal.y > FloorNormalY)
+                    skip = $"floor-like normal {hit.normal}";
+                else if (hit.collider.bounds.max.y < minTopY)
+                    skip = $"low obstacle (top {hit.collider.bounds.max.y:F2} < {minTopY:F2})"; // seams and curbs
+
+                if (log)
+                    Debug.Log($"[CAR] sweep hit '{(hit.collider != null ? hit.collider.name : "null")}' " +
+                              $"d={hit.distance:F3}/{distance:F3} n={hit.normal} → {skip ?? "BLOCK"}", hit.collider);
+                if (skip != null)
+                    continue;
+
+                if (!blocked || hit.distance < nearest.distance)
+                {
+                    nearest = hit;
+                    blocked = true;
+                }
+            }
+
+            if (!blocked)
+                return step;
+
+            Vector3 wallNormal = new Vector3(nearest.normal.x, 0f, nearest.normal.z).normalized;
+            CancelVelocityAgainst(ref currentVelocity, wallNormal);
+            CancelVelocityAgainst(ref dashVelocity, wallNormal);
+
+            return dir * Mathf.Max(0f, nearest.distance - blockSkin);
+        }
 
         // Removes the part of v that points against `direction` (into whatever moves along it).
         private static void CancelVelocityAgainst(ref Vector3 v, Vector3 direction)
