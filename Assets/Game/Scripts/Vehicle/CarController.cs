@@ -121,11 +121,12 @@ namespace FPSGame.Vehicle
         [SerializeField] private LayerMask blockingLayers = (1 << 0) | (1 << 3) | (1 << 8) | (1 << 10); // Default, Ground, Obstacles, Floor
         [Tooltip("Gap (m) the car keeps from a blocking surface. Must stay below the contact offsets so OnCollisionEnter still fires.")]
         [SerializeField, Min(0.001f)] private float blockSkin = 0.01f;
-        [Tooltip("Obstacles whose top is lower than this above the car's bottom are ignored (road seams, curbs), as are " +
-                 "floor-like surfaces (normal pointing up). Measured on the obstacle's collider bounds, not the contact " +
-                 "point — a flat side against a flat wall reports an arbitrary point, often at the car's bottom edge.")]
+        [Tooltip("Step offset (m): the wall check casts the car's box with its bottom raised by this much, so the ground, " +
+                 "tile seams and curbs lower than it never stop the car. Raise it if the car still snags on the floor; " +
+                 "lower it if it slips through low walls.")]
         [SerializeField, Min(0f)] private float blockStepHeight = 0.3f;
-        [Tooltip("Log every sweep hit during a dash and why it was taken or skipped. For hunting a wall the car still passes.")]
+        [Tooltip("Log every wall the car is stopped by (and, during a dash, every hit with the reason it was skipped). " +
+                 "Click a log entry to select the collider.")]
         [SerializeField] private bool debugWallBlocking;
 
         private const float FloorNormalY = 0.7f;
@@ -499,57 +500,89 @@ namespace FPSGame.Vehicle
         /// </summary>
         private Vector3 SweepBlockedStep(Vector3 step)
         {
-            float distance = step.magnitude;
-            if (distance < 0.0001f)
+            if (step.sqrMagnitude < 0.0001f * 0.0001f)
                 return step;
 
-            Vector3 dir = step / distance;
-            RaycastHit[] hits = rb.SweepTestAll(dir, distance + blockSkin, QueryTriggerInteraction.Ignore);
-            if (hits.Length == 0)
+            if (!TryFindWall(step, out RaycastHit wall))
                 return step;
 
-            float bottom = float.PositiveInfinity;
-            foreach (var c in ownColliders)
-                if (c != null && c.enabled && !c.isTrigger && c.attachedRigidbody == rb)
-                    bottom = Mathf.Min(bottom, c.bounds.min.y);
-            float minTopY = bottom + blockStepHeight;
-            bool log = debugWallBlocking && dashVelocity.sqrMagnitude > 0.01f;
+            Vector3 dir = step.normalized;
+            Vector3 n = new Vector3(wall.normal.x, 0f, wall.normal.z).normalized; // out of the wall
+            CancelVelocityAgainst(ref currentVelocity, n);
+            CancelVelocityAgainst(ref dashVelocity, n);
 
-            bool blocked = false;
-            RaycastHit nearest = default;
-            foreach (var hit in hits)
+            // Slide: keep the motion along the wall, cut only the part going into it down to the gap.
+            float travel = Mathf.Max(0f, wall.distance - blockSkin);
+            float intoWanted = -Vector3.Dot(step, n);
+            float intoAllowed = travel * -Vector3.Dot(dir, n);
+            Vector3 slid = step + n * Mathf.Max(0f, intoWanted - intoAllowed);
+
+            // The slid step may run into a second wall (a corner): sweep it once more, and there just stop at it.
+            if (slid.sqrMagnitude > 0.0001f * 0.0001f && TryFindWall(slid, out RaycastHit corner))
             {
-                string skip = null;
-                if (hit.collider == null || (blockingLayers.value & (1 << hit.collider.gameObject.layer)) == 0)
-                    skip = "layer not in blockingLayers";
-                else if (hit.collider.transform.IsChildOf(transform))
-                    skip = "own child";
-                else if (hit.normal.y > FloorNormalY)
-                    skip = $"floor-like normal {hit.normal}";
-                else if (hit.collider.bounds.max.y < minTopY)
-                    skip = $"low obstacle (top {hit.collider.bounds.max.y:F2} < {minTopY:F2})"; // seams and curbs
+                Vector3 cn = new Vector3(corner.normal.x, 0f, corner.normal.z).normalized;
+                CancelVelocityAgainst(ref currentVelocity, cn);
+                CancelVelocityAgainst(ref dashVelocity, cn);
+                return slid.normalized * Mathf.Max(0f, corner.distance - blockSkin);
+            }
+            return slid;
+        }
 
-                if (log)
-                    Debug.Log($"[CAR] sweep hit '{(hit.collider != null ? hit.collider.name : "null")}' " +
-                              $"d={hit.distance:F3}/{distance:F3} n={hit.normal} → {skip ?? "BLOCK"}", hit.collider);
-                if (skip != null)
+        private static readonly RaycastHit[] wallHits = new RaycastHit[16];
+
+        /// <summary>
+        /// Casts the car's solid box colliders along <paramref name="step"/> with their bottom raised by
+        /// <see cref="blockStepHeight"/> (a CharacterController-style step offset): the ground, tile seams and curbs
+        /// under that height are never touched, so only real walls stop the car.
+        /// </summary>
+        private bool TryFindWall(Vector3 step, out RaycastHit nearest)
+        {
+            nearest = default;
+            float distance = step.magnitude;
+            Vector3 dir = step / distance;
+            bool found = false;
+            bool logAll = debugWallBlocking && dashVelocity.sqrMagnitude > 0.01f;
+
+            foreach (var c in ownColliders)
+            {
+                if (!(c is BoxCollider box) || !box.enabled || box.isTrigger || box.attachedRigidbody != rb)
                     continue;
 
-                if (!blocked || hit.distance < nearest.distance)
+                Transform t = box.transform;
+                Vector3 scale = t.lossyScale;
+                Vector3 size = Vector3.Scale(box.size, new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
+                float lift = Mathf.Min(blockStepHeight, size.y - 0.05f);
+                if (lift < 0f) lift = 0f;
+                Vector3 center = t.TransformPoint(box.center) + t.up * (lift * 0.5f);
+                Vector3 halfExtents = new Vector3(size.x, size.y - lift, size.z) * 0.5f;
+
+                int count = Physics.BoxCastNonAlloc(center, halfExtents, dir, wallHits, t.rotation,
+                    distance + blockSkin, blockingLayers, QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < count; i++)
                 {
-                    nearest = hit;
-                    blocked = true;
+                    RaycastHit hit = wallHits[i];
+                    string skip = null;
+                    if (hit.collider.attachedRigidbody == rb || hit.collider.transform.IsChildOf(transform))
+                        skip = "own collider";
+                    else if (hit.distance <= 0f)
+                        skip = "already overlapping";
+                    else if (hit.normal.y > FloorNormalY)
+                        skip = $"floor-like normal {hit.normal}";
+
+                    if (logAll || (debugWallBlocking && skip == null))
+                        Debug.Log($"[CAR] wall cast hit '{hit.collider.name}' d={hit.distance:F3}/{distance:F3} " +
+                                  $"n={hit.normal} → {skip ?? "BLOCK"}", hit.collider);
+                    if (skip != null)
+                        continue;
+
+                    if (!found || hit.distance < nearest.distance)
+                    {
+                        nearest = hit;
+                        found = true;
+                    }
                 }
             }
-
-            if (!blocked)
-                return step;
-
-            Vector3 wallNormal = new Vector3(nearest.normal.x, 0f, nearest.normal.z).normalized;
-            CancelVelocityAgainst(ref currentVelocity, wallNormal);
-            CancelVelocityAgainst(ref dashVelocity, wallNormal);
-
-            return dir * Mathf.Max(0f, nearest.distance - blockSkin);
+            return found;
         }
 
         // Removes the part of v that points against `direction` (into whatever moves along it).
