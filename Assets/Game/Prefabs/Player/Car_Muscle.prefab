@@ -1647,9 +1647,9 @@ MonoBehaviour:
   screenRenderer: {fileID: 8995034738393513105}
   screenMaterialIndex: 0
   resolution: {x: 512, y: 512}
-  rangeForward: 40
-  rangeBack: 80
-  rangeSide: 15
+  rangeForward: 100
+  rangeBack: 100
+  rangeSide: 100
   rotateWithCar: 1
   clampToEdge: 1
   trackDistance: 150
