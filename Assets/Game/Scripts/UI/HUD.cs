@@ -36,6 +36,17 @@ namespace FPSGame.UI
         [SerializeField] private TextMeshProUGUI reserveAmmoText;
         [SerializeField] private GameObject reloadingIndicator;
 
+        [Header("Vehicle Health")]
+        [Tooltip("Shown while this player sits in a car (driver or passenger); hidden on foot.")]
+        [SerializeField] private GameObject vehicleHealthRoot;
+        [SerializeField] private Slider vehicleHealthBar;
+        [SerializeField] private TextMeshProUGUI vehicleHealthText;
+        [SerializeField] private Image vehicleHealthFill;
+        [Tooltip("{0} = current health, {1} = max health.")]
+        [SerializeField] private string vehicleHealthFormat = "{0}/{1}";
+        [SerializeField] private Color vehicleHealthyColor = new Color(1f, 0.75f, 0.2f);
+        [SerializeField] private Color vehicleLowHealthColor = Color.red;
+
         [Header("Vehicle Gun")]
         [Tooltip("Shown while driving a car that has a CarMachineGun.")]
         [SerializeField] private GameObject vehicleAmmoRoot;
@@ -93,6 +104,7 @@ namespace FPSGame.UI
 
         private float hitMarkerTimer;
         private int shownVehicleAmmo = int.MinValue;
+        private CarController watchedVehicle;
         private GameObject fpsfCombatHud;
         private ScoreManager _scoreManager;
 
@@ -159,7 +171,10 @@ namespace FPSGame.UI
                 playerInputHandler.OnInteractCancelled += HideInteractProgress;
                 playerInputHandler.OnInteractFinished += HideInteractProgress;
                 playerInputHandler.OnInteractPromptChanged += UpdateInteractPrompt;
+                playerInputHandler.OnVehicleChanged += WatchVehicle;
             }
+
+            WatchVehicle(null);
 
             ResolvePlayerCarry();
 
@@ -227,6 +242,47 @@ namespace FPSGame.UI
                 return;
             shownVehicleAmmo = ammo;
             vehicleAmmoText.text = string.Format(vehicleAmmoFormat, ammo, gun.MaxAmmo);
+        }
+
+        // OnVehicleChanged fires for the driver seat and for passenger seats alike (null = on foot).
+        // Health arrives through the car's SyncVar hook, so it updates for both without polling.
+        private void WatchVehicle(CarController car)
+        {
+            if (watchedVehicle != null)
+                watchedVehicle.OnVehicleHealthChanged -= OnWatchedVehicleHealthChanged;
+
+            watchedVehicle = car;
+
+            if (watchedVehicle != null)
+                watchedVehicle.OnVehicleHealthChanged += OnWatchedVehicleHealthChanged;
+
+            if (vehicleHealthRoot != null)
+                vehicleHealthRoot.SetActive(watchedVehicle != null);
+
+            if (watchedVehicle != null)
+                UpdateVehicleHealthUI(watchedVehicle.VehicleHealth, watchedVehicle.MaxVehicleHealth);
+        }
+
+        private void OnWatchedVehicleHealthChanged(int oldHealth, int newHealth)
+        {
+            if (watchedVehicle != null)
+                UpdateVehicleHealthUI(newHealth, watchedVehicle.MaxVehicleHealth);
+        }
+
+        private void UpdateVehicleHealthUI(int health, int maxHealth)
+        {
+            float t = maxHealth > 0 ? Mathf.Clamp01((float)health / maxHealth) : 0f;
+
+            if (vehicleHealthBar != null)
+                vehicleHealthBar.value = t;
+
+            if (vehicleHealthText != null)
+                vehicleHealthText.text = string.Format(vehicleHealthFormat, health, maxHealth);
+
+            if (vehicleHealthFill != null)
+                vehicleHealthFill.color = t <= lowHealthThreshold
+                    ? vehicleLowHealthColor
+                    : Color.Lerp(vehicleLowHealthColor, vehicleHealthyColor, t);
         }
 
         // The bleedout countdown is derived from a synced deadline rather than streamed, so it is
@@ -426,6 +482,7 @@ namespace FPSGame.UI
                 playerInputHandler.OnInteractProgress += UpdateInteractProgress;
                 playerInputHandler.OnInteractCancelled += HideInteractProgress;
                 playerInputHandler.OnInteractPromptChanged += UpdateInteractPrompt;
+                playerInputHandler.OnVehicleChanged += WatchVehicle;
             }
         }
 
@@ -460,7 +517,11 @@ namespace FPSGame.UI
                 playerInputHandler.OnInteractCancelled -= HideInteractProgress;
                 playerInputHandler.OnInteractFinished -= HideInteractProgress;
                 playerInputHandler.OnInteractPromptChanged -= UpdateInteractPrompt;
+                playerInputHandler.OnVehicleChanged -= WatchVehicle;
             }
+
+            if (watchedVehicle != null)
+                watchedVehicle.OnVehicleHealthChanged -= OnWatchedVehicleHealthChanged;
         }
     }
 }
