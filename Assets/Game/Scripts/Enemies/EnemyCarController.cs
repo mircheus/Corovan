@@ -59,6 +59,9 @@ namespace FPSGame.Environment
         [SerializeField, Min(0f)] private float launchSideSpeed = 1.5f;
         [Tooltip("Max random spin (rad/s) per axis given at launch.")]
         [SerializeField, Min(0f)] private float launchSpin = 1.5f;
+        [Tooltip("Seconds after death before the wreck is removed from the map (server, on every peer through Mirror). " +
+                 "0 = never by timer, only RoadBody's own despawn (which doesn't fire on a road that isn't scrolling).")]
+        [SerializeField, Min(0f)] private float wreckLifetime = 20f;
 
         [Header("Targeting")]
         [Tooltip("After the player leaves their car, who to keep targeting — the player on foot, or the abandoned car.")]
@@ -95,6 +98,8 @@ namespace FPSGame.Environment
         private readonly Dictionary<CarController, PlayerHealth> lastDriverByCar = new();
         private float nextProximityScan;
         private double nextDamageEffectTime;
+        // Server Time.timeAsDouble at which the wreck is destroyed; set on death when wreckLifetime > 0.
+        private double wreckDespawnTime = double.PositiveInfinity;
         // Hunt: overrides normal target selection until huntEndTime (server Time.timeAsDouble).
         private PlayerHealth huntedPlayer;
         private CarController huntedCar;
@@ -182,8 +187,14 @@ namespace FPSGame.Environment
 
         private void Update()
         {
-            if (!isServer || isDead)
+            if (!isServer)
                 return;
+
+            if (isDead)
+            {
+                ServerTickWreck();
+                return;
+            }
 
             ProximityScan();
 
@@ -331,6 +342,19 @@ namespace FPSGame.Environment
             isDead = true;
 
             ServerLaunchWreck(velocity);
+
+            if (wreckLifetime > 0f)
+                wreckDespawnTime = Time.timeAsDouble + wreckLifetime;
+        }
+
+        // The wreck is a dead weight on the map: remove it once its time is up.
+        [Server]
+        private void ServerTickWreck()
+        {
+            if (Time.timeAsDouble < wreckDespawnTime)
+                return;
+            wreckDespawnTime = double.PositiveInfinity; // once: Destroy takes effect at the end of the frame
+            NetworkServer.Destroy(gameObject);
         }
 
         // From here on RoadBody owns the wreck: flight, landing, drift back, despawn.

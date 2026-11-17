@@ -167,7 +167,9 @@ namespace FPSGame.Environment
             if (airborne && (_phase == RoadPhase.InAir || _phase == RoadPhase.OnRoad))
                 ApplyAirstream();
 
-            if (_phase != RoadPhase.Settled && transform.position.z < _despawnZ)
+            // Settled included: the server body keeps drifting at belt speed (zero-friction road), so it
+            // does pass despawnZ — skipping that phase left every settled prop on the server forever.
+            if (transform.position.z < _despawnZ)
                 Despawn();
         }
 
