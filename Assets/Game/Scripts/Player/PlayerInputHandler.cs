@@ -70,6 +70,9 @@ namespace FPSGame.Player
         public bool IsInVehicle => currentVehicle != null;
         /// <summary>Owner-side: riding a car as its passenger.</summary>
         public bool IsPassenger => currentSeat != null;
+        /// <summary>Owner-side: the car this player sits in, as driver or passenger (null on foot).</summary>
+        public CarController OccupiedVehicle => currentVehicle != null ? currentVehicle
+            : currentSeat != null ? currentSeat.Car : null;
         /// <summary>The gun of the car this player drives (null on foot or in a car without one).</summary>
         public CarMachineGun CurrentVehicleGun => currentVehicleGun;
         private bool IsDowned => playerHealth != null && playerHealth.IsDowned;
