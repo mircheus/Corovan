@@ -1453,6 +1453,8 @@ MonoBehaviour:
   acceleration: 8
   deceleration: 12
   dashForce: 25
+  dashForwardForce: 25
+  dashBackwardForce: 25
   dashDecay: 60
   dashCooldown: 1
   dashFovPunch: 8
@@ -1471,7 +1473,7 @@ MonoBehaviour:
   maxVehicleHealth: 200
   fireEffect: {fileID: 342434046628179975}
   explosionEffect: {fileID: 5005610720051778277}
-  explosionDelay: 2
+  explosionDelay: 7
   explosionDuration: 2
   obstacleLayers:
     serializedVersion: 2
@@ -1488,6 +1490,12 @@ MonoBehaviour:
   chaosStrafeScale: 1
   chaosForwardScale: 0.5
   chaosOnlyWhileMoving: 0
+  blockingLayers:
+    serializedVersion: 2
+    m_Bits: 1289
+  blockSkin: 0.01
+  blockStepHeight: 0.3
+  debugWallBlocking: 0
 --- !u!114 &6861499719343936595
 MonoBehaviour:
   m_ObjectHideFlags: 0
