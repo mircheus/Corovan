@@ -64,6 +64,14 @@ namespace FPSGame.Environment
         [Tooltip("After the player leaves their car, who to keep targeting — the player on foot, or the abandoned car.")]
         [SerializeField] private DriverExitBehavior onDriverExit = DriverExitBehavior.ShootPlayer;
 
+        [Header("Hunt (a player on foot shoots the car)")]
+        [Tooltip("A player on foot (not a driver, not a passenger) who shoots this car becomes its target, even if it was " +
+                 "busy with another car, and stays it for Hunt Duration. If they get into a car meanwhile, the car is hunted. " +
+                 "Ends early when the player is downed or dead. Off on unarmed cars.")]
+        [SerializeField] private bool huntOnFootAttacker = false;
+        [Tooltip("Seconds the hunt lasts. Every new hit by the hunted player restarts it.")]
+        [SerializeField, Min(0f)] private float huntDuration = 120f;
+
         [Header("Proximity aggro (in addition to EnemyAggroZone)")]
         [Tooltip("A player car closer than this (distance on the ground plane) becomes a target candidate. 0 = off.")]
         [SerializeField, Min(0f)] private float proximityAggroRadius = 0f;
@@ -87,6 +95,10 @@ namespace FPSGame.Environment
         private readonly Dictionary<CarController, PlayerHealth> lastDriverByCar = new();
         private float nextProximityScan;
         private double nextDamageEffectTime;
+        // Hunt: overrides normal target selection until huntEndTime (server Time.timeAsDouble).
+        private PlayerHealth huntedPlayer;
+        private CarController huntedCar;
+        private double huntEndTime;
 
         [SyncVar(hook = nameof(OnDeadChanged))]
         private bool isDead;
@@ -115,6 +127,9 @@ namespace FPSGame.Environment
             : currentCarTarget.AimPosition;
 
         public float ProximityLoseRadius => Mathf.Max(proximityLoseRadius, proximityAggroRadius);
+
+        /// <summary>Server: the car is hunting a player who shot it on foot.</summary>
+        public bool IsHunting => huntedPlayer != null;
 
         private void Awake()
         {
@@ -172,7 +187,7 @@ namespace FPSGame.Environment
 
             ProximityScan();
 
-            if (!HasValidTarget())
+            if (!UpdateHunt() && !HasValidTarget())
                 PickTarget();
 
             NotifyTargetChange();
@@ -298,6 +313,8 @@ namespace FPSGame.Environment
         [Server]
         private void ServerDie()
         {
+            huntedPlayer = null;
+            huntedCar = null;
             currentCarTarget = null;
             currentPlayerTarget = null;
             // Keep the chase momentum: the wreck carries on from where the car was going.
@@ -381,26 +398,101 @@ namespace FPSGame.Environment
 
         void IAttackerListener.ServerOnHitBy(GameObject attacker)
         {
-            if (!aggroOnDamage || isDead || HasValidTarget() || attacker == null)
+            if (isDead || attacker == null)
                 return;
 
             var player = attacker.GetComponent<PlayerHealth>();
-            if (player == null || !player.IsTargetable)
+            // Not IsTargetable: that is false for a driver, and a driver shooting the machine gun must still aggro.
+            if (player == null || player.IsIncapacitated)
+                return;
+
+            // On foot = not driving, not in a passenger seat. A second player can't steal a running hunt.
+            if (huntOnFootAttacker && !player.IsDriving && !IsPassenger(player)
+                && (huntedPlayer == null || huntedPlayer == player))
+            {
+                StartHunt(player);
+                return;
+            }
+
+            if (!aggroOnDamage || HasValidTarget())
                 return;
 
             // A driver shoots with the car's machine gun; the hit reports the player, so find their car.
-            CarController drivenCar = FindCarDrivenBy(player);
+            CarController drivenCar = player.IsDriving ? FindCarDrivenBy(player) : null;
             if (drivenCar != null)
             {
                 RegisterTarget(drivenCar);
                 currentCarTarget = drivenCar;
                 currentPlayerTarget = null;
             }
-            else
+            else if (player.IsTargetable)
             {
                 currentCarTarget = null;
                 currentPlayerTarget = player;
             }
+        }
+
+        [Server]
+        private void StartHunt(PlayerHealth player)
+        {
+            huntedPlayer = player;
+            huntEndTime = Time.timeAsDouble + huntDuration;
+            UpdateHunt(); // switch right away, not next frame
+        }
+
+        [Server]
+        private void EndHunt()
+        {
+            // Drop the hunt's target too: otherwise HasValidTarget would keep chasing the player on foot forever.
+            if (currentPlayerTarget == huntedPlayer)
+                currentPlayerTarget = null;
+            if (currentCarTarget != null && currentCarTarget == huntedCar)
+                currentCarTarget = null;
+            huntedPlayer = null;
+            huntedCar = null;
+        }
+
+        // Points the targets at the hunted player (or the car they drive). False = no hunt, normal selection runs.
+        [Server]
+        private bool UpdateHunt()
+        {
+            if (huntedPlayer == null)
+                return false;
+
+            if (Time.timeAsDouble >= huntEndTime || huntedPlayer.IsIncapacitated)
+            {
+                EndHunt();
+                return false;
+            }
+
+            if (huntedPlayer.IsDriving)
+            {
+                // Searched only when the player switches cars, not every frame.
+                if (huntedCar == null || huntedCar.GetCurrentDriverServer() != huntedPlayer)
+                    huntedCar = FindCarDrivenBy(huntedPlayer);
+                if (huntedCar == null || !huntedCar.VehicleIsAlive)
+                    return false;
+
+                currentCarTarget = huntedCar;
+                currentPlayerTarget = null;
+                return true;
+            }
+
+            // On foot, or boarded as a passenger after the hunt started: the player themselves.
+            huntedCar = null;
+            currentCarTarget = null;
+            currentPlayerTarget = huntedPlayer;
+            return true;
+        }
+
+        private static bool IsPassenger(PlayerHealth player)
+        {
+            foreach (CarPassengerSeat seat in CarPassengerSeat.All)
+            {
+                if (seat != null && seat.PassengerNetId == player.netId)
+                    return true;
+            }
+            return false;
         }
 
         private CarController FindCarDrivenBy(PlayerHealth player)

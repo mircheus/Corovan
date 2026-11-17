@@ -495,6 +495,8 @@ MonoBehaviour:
   launchSideSpeed: 1.5
   launchSpin: 1.5
   onDriverExit: 1
+  huntOnFootAttacker: 1
+  huntDuration: 5
   proximityAggroRadius: 0
   proximityLoseRadius: 0
   proximityScanInterval: 0.5
