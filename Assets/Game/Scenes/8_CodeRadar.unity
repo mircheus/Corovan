@@ -4116,11 +4116,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2215334878500934039, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
       propertyPath: rangeBack
-      value: 60
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 2215334878500934039, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
+      propertyPath: rangeSide
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 2215334878500934039, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
       propertyPath: rangeForward
-      value: 60
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9757,9 +9761,9 @@ MonoBehaviour:
       kind: 0
       enemies:
       - spawner: {fileID: 1945219298}
-        count: 2
-      - spawner: {fileID: 1205098988}
         count: 1
+      - spawner: {fileID: 1205098988}
+        count: 3
       endCondition: 0
       duration: 0
     - name: Wave 2

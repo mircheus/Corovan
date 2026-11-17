@@ -494,6 +494,7 @@ MonoBehaviour:
   launchUpSpeed: {x: 6, y: 9}
   launchSideSpeed: 1.5
   launchSpin: 1.5
+  wreckLifetime: 10
   onDriverExit: 1
   huntOnFootAttacker: 1
   huntDuration: 5
