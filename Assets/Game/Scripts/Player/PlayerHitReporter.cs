@@ -49,6 +49,25 @@ namespace FPSGame.Player
                 Local = null;
         }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void RegisterIgnoreHit()
+        {
+            Firearm.IgnoreHit = HitsShootersOwnVehicle;
+        }
+
+        // Owner side (FPSF hook): bullets fly through the car their shooter is riding in, so they reach
+        // whatever is behind it. Only colliders that resolve to the car itself — not something else
+        // mounted on it with its own receiver.
+        private static bool HitsShootersOwnVehicle(Firearm firearm, Collider hit)
+        {
+            if (firearm == null || hit == null)
+                return false;
+
+            PlayerInputHandler input = firearm.GetComponentInParent<PlayerInputHandler>();
+            CarController car = input != null ? input.OccupiedVehicle : null;
+            return car != null && ReferenceEquals(hit.GetComponentInParent<IDamageReceiver>(), car);
+        }
+
         /// <summary>Owner side: a weapon of ours hit this receiver.</summary>
         public void ReportHit(IDamageReceiver receiver, int damage, Vector3 force)
         {
@@ -56,7 +75,10 @@ namespace FPSGame.Player
                 return;
 
             if (isServer)
-                ServerApplyHit(receiver, damage, force);
+            {
+                if (!ServerRidesIn(target))
+                    ServerApplyHit(receiver, damage, force);
+            }
             else
                 CmdReportHit(target, damage, force);
         }
@@ -67,14 +89,31 @@ namespace FPSGame.Player
             if (target == null || !(target is IDamageReceiver receiver))
                 return;
 
-            // Incapacitated players cannot shoot; one's own bullets never hit oneself.
-            if (health.IsIncapacitated || target.gameObject == gameObject)
+            // Incapacitated players cannot shoot; one's own bullets never hit oneself or the car one rides in.
+            if (health.IsIncapacitated || target.gameObject == gameObject || ServerRidesIn(target))
                 return;
 
             if (Vector3.Distance(transform.position, target.transform.position) > maxReportDistance)
                 return;
 
             ServerApplyHit(receiver, Mathf.Clamp(damage, 0, maxDamagePerHit), force);
+        }
+
+        // Server view: this player sits in the target car, in the driver seat or a passenger seat.
+        [Server]
+        private bool ServerRidesIn(NetworkBehaviour target)
+        {
+            if (!(target is CarController car))
+                return false;
+            if (car.DriverNetId == netId)
+                return true;
+
+            foreach (CarPassengerSeat seat in car.GetComponents<CarPassengerSeat>())
+            {
+                if (seat.PassengerNetId == netId)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>Server side: apply a hit by this player, with friendly-fire multipliers.</summary>

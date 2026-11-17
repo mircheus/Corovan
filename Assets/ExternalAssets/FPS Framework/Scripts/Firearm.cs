@@ -528,7 +528,7 @@ namespace Akila.FPSFramework
                 Ray ray = new Ray(_muzzle.position, GetSpread(_muzzle.forward));
                 RaycastHit hit;
 
-                if (Physics.Raycast(ray, out hit, preset.range, preset.hittableLayers))
+                if (HitscanRaycast(ray, out hit)) // CORVAN: skips colliders IgnoreHit passes through
                 {
                     float damageRangeFactor = Mathf.InverseLerp(1, 0, (hit.distance / preset.range)) * (preset.damageRangeCurve.Evaluate(hit.distance / preset.range));
                     float damage = (!preset.alwaysApplyFire ? preset.damage / preset.shotCount : preset.damage) * damageRangeFactor;
@@ -602,10 +602,36 @@ namespace Akila.FPSFramework
         /// </summary>
         public static System.Action<Firearm> ShotFired;
 
+        /// <summary>
+        /// CORVAN: true = this firearm's shots pass through the collider as if it weren't there
+        /// (no damage, decal, hit marker or penetration loss) — the car the shooter is riding in.
+        /// </summary>
+        public static System.Func<Firearm, Collider, bool> IgnoreHit;
+
+        // CORVAN: Physics.Raycast, but the nearest hit IgnoreHit doesn't pass through.
+        private bool HitscanRaycast(Ray ray, out RaycastHit nearest)
+        {
+            if (IgnoreHit == null)
+                return Physics.Raycast(ray, out nearest, preset.range, preset.hittableLayers);
+
+            nearest = default;
+            bool found = false;
+            foreach (RaycastHit h in Physics.RaycastAll(ray, preset.range, preset.hittableLayers))
+            {
+                if ((!found || h.distance < nearest.distance) && !IgnoreHit(this, h.collider))
+                {
+                    nearest = h;
+                    found = true;
+                }
+            }
+            return found;
+        }
+
         public static void UpdateHits(Firearm firearm, Projectile projectile, GameObject defaultDecal, Ray ray, RaycastHit hit, float damage, float damageRangeFactor, Vector3Direction decalDirection)
         {
             //stop if object has ignore component
             if (hit.transform.TryGetComponent(out IgnoreHitDetection ignore)) return;
+            if (IgnoreHit != null && IgnoreHit(firearm, hit.collider)) return; // CORVAN
 
             //setup hit info for hit detection without directly editing on the code but using IHitable interface
             HitInfo hitInfo = new HitInfo(projectile, ray, hit);

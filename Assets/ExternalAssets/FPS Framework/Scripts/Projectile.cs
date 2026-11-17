@@ -157,6 +157,8 @@ namespace Akila.FPSFramework
         {
             //stop if object has ignore component
             if (hit.transform.TryGetComponent(out IgnoreHitDetection ignore)) return;
+            // CORVAN: pass through the shooter's own car before it costs penetration or ends the bullet.
+            if (Firearm.IgnoreHit != null && Firearm.IgnoreHit(source, hit.collider)) return;
             OnHit(hit);
 
             if (explosive)
