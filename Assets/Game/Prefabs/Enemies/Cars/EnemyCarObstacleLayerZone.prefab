@@ -615,7 +615,7 @@ MonoBehaviour:
   alignTurnSpeed: 180
   leaveDelay: 1
   waitTime: 5
-  obstaclePrefab: {fileID: 7100000000000000001, guid: 52ddda8644744e27b7520a6618984d9f, type: 3}
+  obstaclePrefab: {fileID: 1194466859310567730, guid: 86af5c9aefd4cf24baaecaf780eda050, type: 3}
   spawnPoint: {fileID: 2835994077171789628}
   rearOffset: 6
   spawnHeightOffset: 1.5
