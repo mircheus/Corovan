@@ -6,9 +6,9 @@ using UnityEngine;
 namespace FPSGame.Vehicle
 {
     /// <summary>
-    /// Minimal passenger state for a car (handoff F7). E takes this seat when the driver seat is already taken
+    /// Minimal passenger state for a car (handoff F7). E takes this seat only when the driver seat is already taken
     /// and the player is in the boarding box above the car (on the roof or mid-jump) or within the car's
-    /// interact distance. The passenger is pinned to the seat on every peer and the camera simply rides along
+    /// interact distance. From the same spots a free driver seat is taken instead. The passenger is pinned to the seat on every peer and the camera simply rides along
     /// (it is a child of the player). E gets them out, popped up above the car so they can jump or grapple back
     /// onto the platform; missing it is the ordinary fall respawn.
     ///
@@ -64,10 +64,27 @@ namespace FPSGame.Vehicle
             return new Bounds(boardBoxCenter, boardBoxSize).Contains(local);
         }
 
-        /// <summary>Whether the local player may try to board (seat free, car alive, not the driver).</summary>
+        /// <summary>
+        /// True if a player at this point can get into the car with E: inside the boarding box (roof, mid-jump)
+        /// or within the car's interact distance. Used for the driver seat too — a free driver seat always wins.
+        /// </summary>
+        public bool InBoardingReach(Vector3 worldPoint)
+        {
+            return InBoardingBox(worldPoint)
+                || (car != null && Vector3.Distance(worldPoint, car.transform.position) <= car.InteractDistance);
+        }
+
+        /// <summary>Server tolerance for the owner-reported boarding position (latency + box corners).</summary>
+        public float ServerMaxBoardDistance => boardBoxSize.magnitude + 2f;
+
+        /// <summary>
+        /// Whether the player may take this seat: seat free, car alive, and the driver seat already taken by
+        /// someone else — the first player in always drives.
+        /// </summary>
         public bool CanBoard(uint playerNetId)
         {
-            return !IsOccupied && car != null && car.VehicleIsAlive && car.DriverNetId != playerNetId;
+            return !IsOccupied && car != null && car.VehicleIsAlive
+                && car.HasDriver && car.DriverNetId != playerNetId;
         }
 
         [Server]
@@ -78,7 +95,7 @@ namespace FPSGame.Vehicle
 
             // Same tolerance idea as entering a car: the owner reports, the server sanity-checks.
             float dist = Vector3.Distance(player.transform.position, transform.position);
-            if (dist > boardBoxSize.magnitude + 2f)
+            if (dist > ServerMaxBoardDistance)
                 return false;
 
             passengerNetId = player.netId;

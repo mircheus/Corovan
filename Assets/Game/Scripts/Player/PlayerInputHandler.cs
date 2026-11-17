@@ -508,17 +508,18 @@ namespace FPSGame.Player
                     return;
                 }
 
-                // Vehicle enter next.
-                CarController car = FindNearbyCar();
-                if (car != null && !car.HasDriver)
+                // Vehicle enter next. A free driver seat always wins over the passenger seat, from
+                // anywhere the passenger seat could be taken (roof, mid-jump, next to the car).
+                CarController car = FindEnterableCar();
+                if (car != null)
                 {
                     CmdEnterVehicle(car.netIdentity);
                     EnterVehicle(car);
                     return;
                 }
 
-                // Driver seat taken (or out of reach) → the passenger seat: from the roof, mid-air above
-                // the car, or standing next to it.
+                // Driver seat taken → the passenger seat: from the roof, mid-air above the car, or
+                // standing next to it.
                 CarPassengerSeat passengerSeat = FindBoardablePassengerSeat();
                 if (passengerSeat != null)
                 {
@@ -595,21 +596,99 @@ namespace FPSGame.Player
             return closest;
         }
 
+        // The car whose free driver seat E takes right now: next to it (FindNearbyCar), or anywhere its
+        // passenger seat could be boarded from (roof, mid-jump). Passenger boarding reaches further than
+        // the driver check alone, so without the second pass a player on the roof of an empty car would
+        // end up in the passenger seat.
+        private CarController FindEnterableCar()
+        {
+            if (playerController != null && playerController.InVehicle)
+                return null;
+
+            CarController nearby = FindNearbyCar();
+            if (nearby != null && !nearby.HasDriver)
+                return nearby;
+
+            var seats = CarPassengerSeat.All;
+            for (int i = 0; i < seats.Count; i++)
+            {
+                CarPassengerSeat seat = seats[i];
+                if (seat == null || seat.Car == null || seat.Car.HasDriver || !seat.Car.VehicleIsAlive)
+                    continue;
+                if (seat.InBoardingReach(transform.position))
+                    return seat.Car;
+            }
+            return null;
+        }
+
         [Command]
         private void CmdEnterVehicle(NetworkIdentity carNetId)
         {
-            if (carNetId == null)
+            var car = carNetId != null ? carNetId.GetComponent<CarController>() : null;
+            if (car == null)
                 return;
 
-            var car = carNetId.GetComponent<CarController>();
-            if (car == null || car.HasDriver)
+            // Already ours (a repeated request) — nothing to do, and refusing would pull us out locally.
+            if (car.DriverNetId == netId)
                 return;
 
+            var seat = car.GetComponent<CarPassengerSeat>();
+
+            if (car.HasDriver)
+            {
+                // Lost the race for the driver seat (two players pressed E at once): the second one in
+                // takes the passenger seat instead, if it's free.
+                bool incapacitated = playerHealth != null && playerHealth.IsIncapacitated;
+                if (seat != null && !incapacitated && seat.ServerBoard(netIdentity))
+                    TargetEnterMovedToSeat(carNetId);
+                else
+                    TargetEnterRefused(carNetId);
+                return;
+            }
+
+            // Driver entry is allowed from the passenger boarding spots too (roof, mid-jump).
             float dist = Vector3.Distance(transform.position, car.transform.position);
-            if (dist > car.InteractDistance + 1f)
+            float maxDist = car.InteractDistance + 1f;
+            if (seat != null)
+                maxDist = Mathf.Max(maxDist, seat.ServerMaxBoardDistance);
+            if (dist > maxDist)
+            {
+                TargetEnterRefused(carNetId);
                 return;
+            }
 
             car.ServerEnter(connectionToClient, netIdentity);
+        }
+
+        // The owner entered the driver seat locally before the server answered; the server said no.
+        [TargetRpc]
+        private void TargetEnterRefused(NetworkIdentity carIdentity)
+        {
+            if (currentVehicle != null && currentVehicle.netIdentity == carIdentity)
+                ExitVehicle();
+        }
+
+        // The driver seat was taken a moment before us; the server put us in the passenger seat instead.
+        [TargetRpc]
+        private void TargetEnterMovedToSeat(NetworkIdentity carIdentity)
+        {
+            var seat = carIdentity != null ? carIdentity.GetComponent<CarPassengerSeat>() : null;
+
+            // Already left the (local) driver seat by the time the answer came — give the seat back.
+            if (seat == null || currentVehicle == null || currentVehicle.netIdentity != carIdentity)
+            {
+                if (carIdentity != null)
+                    CmdLeaveSeat(carIdentity);
+                return;
+            }
+
+            // Undo the local driver state without the exit-point move; we stay in the car.
+            currentVehicle.SetMoveInput(Vector2.zero);
+            currentVehicle = null;
+            currentVehicleGun = null;
+            loadout?.SetInVehicle(false);
+
+            TakePassengerSeatLocally(seat);
         }
 
         [Command]
@@ -746,8 +825,7 @@ namespace FPSGame.Player
             if (FindNearbyDownedPlayer() != null)
                 return InteractPrompt.Action("Поднять напарника");
 
-            CarController car = FindNearbyCar();
-            if (car != null && !car.HasDriver)
+            if (FindEnterableCar() != null)
                 return InteractPrompt.Action("Сесть в машину");
 
             if (FindBoardablePassengerSeat() != null)
@@ -959,12 +1037,11 @@ namespace FPSGame.Player
             for (int i = 0; i < seats.Count; i++)
             {
                 CarPassengerSeat seat = seats[i];
+                // CanBoard also requires the driver seat to be taken — the first player in drives.
                 if (seat == null || seat.Car == null || !seat.CanBoard(netId))
                     continue;
 
-                bool inReach = seat.InBoardingBox(transform.position)
-                    || Vector3.Distance(transform.position, seat.Car.transform.position) <= seat.Car.InteractDistance;
-                if (inReach)
+                if (seat.InBoardingReach(transform.position))
                     return seat;
             }
             return null;
@@ -973,12 +1050,19 @@ namespace FPSGame.Player
         // Owner-side: take the passenger seat (on E — see OnInteract).
         private void BoardPassengerSeat(CarPassengerSeat seat)
         {
+            TakePassengerSeatLocally(seat);
+            CmdBoardSeat(seat.netIdentity);
+        }
+
+        // Owner-side passenger state, without asking the server (BoardPassengerSeat asks; the server's
+        // driver-seat fallback in CmdEnterVehicle has already seated us).
+        private void TakePassengerSeatLocally(CarPassengerSeat seat)
+        {
             AbandonHolds();
             currentSeat = seat;
             // Vehicle mode: CharacterController off, our movement stops; the camera keeps looking around.
             playerController.SetVehicleMode(true);
             transform.position = seat.SeatPosition;
-            CmdBoardSeat(seat.netIdentity);
             OnVehicleChanged?.Invoke(seat.Car);
         }
 
