@@ -393,7 +393,7 @@ namespace FPSGame.Player
             if (isInteractHeld)
             {
                 bool outOfRange = currentInteractTarget == null ||
-                    Vector3.Distance(transform.position, currentInteractTarget.transform.position)
+                    Vector3.Distance(transform.position, currentInteractTarget.RangePoint)
                         > currentInteractTarget.InteractRange;
 
                 if (outOfRange)
@@ -893,23 +893,22 @@ namespace FPSGame.Player
             return col != null ? col.bounds.center : c.transform.position;
         }
 
+        // Walks the InteractableObject registry — only this player's distance and look direction
+        // decide. No physics query: nearby colliders, triggers and enemies can't crowd it out.
         private InteractableObject FindNearbyInteractable()
         {
-            // Broad-phase: grab everything in a generous radius, then filter
-            // by each object's own InteractRange for authoritative distance check.
-            Collider[] hits = new Collider[10];
-            var size = Physics.OverlapSphereNonAlloc(transform.position, 10f, hits);
             InteractableObject closest = null;
             float closestDist = float.MaxValue;
 
-            for (int i = 0; i < size; i++)
+            var all = InteractableObject.All;
+            for (int i = 0; i < all.Count; i++)
             {
-                var interactable = hits[i].GetComponentInParent<InteractableObject>();
+                var interactable = all[i];
                 if (interactable == null)
                     continue;
 
-                float dist = Vector3.Distance(transform.position, interactable.transform.position);
-                if (dist <= interactable.InteractRange && dist < closestDist && IsInView(hits[i].bounds.center))
+                float dist = Vector3.Distance(transform.position, interactable.RangePoint);
+                if (dist <= interactable.InteractRange && dist < closestDist && IsInView(interactable.ViewPoint))
                 {
                     closest = interactable;
                     closestDist = dist;
@@ -1195,7 +1194,7 @@ namespace FPSGame.Player
                 return;
 
             // Server-side range re-validation (+1 m tolerance for network latency).
-            float dist = Vector3.Distance(transform.position, interactable.transform.position);
+            float dist = Vector3.Distance(transform.position, interactable.RangePoint);
             if (dist > interactable.InteractRange + 1f)
                 return;
 
@@ -1215,7 +1214,7 @@ namespace FPSGame.Player
             if (active)
             {
                 // Range re-validation only matters when starting activation.
-                float dist = Vector3.Distance(transform.position, interactable.transform.position);
+                float dist = Vector3.Distance(transform.position, interactable.RangePoint);
                 if (dist > interactable.InteractRange + 1f)
                     return;
             }

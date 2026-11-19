@@ -243,6 +243,7 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 
 ### Interaction System
 - `InteractableObject`: hold-E with configurable `HoldDuration`; progress tracked in `PlayerInputHandler`; on completion `CmdInteract` → `ServerInteract` → `RpcOnInteracted` → UnityEvent fires on all clients
+- Found through the static `InteractableObject.All` registry (OnEnable/OnDisable), never a physics overlap: only the player's distance to `RangePoint` (≤ `InteractRange`) and the look cone to `ViewPoint` decide. Optional `interactPoint` (e.g. the button) sets both; empty = range from the pivot, look at the first child collider's centre. The old 10-slot `OverlapSphereNonAlloc` was crowded out by nearby colliders/triggers and lost the button
 - Doors: `InteractObjective` → UnityEvent → `DoorOpener.OpenDoor`. `autoCloseDelay` > 0 = server deadline (`NetworkTime`), re-opening while open restarts it; closing waits while a non-dead, non-driving player's capsule touches the doorway (`doorwayArea` box or the door's own colliders; geometric test, as in `FlameHazard`). `onClosed` (server) → `InteractObjective.ResetObjective` re-arms the latched objective; `refireWhileCompleted` lets interactions on an open door extend the timer
 - `CarryableObject`: pickup assigns client authority; drop/throw removes it; `SetCarriedLocally` gives instant feedback; SyncVar confirms on other clients
 
