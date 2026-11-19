@@ -41,7 +41,9 @@ namespace FPSGame.Enemies
         [SerializeField] private float aimHeight = 1.3f;
 
         [Header("Losing the target")]
-        [Tooltip("Drop the target once it is farther than this. 0 = never drop it by distance.")]
+        [Tooltip("Drop the target once it is farther than this. 0 = never drop it by distance. " +
+                 "Applies only after the droid has once been this close to the target, so a target handed " +
+                 "from far away (spawner aggro, being shot, an ally's alert) is walked up to, not dropped at once.")]
         [SerializeField] private float leashRadius = 35f;
         [Tooltip("Drop the target after not seeing it for loseSightTimeout seconds.")]
         [SerializeField] private bool loseTargetOutOfSight;
@@ -93,6 +95,7 @@ namespace FPSGame.Enemies
         private Collider[] ownColliders;
 
         private PlayerHealth target;
+        private bool leashArmed; // the droid has been within leashRadius of the current target
         private bool hasSight;
         private float lastSeenTime;
         private float thinkTimer;
@@ -204,6 +207,7 @@ namespace FPSGame.Enemies
         private void SetTarget(PlayerHealth player, bool alert)
         {
             target = player;
+            leashArmed = false;
             lastSeenTime = Time.time;
             hasSight = HasLineOfSight(player);
             thinkTimer = 0f; // plan a path this frame
@@ -236,9 +240,16 @@ namespace FPSGame.Enemies
             // IsTargetable is false for a downed, dead or driving player: only players on foot.
             if (!target.IsTargetable)
                 return false;
-            if (leashRadius > 0f &&
-                (target.transform.position - transform.position).sqrMagnitude > leashRadius * leashRadius)
-                return false;
+            if (leashRadius > 0f)
+            {
+                // The leash lets go of a target that ran away, not one the droid hasn't reached yet
+                // (a spawner hands its droids a player in a zone that may be far from the spawn point).
+                bool inside = (target.transform.position - transform.position).sqrMagnitude <= leashRadius * leashRadius;
+                if (inside)
+                    leashArmed = true;
+                else if (leashArmed)
+                    return false;
+            }
             if (loseTargetOutOfSight && Time.time - lastSeenTime > loseSightTimeout)
                 return false;
             return true;
