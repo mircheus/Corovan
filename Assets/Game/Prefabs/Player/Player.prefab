@@ -19919,7 +19919,7 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   maxHealth: 100
-  bleedoutDuration: 30
+  bleedoutDuration: 15
   reviveHealthPercent: 0.5
   enableRegeneration: 0
   regenerationRate: 5

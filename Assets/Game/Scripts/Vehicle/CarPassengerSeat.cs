@@ -102,6 +102,51 @@ namespace FPSGame.Vehicle
             return true;
         }
 
+        /// <summary>
+        /// Server: seats a respawning player wherever they are — no reach check (they respawn into
+        /// the car from anywhere). Their owner is told to board by the caller.
+        /// </summary>
+        [Server]
+        public bool ServerSeatRespawned(NetworkIdentity player)
+        {
+            if (player == null || !CanBoard(player.netId))
+                return false;
+
+            passengerNetId = player.netId;
+            return true;
+        }
+
+        /// <summary>
+        /// Server: the free seat, in a car another alive player is driving, closest to a point — where a
+        /// respawning player goes. Null when no such seat exists.
+        /// </summary>
+        [Server]
+        public static CarPassengerSeat ServerFindRespawnSeat(uint playerNetId, Vector3 near)
+        {
+            CarPassengerSeat best = null;
+            float bestSqr = float.MaxValue;
+            foreach (CarPassengerSeat seat in all)
+            {
+                if (seat == null || !seat.CanBoard(playerNetId))
+                    continue;
+
+                // A downed or dead driver has already left the seat; this guards the moment in between.
+                if (!NetworkServer.spawned.TryGetValue(seat.car.DriverNetId, out NetworkIdentity driver) || driver == null)
+                    continue;
+                var driverHealth = driver.GetComponent<PlayerHealth>();
+                if (driverHealth != null && driverHealth.IsIncapacitated)
+                    continue;
+
+                float sqr = (seat.transform.position - near).sqrMagnitude;
+                if (sqr < bestSqr)
+                {
+                    bestSqr = sqr;
+                    best = seat;
+                }
+            }
+            return best;
+        }
+
         [Server]
         public void ServerLeave(uint playerNetId)
         {

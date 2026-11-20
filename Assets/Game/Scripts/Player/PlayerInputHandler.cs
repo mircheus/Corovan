@@ -35,9 +35,11 @@ namespace FPSGame.Player
         private PlayerHitReporter hitReporter;
         private PlayerInput playerInput;
         private CharacterInput fpsfInput;
-        // FPSF input is blocked while paused, and for good once dead or the match is over.
+        // FPSF input is blocked while paused, while dead (until the respawn), and for good once the
+        // match is over.
         private bool fpsfInputPaused;
         private bool fpsfInputLockedForGood;
+        private bool deathLocked;
         private InputAction aimAction;
         private InputAction attackAction;
         private InputAction interactAction;
@@ -127,6 +129,7 @@ namespace FPSGame.Player
                 playerHealth.OnDeath += OnPlayerDied;
                 playerHealth.OnDowned += OnPlayerDowned;
                 playerHealth.OnRevived += OnPlayerRevived;
+                playerHealth.OnRespawn += OnPlayerRespawned;
             }
 
             if (GameStateManager.Instance != null)
@@ -146,6 +149,7 @@ namespace FPSGame.Player
                 playerHealth.OnDeath -= OnPlayerDied;
                 playerHealth.OnDowned -= OnPlayerDowned;
                 playerHealth.OnRevived -= OnPlayerRevived;
+                playerHealth.OnRespawn -= OnPlayerRespawned;
             }
 
             if (GameStateManager.Instance != null)
@@ -179,6 +183,8 @@ namespace FPSGame.Player
             playerCamera?.UnlockCursor();
         }
 
+        // Dead until the respawn (PlayerHealth.deadRespawnDelay): everything is taken away here and
+        // given back by OnPlayerRespawned.
         private void OnPlayerDied()
         {
             // An instant kill skips the downed state entirely, so a hold may still be in flight.
@@ -187,9 +193,9 @@ namespace FPSGame.Player
 
             isInitialized = false;
             if (playerInput != null) playerInput.enabled = false;
-            fpsfInputLockedForGood = true;
+            deathLocked = true;
             ApplyFpsfInputBlock();
-            loadout?.DisableForGood();
+            loadout?.SetDead(true);
             playerController?.SetSprinting(false);
             playerController?.SetMoveInput(Vector2.zero);
             playerKeycardHand?.Unequip();
@@ -206,6 +212,9 @@ namespace FPSGame.Player
         // while waiting for a teammate. Everything else is taken away here.
         private void OnPlayerDowned()
         {
+            // Dead -> Alive -> Downed inside one sync interval reaches a remote client as Dead -> Downed,
+            // and the respawn's unlock would be lost.
+            ClearDeathLock();
             AbandonHolds();
 
             if (currentVehicle != null)
@@ -228,10 +237,104 @@ namespace FPSGame.Player
             aimBlockedAfterCarry = false;
         }
 
+        // Also a respawn from the downed state (bleedout ran out): clients see Downed -> Alive either
+        // way; where the player ends up is TargetRespawnAt / TargetRespawnInSeat.
         private void OnPlayerRevived()
         {
             loadout?.SetDowned(false);
             playerController?.SetDownedMode(false);
+        }
+
+        // Dead -> Alive: a respawn after an instant kill.
+        private void OnPlayerRespawned()
+        {
+            ClearDeathLock();
+            loadout?.SetDowned(false);
+            playerController?.SetDownedMode(false);
+        }
+
+        private void ClearDeathLock()
+        {
+            if (!deathLocked)
+                return;
+
+            deathLocked = false;
+            loadout?.SetDead(false);
+            ApplyFpsfInputBlock();
+
+            // The match ended while we were dead: OnMatchEnded's lock stays.
+            if (fpsfInputLockedForGood)
+                return;
+
+            if (playerInput != null) playerInput.enabled = true;
+            isInitialized = true;
+        }
+
+        // ---------- respawn (the server picks the spot, the owner moves itself) ----------
+
+        /// <summary>
+        /// Server, right after <see cref="PlayerHealth.ServerRespawn"/>: a free passenger seat in a car
+        /// another player drives, else the nearest <see cref="PlayerRespawnPoint"/>, else a spawn point.
+        /// </summary>
+        [Server]
+        public void ServerRelocateAfterRespawn()
+        {
+            Vector3 from = transform.position;
+
+            CarPassengerSeat seat = CarPassengerSeat.ServerFindRespawnSeat(netId, from);
+            if (seat != null && seat.ServerSeatRespawned(netIdentity))
+            {
+                TargetRespawnInSeat(seat.netIdentity);
+                return;
+            }
+
+            Transform point = null;
+            PlayerRespawnPoint marker = PlayerRespawnPoint.FindNearest(from);
+            if (marker != null)
+                point = marker.transform;
+            else if (NetworkManager.singleton is CustomNetworkManager manager)
+                point = manager.GetNextSpawnPoint();
+
+            if (point == null)
+            {
+                Debug.LogWarning($"[Respawn] No respawn or spawn point for {name}; respawned in place.", this);
+                return;
+            }
+
+            TargetRespawnAt(point.position, point.eulerAngles.y);
+        }
+
+        [TargetRpc]
+        private void TargetRespawnAt(Vector3 position, float yaw)
+        {
+            LeaveAnyVehicleLocally();
+            playerController?.TeleportTo(position);
+            playerCamera?.SetLook(yaw, 0f);
+        }
+
+        // The server has already taken the seat for us (ServerSeatRespawned): board without asking.
+        [TargetRpc]
+        private void TargetRespawnInSeat(NetworkIdentity seatIdentity)
+        {
+            var seat = seatIdentity != null ? seatIdentity.GetComponent<CarPassengerSeat>() : null;
+            if (seat == null || currentSeat == seat)
+                return;
+
+            LeaveAnyVehicleLocally();
+            playerCamera?.SetLook(seat.transform.eulerAngles.y, 0f);
+            TakePassengerSeatLocally(seat);
+        }
+
+        // Normally empty by now (going down or dying already got the player out); covers a lost exit.
+        private void LeaveAnyVehicleLocally()
+        {
+            if (currentVehicle != null)
+            {
+                CmdExitVehicle(currentVehicle.netIdentity);
+                ExitVehicle();
+            }
+            if (currentSeat != null)
+                LeavePassengerSeat(false);
         }
 
         /// <summary>Pause menu open/closed: freezes FPSF movement/look/weapons and puts the weapon away.</summary>
@@ -245,7 +348,7 @@ namespace FPSGame.Player
         private void ApplyFpsfInputBlock()
         {
             if (fpsfInput != null)
-                fpsfInput.inputBlocked = fpsfInputPaused || fpsfInputLockedForGood;
+                fpsfInput.inputBlocked = fpsfInputPaused || fpsfInputLockedForGood || deathLocked;
         }
 
         // Drops whatever hold was in flight — revive or interactable.

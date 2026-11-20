@@ -1,6 +1,7 @@
 using FPSGame.Networking;
 using FPSGame.Player;
 using Mirror;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -21,6 +22,11 @@ namespace FPSGame.UI
         [Tooltip("Panel shown while the local player is dead and the match is still in progress.")]
         [FormerlySerializedAs("gameOverUI")]
         [SerializeField] private GameObject root;
+
+        [Tooltip("Optional — countdown to the respawn (PlayerHealth.deadRespawnDelay). Hidden when none is scheduled.")]
+        [SerializeField] private TextMeshProUGUI respawnText;
+        [Tooltip("{0} is replaced by the whole seconds left.")]
+        [SerializeField] private string respawnFormat = "Возрождение через {0}";
 
         // The local player spawns after the scene loads, so the binding can't be a serialized
         // reference — it's resolved from NetworkClient.localPlayer once that exists.
@@ -49,6 +55,21 @@ namespace FPSGame.UI
         {
             if (localHealth == null)
                 TryBind();
+
+            UpdateRespawnText();
+        }
+
+        // Derived from the synced deadline every frame, like the bleedout countdown.
+        private void UpdateRespawnText()
+        {
+            if (respawnText == null || root == null || !root.activeSelf)
+                return;
+
+            bool pending = localHealth != null && localHealth.RespawnPending;
+            if (respawnText.gameObject.activeSelf != pending)
+                respawnText.gameObject.SetActive(pending);
+            if (pending)
+                respawnText.text = string.Format(respawnFormat, Mathf.CeilToInt(localHealth.RespawnRemaining));
         }
 
         private void TryBind()

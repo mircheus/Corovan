@@ -921,6 +921,14 @@ namespace FPSGame.Vehicle
             Gizmos.DrawWireSphere(aimPoint.position, 0.3f);
         }
 
+        // The renderers SetDriverVisible switched off, so showing the driver turns exactly those back on.
+        // Inactive objects count: a driver killed in the seat (exploding car) has already swapped the
+        // standing model for the lying one (PlayerDownedVisual) when the exit hook runs — a sweep of the
+        // active renderers then would leave the standing model switched off, and after a respawn the
+        // player stays invisible to everyone else.
+        private readonly System.Collections.Generic.List<Renderer> hiddenDriverRenderers =
+            new System.Collections.Generic.List<Renderer>();
+
         private void SetDriverVisible(GameObject driver, bool visible)
         {
             var characterController = driver.GetComponent<CharacterController>();
@@ -931,18 +939,30 @@ namespace FPSGame.Vehicle
             if (playerController != null)
                 playerController.SetVehicleMode(!visible);
 
-            // Hide/show renderers on driver. Weapons are put away while driving (PlayerLoadout), and the
-            // FPSF Inventory is left alone: attachment meshes there are switched off on purpose, and
-            // re-enabling every renderer on exit would turn them all back on.
+            // Whatever is still hidden (a missed exit) is shown first; the list belongs to one driver.
+            foreach (var renderer in hiddenDriverRenderers)
+            {
+                if (renderer != null)
+                    renderer.enabled = true;
+            }
+            hiddenDriverRenderers.Clear();
+
+            if (visible)
+                return;
+
+            // Weapons are put away while driving (PlayerLoadout), and the FPSF Inventory is left alone:
+            // attachment meshes there are switched off on purpose. Renderers already off stay untouched
+            // for the same reason — only what is switched off here is switched back on.
             var inventory = driver.GetComponentInChildren<Akila.FPSFramework.Inventory>(true);
             Transform weapons = inventory != null ? inventory.transform : null;
 
-            foreach (var renderer in driver.GetComponentsInChildren<Renderer>())
+            foreach (var renderer in driver.GetComponentsInChildren<Renderer>(true))
             {
-                if (weapons != null && renderer.transform.IsChildOf(weapons))
+                if (!renderer.enabled || (weapons != null && renderer.transform.IsChildOf(weapons)))
                     continue;
 
-                renderer.enabled = visible;
+                renderer.enabled = false;
+                hiddenDriverRenderers.Add(renderer);
             }
         }
     }

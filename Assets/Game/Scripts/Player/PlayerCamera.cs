@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using Akila.FPSFramework;
+using FPSGame.Networking;
 
 namespace FPSGame.Player
 {
@@ -98,7 +99,10 @@ namespace FPSGame.Player
 
             var health = GetComponentInParent<FPSGame.Player.PlayerHealth>();
             if (health != null)
+            {
                 health.OnDeath += OnPlayerDied;
+                health.OnRespawn += OnPlayerRespawned;
+            }
 
             LockCursor();
             isInitialized = true;
@@ -108,6 +112,24 @@ namespace FPSGame.Player
         {
             isDead = true;
             UnlockCursor();
+        }
+
+        // Dead -> Alive. The death drop stops; ApplyCameraOffsets puts the camera back at eye height.
+        private void OnPlayerRespawned()
+        {
+            isDead = false;
+            if (GameStateManager.Instance == null || !GameStateManager.Instance.IsMatchOver)
+                LockCursor();
+        }
+
+        /// <summary>Owner: face a world direction (yaw, pitch in degrees) — used when respawning.</summary>
+        public void SetLook(float newYaw, float newPitch)
+        {
+            yaw = newYaw;
+            pitch = Mathf.Clamp(newPitch, minPitch, maxPitch);
+            transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            if (playerBody != null)
+                playerBody.rotation = Quaternion.Euler(0f, yaw, 0f);
         }
 
         public override void OnStartClient()

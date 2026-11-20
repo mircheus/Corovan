@@ -50,7 +50,8 @@ namespace FPSGame.Player
         private bool inVehicle;
         private bool triggerLock;     // the button that threw/dropped loot is still held
         private bool paused;
-        private bool disabledForGood; // dead or match over
+        private bool dead;            // until the respawn
+        private bool disabledForGood; // match over
 
         // HUD feed: ammo of what is in hand (FPSF's Weapon HUD shows reload/low-ammo alerts itself).
         private int lastAmmo = int.MinValue;
@@ -69,7 +70,7 @@ namespace FPSGame.Player
         public int EquippedSlot => equippedSlot;
         public Firearm EquippedFirearm { get; private set; }
         public LoadoutItem EquippedItem => appliedSlot >= 0 && appliedSlot < slots.Count ? slots[appliedSlot] : null;
-        private bool HandsBusy => carrying || downed || triggerLock || paused || disabledForGood;
+        private bool HandsBusy => carrying || downed || triggerLock || paused || dead || disabledForGood;
         /// <summary>Owner: nothing in hand and nothing keeping the hands busy — a vehicle's gun may fire.</summary>
         public bool HandsFree => !HandsBusy && appliedSlot < 0;
         /// <summary>Owner: the firearm in hand is reloading (at the wheel it takes the steering hand).</summary>
@@ -165,7 +166,9 @@ namespace FPSGame.Player
         /// <summary>Keep weapons away while the LMB/RMB press that threw or dropped loot is held.</summary>
         public void SetTriggerLock(bool value) { if (value != triggerLock) { triggerLock = value; Apply(); } }
         public void SetPaused(bool value) { paused = value; Apply(); }
-        /// <summary>Dead, or the match is over: nothing in hand from now on.</summary>
+        /// <summary>Dead: nothing in hand until the respawn clears it.</summary>
+        public void SetDead(bool value) { dead = value; Apply(); }
+        /// <summary>The match is over: nothing in hand from now on.</summary>
         public void DisableForGood() { disabledForGood = true; Apply(); }
 
         // ---------- selection (owner) ----------

@@ -37,6 +37,7 @@ Assets/Game/
 │   │   ├── PlayerDamageFeedback.cs  # FPSF damage flash + camera shake
 │   │   ├── PlayerHealth.cs          # SyncVar LifeState (Alive/Downed/Dead), bleedout, optional regen
 │   │   ├── PlayerRevive.cs          # Hold-E revive of a downed teammate; server-validated
+│   │   ├── PlayerRespawnPoint.cs    # Scene marker: nearest one is where a player respawns (no free car seat)
 │   │   ├── PlayerDownedVisual.cs    # Standing/lying model swap + downed marker on all clients
 │   │   └── PlayerCarry.cs           # Pick up, drop, throw CarryableObjects
 │   ├── Combat/
@@ -151,9 +152,10 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 
 ### Down / Revive System
 - `PlayerHealth` holds a single `[SyncVar] LifeState { Alive, Downed, Dead }` — never two bools. Hook order can't then report "revived" for a player who was finished off while down.
-- Damage that empties health calls `GoDown()` instead of dying. While `Downed`, `TakeDamage` is a no-op — the bleedout timer is the only thing that kills.
+- Damage that empties health calls `GoDown()` instead of dying. While `Downed`, `TakeDamage` is a no-op — the bleedout timer is the only thing that ends it.
+- **Respawn.** A bleedout that runs out (`bleedoutDuration`, 15 s on `Player.prefab`) calls `PlayerHealth.ServerRespawn()` (`respawnOnBleedout`; off = dies as before): full health, Downed → Alive (clients raise `OnRevived`). `ServerKillInstant()` skips the downed state → `Dead` with a respawn deadline (`respawnTime` SyncVar, `deadRespawnDelay` 15 s, < 0 = never; `RespawnRemaining` for UI) → Dead → Alive (`OnRespawn`). No respawn once the match is over (bleedout then kills). `ServerRespawn` flips the state first, then `PlayerInputHandler.ServerRelocateAfterRespawn` picks the spot: the nearest free `CarPassengerSeat` of a car another alive player drives (`ServerFindRespawnSeat` → `ServerSeatRespawned`, no reach check → `TargetRespawnInSeat`), else the nearest `PlayerRespawnPoint` scene marker, else `CustomNetworkManager.GetNextSpawnPoint` (→ `TargetRespawnAt`, owner teleports + faces the marker's yaw). Death locks are reversible: `PlayerInputHandler.deathLocked` (FPSF input + `PlayerInput`), `PlayerLoadout.SetDead`, `PlayerCamera.isDead`; `DisableForGood` / `fpsfInputLockedForGood` are match-end only. `LocalPlayerDeadUI.respawnText` (optional) shows the countdown.
 - `ServerKillInstant()` skips the downed state. Use it wherever a revive makes no sense: `PlayerFallHazard` instant-kill volumes, `CarController.ServerExplode`.
-- Bleedout is synced as a deadline (`bleedoutEndTime`, a `NetworkTime.time` double) plus a pause flag — never as a per-frame countdown. Clients derive the remaining seconds themselves via `BleedoutRemaining`.
+- Bleedout is synced as a deadline (`bleedoutEndTime`, a `NetworkTime.time` double) plus a pause flag — never as a per-frame countdown. Clients derive the remaining seconds themselves via `BleedoutRemaining`. A revive in progress pauses it, so a hold started at the last second still finishes.
 - `PlayerRevive` on the player prefab owns the hold. The reviving client times it (reusing `PlayerInputHandler`'s hold machinery and `OnInteractProgress`), but the server re-validates the reviver, the range, and that the hold really lasted `reviveHoldDuration`. A server-side watchdog in `PlayerRevive.Update` cancels the revive if the reviver dies, goes down, walks off, or disconnects.
 - Only the first reviver owns a hold; a second player can't stack onto it to speed it up.
 - Enemies filter targets on `IsTargetable` (alive only), so a downed player is ignored. `IsIncapacitated` (down **or** dead) is the check for "can this player still act / hold a console".
@@ -313,7 +315,7 @@ See `PROJECT_STATE.md` for the full system-by-system inventory. Summary:
 - `PauseMenu` — FPSF-aware (`PlayerInputHandler.SetPaused`) but not placed in any scene
 
 ### Known gaps
-- No respawn flow (`PlayerHealth.Respawn` exists server-side, no caller)
+- No `PlayerRespawnPoint` is placed in any scene yet — respawns fall back to the spawn points
 - `MatchStateMessage` / `MatchState` in `NetworkMessages.cs` remain unused (`GameStateManager` uses its own `MatchResult`)
 - Vehicle destruction has no wreck/persistent state beyond explosion FX + `vehicleIsAlive`
 - `Enemy.OnAliveChanged` hook empty (no turret death visuals)
