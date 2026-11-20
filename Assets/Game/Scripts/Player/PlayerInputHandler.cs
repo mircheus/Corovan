@@ -396,7 +396,8 @@ namespace FPSGame.Player
                     Vector3.Distance(transform.position, currentInteractTarget.RangePoint)
                         > currentInteractTarget.InteractRange;
 
-                if (outOfRange)
+                // Blocked mid-hold (e.g. a teammate's car spawned first) — the server would refuse anyway.
+                if (outOfRange || currentInteractTarget.IsBlocked)
                 {
                     CancelInteraction();
                 }
@@ -551,8 +552,9 @@ namespace FPSGame.Player
                 }
 
                 // Start hold for interactive objects.
+                // A blocked one only shows its reason (prompt) — E does nothing.
                 InteractableObject target = FindNearbyInteractable();
-                if (target != null)
+                if (target != null && !target.IsBlocked)
                 {
                     currentInteractTarget = target;
                     interactHoldTimer = 0f;
@@ -854,7 +856,11 @@ namespace FPSGame.Player
 
             InteractableObject interactable = FindNearbyInteractable();
             if (interactable != null)
-                return InteractPrompt.Action(interactable.PromptText);
+            {
+                return interactable.IsBlocked
+                    ? InteractPrompt.Warn(interactable.BlockedReason)
+                    : InteractPrompt.Action(interactable.PromptText);
+            }
 
             return InteractPrompt.None;
         }
@@ -1100,6 +1106,14 @@ namespace FPSGame.Player
         {
             var seat = seatIdentity != null ? seatIdentity.GetComponent<CarPassengerSeat>() : null;
             seat?.ServerLeave(netId);
+        }
+
+        /// <summary>Server: the seat is going away (wreck removed) — the owner leaves it at the exit point.</summary>
+        [Server]
+        public void ServerForceLeaveSeat(CarPassengerSeat seat)
+        {
+            if (seat != null)
+                TargetSeatRefused(seat.netIdentity);
         }
 
         [TargetRpc]

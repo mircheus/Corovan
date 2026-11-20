@@ -40,11 +40,21 @@ namespace FPSGame.Environment
         [SyncVar(hook = nameof(OnActiveChanged))]
         private bool isActive;
 
+        // Why the object can't be used right now; empty = usable. One string, not a bool + text,
+        // so the reason and the state always arrive together.
+        [SyncVar]
+        private string blockedReason = string.Empty;
+
         public float HoldDuration => holdDuration;
         public float InteractRange => interactRange;
         public bool HoldToActivate => holdToActivate;
         public bool IsActive => isActive;
         public string PromptText => promptText;
+
+        /// <summary>True while a server-side owner (e.g. PlayerCarSpawner) refuses interactions.
+        /// The player sees <see cref="BlockedReason"/> as a warning and can't start the hold.</summary>
+        public bool IsBlocked => !string.IsNullOrEmpty(blockedReason);
+        public string BlockedReason => blockedReason;
 
         /// <summary>Where the interaction range is measured to.</summary>
         public Vector3 RangePoint => interactPoint != null ? interactPoint.position : transform.position;
@@ -85,7 +95,7 @@ namespace FPSGame.Environment
         [Server]
         public void ServerInteract(GameObject instigator)
         {
-            if (holdToActivate)
+            if (holdToActivate || IsBlocked)
                 return;
 
             OnInteracted?.Invoke(instigator);
@@ -98,6 +108,8 @@ namespace FPSGame.Environment
         {
             if (!holdToActivate)
                 return;
+            if (active && IsBlocked)
+                return;
             if (isActive == active)
                 return;
 
@@ -107,6 +119,23 @@ namespace FPSGame.Environment
                 OnActivated?.Invoke(instigator);
             else
                 OnDeactivated?.Invoke(instigator);
+        }
+
+        /// <summary>Server: refuse interactions and show <paramref name="reason"/> to players
+        /// (null/empty = usable again). A hold-to-activate object that gets blocked is switched off.</summary>
+        [Server]
+        public void ServerSetBlocked(string reason)
+        {
+            reason ??= string.Empty;
+            if (blockedReason == reason)
+                return;
+
+            blockedReason = reason;
+            if (IsBlocked && holdToActivate && isActive)
+            {
+                isActive = false;
+                OnDeactivated?.Invoke(null);
+            }
         }
 
         // Fires on all clients so every player sees the result (door opens, light turns

@@ -109,6 +109,19 @@ namespace FPSGame.Vehicle
                 passengerNetId = 0;
         }
 
+        /// <summary>Server: puts the passenger out at the exit point (their own client moves them) and frees the seat.</summary>
+        [Server]
+        public void ServerEvictPassenger()
+        {
+            if (passengerNetId == 0)
+                return;
+
+            if (NetworkServer.spawned.TryGetValue(passengerNetId, out NetworkIdentity p) && p != null &&
+                p.TryGetComponent(out PlayerInputHandler input))
+                input.ServerForceLeaveSeat(this);
+            passengerNetId = 0;
+        }
+
         [ServerCallback]
         private void Update()
         {

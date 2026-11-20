@@ -174,6 +174,17 @@ namespace FPSGame.Vehicle
         private float chaosSeedZ;
 
         public bool HasDriver => driverNetId != 0;
+
+        /// <summary>Server: dead and already exploded (invisible, colliders off) — only a leftover now.
+        /// A burning car that hasn't exploded yet is not a wreck.</summary>
+        public bool IsWreck => !vehicleIsAlive && isExploded;
+
+        // Server: ServerRemoveWreck has run; the object goes away after WreckRemoveDelay.
+        private bool wreckRemoving;
+
+        // Time for the eviction TargetRpcs to land before the car's identity is gone. On the host they are
+        // queued and handled after NetworkServer.Destroy would already have unspawned the car.
+        private const float WreckRemoveDelay = 0.3f;
         public uint DriverNetId => driverNetId;
 
         /// <summary>Server-only: resolves the current driver's PlayerHealth, or null if seat is empty.</summary>
@@ -324,7 +335,45 @@ namespace FPSGame.Vehicle
                 }
             }
 
+            // Also on a dedicated server (the RPC sets it on clients) — IsWreck reads it.
+            isExploded = true;
             RpcPlayExplosion();
+        }
+
+        /// <summary>
+        /// Server: removes an exploded wreck from the game (e.g. when PlayerCarSpawner calls a new car).
+        /// Anyone still in it is put out first, the safe and stowed loot are let go, then the object is
+        /// destroyed after a short delay.
+        /// </summary>
+        [Server]
+        public void ServerRemoveWreck()
+        {
+            if (!IsWreck || wreckRemoving)
+                return;
+            wreckRemoving = true;
+
+            // The driver normally left on death (OnPlayerDied → CmdExitVehicle); this covers anyone left over.
+            ServerEjectDriver(0f, 0f);
+            foreach (CarPassengerSeat seat in GetComponents<CarPassengerSeat>())
+                seat.ServerEvictPassenger();
+
+            ServerDetachSafe();
+            foreach (CarryableObject loot in FindObjectsByType<CarryableObject>(FindObjectsSortMode.None))
+            {
+                if (loot.StowedInNetId == netId)
+                    loot.ServerUnstow();
+            }
+
+            Invoke(nameof(ServerDestroyWreck), WreckRemoveDelay);
+        }
+
+        [Server]
+        private void ServerDestroyWreck()
+        {
+            NetworkServer.Destroy(gameObject);
+            // A scene car is only unspawned by Mirror and would stay on the host; clients deactivate it themselves.
+            if (this != null)
+                gameObject.SetActive(false);
         }
 
         [ClientRpc]
