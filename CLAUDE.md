@@ -186,6 +186,7 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
 - Add fields one at a time, in sections. Applied so far:
   - `player.maxHealth` → `PlayerHealth` (server, SyncVar).
   - `player.pistolDamage/shotgunDamage/rifleDamage` → `PlayerLoadout.ApplyWeaponBalance` (owner, matched by `LoadoutItem` id). FPSF `preset` is a shared asset: the firearm gets its own `Instantiate`d copy — never write into the original (in the Editor that would edit the asset). Semantics = FPSF `damage` (shotgun: whole shot split between pellets). Server still clamps each reported hit to `PlayerHitReporter.maxDamagePerHit`.
+  - `playerCar.maxHealth` → `CarController.maxVehicleHealth` (server, SyncVar — the HUD reads it on clients). All `CarController`s share it.
   - `shooterDroid.maxHealth/projectileDamage/projectileSpeed` → `ShooterDroid.ApplyBalance` (server) → `RagdollEnemy.ServerSetMaxHealth` (`maxHealth` is a SyncVar). The plain `RagdollBot` dummy is not configured.
   - `enemyCar.maxHealth/projectileDamage/projectileSpeed` → `EnemyCarController.ApplyBalance` (server).
   - `zombie.maxHealth/attackDamage` → `MeleeZombie.ApplyBalance` (server) → `RagdollEnemy.ServerSetMaxHealth`.

@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using FPSGame.Combat;
+using FPSGame.Config;
 using FPSGame.Environment;
 using FPSGame.Networking;
 
@@ -77,7 +78,8 @@ namespace FPSGame.Vehicle
         [SerializeField] private SafeMount safeMount;
 
         [Header("Vehicle Health")]
-        [SerializeField] private int maxVehicleHealth = 200;
+        [Tooltip("Overridden by the scene's BalanceConfig (playerCar.maxHealth) on the server. A SyncVar so the HUD uses the server's value; declared before vehicleHealth so it arrives first.")]
+        [SyncVar, SerializeField] private int maxVehicleHealth = 200;
 
         [Header("Destruction FX")]
         [SerializeField] private GameObject fireEffect;
@@ -242,6 +244,8 @@ namespace FPSGame.Vehicle
         public override void OnStartServer()
         {
             base.OnStartServer();
+            if (SceneBalance.Current != null)
+                maxVehicleHealth = SceneBalance.Current.playerCar.maxHealth;
             vehicleHealth = maxVehicleHealth;
             vehicleIsAlive = true;
 

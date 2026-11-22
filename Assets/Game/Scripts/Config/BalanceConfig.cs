@@ -11,6 +11,7 @@ namespace FPSGame.Config
     public class BalanceConfig : ScriptableObject
     {
         public PlayerBalance player = new PlayerBalance();
+        public PlayerCarBalance playerCar = new PlayerCarBalance();
         public ShooterDroidBalance shooterDroid = new ShooterDroidBalance();
         public EnemyCarBalance enemyCar = new EnemyCarBalance();
         public ZombieBalance zombie = new ZombieBalance();
@@ -28,6 +29,13 @@ namespace FPSGame.Config
         [Tooltip("Whole shot, split evenly between the pellets.")]
         [Min(0)] public int shotgunDamage = 200;
         [Min(0)] public int rifleDamage = 35;
+    }
+
+    // Every CarController (player cars) shares one section.
+    [Serializable]
+    public class PlayerCarBalance
+    {
+        [Min(1)] public int maxHealth = 200;
     }
 
     [Serializable]
