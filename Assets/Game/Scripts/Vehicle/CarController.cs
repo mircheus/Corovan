@@ -767,8 +767,16 @@ namespace FPSGame.Vehicle
             lastDashTime = Time.time;
             dashVelocity = dash;
             CmdReportDash();
+            OnDashStarted?.Invoke();
             return true;
         }
+
+        /// <summary>Owner: a dash has just started (DashVelocity holds its full speed). CarDashRam resets its hits on it.</summary>
+        public event System.Action OnDashStarted;
+
+        /// <summary>Owner: the dash speed still on the car (decays at dashDecay; a wall cancels the part going into it).
+        /// Zero on every other peer — the dash runs on the driver's client only.</summary>
+        public Vector3 DashVelocity => dashVelocity;
 
         /// <summary>Server: Time.time of the last dash the driver reported. The dash itself runs on the owner
         /// only, so this is how server-side rules (DecryptParkingZone) learn about it.</summary>

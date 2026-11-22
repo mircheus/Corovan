@@ -36,6 +36,8 @@ namespace FPSGame.Config
     public class PlayerCarBalance
     {
         [Min(1)] public int maxHealth = 200;
+        [Tooltip("CarDashRam: damage of a dash ram at full dash speed (server).")]
+        [Min(0)] public int dashRamDamage = 100;
     }
 
     [Serializable]

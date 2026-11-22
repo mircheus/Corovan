@@ -17,7 +17,7 @@ namespace FPSGame.Environment
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(NavMeshAgent))]
-    public class EnemyCarController : NetworkBehaviour, IDamageReceiver, IAttackerListener
+    public class EnemyCarController : NetworkBehaviour, IDamageReceiver, IAttackerListener, IKnockbackReceiver
     {
         int IDamageReceiver.CurrentHealth => currentHealth;
         int IDamageReceiver.MaxHealth => maxHealth;
@@ -84,6 +84,14 @@ namespace FPSGame.Environment
         [Tooltip("Seconds between two proximity scans.")]
         [SerializeField, Min(0.05f)] private float proximityScanInterval = 0.5f;
 
+        [Header("Knockback (dash ram)")]
+        [Tooltip("Multiplier on the knock speed a ram gives (heavier car = lower). 0 = the car can't be shoved.")]
+        [SerializeField, Min(0f)] private float knockbackScale = 1f;
+        [Tooltip("How fast the knock speed bleeds off, units/sec². Slide length ≈ speed² / (2 × decay).")]
+        [SerializeField, Min(0.1f)] private float knockbackDecay = 30f;
+        [Tooltip("Seconds the car stays stunned after the slide stops: no driving, no shooting, no obstacle drops.")]
+        [SerializeField, Min(0f)] private float knockbackStun = 0.3f;
+
         private Rigidbody rb;
         private NavMeshAgent agent;
         private EnemyCarBehaviour behaviour;
@@ -104,6 +112,10 @@ namespace FPSGame.Environment
         private PlayerHealth huntedPlayer;
         private CarController huntedCar;
         private double huntEndTime;
+        // Knockback (server): the slide left, and when the stun ends. While knocked the behaviour isn't ticked.
+        private Vector3 knockVelocity;
+        private float knockEndTime;
+        private bool knocked;
 
         [SyncVar(hook = nameof(OnDeadChanged))]
         private bool isDead;
@@ -203,7 +215,7 @@ namespace FPSGame.Environment
 
             NotifyTargetChange();
 
-            if (behaviour == null)
+            if (ServerTickKnockback() || behaviour == null)
                 return;
 
             if (HasTarget)
@@ -277,6 +289,56 @@ namespace FPSGame.Environment
             }
         }
 
+        /// <summary>
+        /// Server: shove the car (a dash ram). It slides along <paramref name="velocity"/> (horizontal, × knockbackScale)
+        /// through <c>agent.Move</c> — so it stays on the NavMesh and never passes a wall — decaying at knockbackDecay,
+        /// then stays stunned for knockbackStun. A new knock replaces a weaker slide instead of adding up.
+        /// </summary>
+        [Server]
+        public void ServerKnockback(Vector3 velocity)
+        {
+            if (isDead || knockbackScale <= 0f || !agent.enabled)
+                return;
+
+            velocity.y = 0f;
+            velocity *= knockbackScale;
+            if (velocity.sqrMagnitude > knockVelocity.sqrMagnitude)
+                knockVelocity = velocity;
+            if (knockVelocity.sqrMagnitude < 0.0001f)
+                return;
+
+            knockEndTime = Time.time + knockVelocity.magnitude / knockbackDecay + knockbackStun;
+            knocked = true;
+            // A path-following behaviour would steer against the slide: hold the agent until the stun is over.
+            if (agent.isOnNavMesh)
+            {
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+            }
+        }
+
+        // True while knocked back: the slide is applied and the behaviour must not run this frame.
+        [Server]
+        private bool ServerTickKnockback()
+        {
+            if (!knocked)
+                return false;
+
+            if (Time.time >= knockEndTime)
+            {
+                knocked = false;
+                knockVelocity = Vector3.zero;
+                if (agent.isOnNavMesh)
+                    agent.isStopped = false;
+                return false;
+            }
+
+            if (knockVelocity.sqrMagnitude > 0.0001f && agent.isOnNavMesh)
+                agent.Move(knockVelocity * Time.deltaTime);
+            knockVelocity = Vector3.MoveTowards(knockVelocity, Vector3.zero, knockbackDecay * Time.deltaTime);
+            return true;
+        }
+
         private static float FlatSqrDistance(Vector3 a, Vector3 b)
         {
             float dx = a.x - b.x;
@@ -330,6 +392,13 @@ namespace FPSGame.Environment
             currentPlayerTarget = null;
             // Keep the chase momentum: the wreck carries on from where the car was going.
             Vector3 velocity = behaviour != null ? behaviour.ServerVelocity : Vector3.zero;
+            // A ram that kills: the wreck flies off along the knock (applied just before the damage).
+            if (knocked)
+            {
+                velocity = knockVelocity;
+                knocked = false;
+                knockVelocity = Vector3.zero;
+            }
             if (agent.isOnNavMesh)
                 agent.ResetPath();
             agent.enabled = false;

@@ -34,4 +34,14 @@ namespace FPSGame.Combat
     {
         void ServerOnHitBy(GameObject attacker);
     }
+
+    /// <summary>
+    /// Optional: receivers that can be shoved (a dash ram). Looked up on the receiver's GameObject and called
+    /// before the hit's damage, so a killing blow can carry the shove into the death. Server only.
+    /// </summary>
+    public interface IKnockbackReceiver
+    {
+        /// <summary>Horizontal knock speed (units/sec) along the push.</summary>
+        void ServerKnockback(Vector3 velocity);
+    }
 }

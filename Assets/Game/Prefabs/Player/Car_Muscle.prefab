@@ -1284,6 +1284,7 @@ GameObject:
   - component: {fileID: 6940788547808759814}
   - component: {fileID: 2215334878500934039}
   - component: {fileID: 4968528893329432173}
+  - component: {fileID: 3037457658215689618}
   m_Layer: 0
   m_Name: Car_Muscle
   m_TagString: Untagged
@@ -1677,6 +1678,38 @@ MonoBehaviour:
   exitPoint: {fileID: 1139320809971973873}
   exitLocalOffset: {x: 0, y: 2.5, z: 0}
   exitUpSpeed: 5
+--- !u!114 &3037457658215689618
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6197889040742987065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4bbcd7982e6f6d49b81199ea0e3e0e7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  damage: 100
+  scaleWithDashSpeed: 1
+  hitPush: 15
+  selfDamage: 0
+  hitPlayers: 0
+  hitPlayerCars: 0
+  hitMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  minDashSpeed: 8
+  padding: 0.15
+  extraReach: 0.4
+  groundClearance: 0.3
+  cameraShake: 0.35
+  dashWindowSlack: 0.5
+  maxServerDistance: 15
+  debugRam: 0
 --- !u!1 &6558817174986594066
 GameObject:
   m_ObjectHideFlags: 0
