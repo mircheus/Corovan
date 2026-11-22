@@ -1,46 +1,39 @@
 using Mirror;
 using UnityEngine;
 using FPSGame.Environment;
+using FPSGame.Networking;
+using FPSGame.UI;
 
 namespace FPSGame.Player
 {
     // Owner-side detector for FallHazardVolumes. The convoy's swerve can shove the player off the
-    // platform; dropping into a hazard volume costs health, knocks carried loot loose, and snaps
-    // the player back to the last point where they stood safely on the convoy.
+    // platform; dropping into a hazard volume is a crash onto the road: carried loot is knocked loose,
+    // the body is frozen where it fell, the screen fades to black with the volume's message, and the
+    // server (PlayerHealth.ServerCrash) takes the fall damage and keeps the player out for
+    // deadRespawnDelay. The respawn then puts them in a teammate's car or at a PlayerRespawnPoint
+    // (PlayerInputHandler.ServerRelocateAfterRespawn) and the screen fades back in.
     //
     // Detection runs on the owning client because only the owner runs the CharacterController that
     // generates trigger events (remote copies are moved by NetworkTransform and fire no triggers).
-    // The teleport is applied owner-side (the owner is authoritative over its own transform); the
-    // health penalty is applied on the server via Command.
+    // The damage and the state change are the server's, via Command.
     [RequireComponent(typeof(PlayerController))]
     public class PlayerFallHazard : NetworkBehaviour
     {
-        // Where a fall sends the player back to.
-        //   LastSafePoint : the last spot they stood safely on the convoy (dynamic).
-        //   FixedPoint    : a single scene marker (MotionDirector.FallRespawnPoint).
-        public enum RecoveryMode { LastSafePoint, FixedPoint }
-
-        [Header("Recovery")]
-        [Tooltip("LastSafePoint = last safe spot on the platform. FixedPoint = the MotionDirector's " +
-                 "Fall Respawn Point marker (falls back to last safe spot if that isn't assigned).")]
-        [SerializeField] private RecoveryMode recoveryMode = RecoveryMode.LastSafePoint;
-
-        [Header("Safe point tracking")]
-        [Tooltip("Vertical offset added above the recorded safe point when respawning.")]
-        [SerializeField] private float respawnHeightOffset = 0.5f;
-        [Tooltip("Minimum movement before the safe point is re-sampled (metres).")]
-        [SerializeField] private float sampleDistance = 0.5f;
-
         [Header("Retrigger")]
-        [Tooltip("Seconds of immunity after a fall so one gap can't chain-trigger.")]
+        [Tooltip("Seconds of immunity after a fall, and after the respawn that ends it, so one gap can't chain-trigger.")]
         [SerializeField] private float cooldown = 1f;
+
+        [Header("Crash screen")]
+        [Tooltip("Seconds the screen takes to go black after the fall, and to come back after the respawn.")]
+        [SerializeField, Min(0f)] private float fadeDuration = 0.6f;
+        [Tooltip("{0} is replaced by the whole seconds left before the respawn.")]
+        [SerializeField] private string countdownFormat = "Возвращение через {0}";
 
         private PlayerController controller;
         private PlayerCarry carry;
         private PlayerHealth health;
+        private RoadCrashOverlay overlay;
 
-        private Vector3 lastSafePoint;
-        private bool hasSafePoint;
         private float cooldownTimer;
 
         private void Awake()
@@ -53,10 +46,21 @@ namespace FPSGame.Player
         public override void OnStartLocalPlayer()
         {
             base.OnStartLocalPlayer();
-            // Seed with the spawn position so a fall before ever standing on the platform still
-            // has somewhere to send the player.
-            lastSafePoint = transform.position;
-            hasSafePoint = true;
+
+            if (health != null)
+                health.OnRespawn += OnRespawned;
+            if (GameStateManager.Instance != null)
+                GameStateManager.Instance.OnMatchEnded += OnMatchEnded;
+        }
+
+        private void OnDestroy()
+        {
+            if (health != null)
+                health.OnRespawn -= OnRespawned;
+            if (GameStateManager.Instance != null)
+                GameStateManager.Instance.OnMatchEnded -= OnMatchEnded;
+            if (overlay != null)
+                Destroy(overlay.gameObject);
         }
 
         private void Update()
@@ -67,23 +71,18 @@ namespace FPSGame.Player
             if (cooldownTimer > 0f)
                 cooldownTimer -= Time.deltaTime;
 
-            // Only record a safe point while genuinely standing on the convoy platform, so recovery
-            // never sends the player back into the air or off the edge they just fell from.
-            if (controller.OnMotionPlatform && controller.IsGrounded)
+            if (overlay != null && overlay.IsShown && health != null)
             {
-                if (!hasSafePoint ||
-                    (transform.position - lastSafePoint).sqrMagnitude >= sampleDistance * sampleDistance)
-                {
-                    lastSafePoint = transform.position;
-                    hasSafePoint = true;
-                }
+                overlay.SetCountdown(health.RespawnPending
+                    ? string.Format(countdownFormat, Mathf.CeilToInt(health.RespawnRemaining))
+                    : string.Empty);
             }
         }
 
         // Fires on the owner: the moving CharacterController generates the trigger event.
         private void OnTriggerEnter(Collider other)
         {
-            if (!isOwned || cooldownTimer > 0f)
+            if (!isOwned || cooldownTimer > 0f || health == null || health.IsCrashed)
                 return;
 
             FallHazardVolume hazard = other.GetComponentInParent<FallHazardVolume>();
@@ -92,49 +91,55 @@ namespace FPSGame.Player
 
             cooldownTimer = cooldown;
 
-            // Knock the loot loose (owner-side; replicates the release through PlayerCarry).
+            // Knock the loot loose (owner-side; replicates the release through PlayerCarry) and hold
+            // the body here until the respawn moves it — otherwise it falls forever.
             carry?.ForceDrop();
+            controller.SetFrozen(true);
 
-            // Resolve the recovery spot, then snap back. The owner owns its transform, so this
-            // replicates to everyone else via NetworkTransform.
-            if (TryGetRecoveryPoint(out Vector3 target))
-                controller.TeleportTo(target + Vector3.up * respawnHeightOffset);
+            // A body that is already dead (e.g. thrown out of an exploding car) only stops falling;
+            // its own respawn is already scheduled. Once the match is decided the end screen owns the view.
+            bool matchOver = GameStateManager.Instance != null && GameStateManager.Instance.IsMatchOver;
+            if (health.IsDead || matchOver)
+                return;
 
-            // Apply the health cost on the server.
-            CmdApplyFallPenalty(hazard.InstantKill, hazard.FallDamage);
+            GetOverlay().Show(hazard.CrashMessage, fadeDuration);
+            CmdCrash(hazard.InstantKill, hazard.FallDamage);
         }
 
-        // Picks the teleport target for the current recovery mode. FixedPoint uses the shared scene
-        // marker on MotionDirector, falling back to the last safe spot when it isn't assigned.
-        private bool TryGetRecoveryPoint(out Vector3 point)
+        // Back in the game (Dead / Crashed -> Alive). PlayerInputHandler unfreezes the body; on a host
+        // that happens before the move RPC, at the fall spot, still inside the volume — the cooldown
+        // keeps that from counting as a new fall.
+        private void OnRespawned()
         {
-            if (recoveryMode == RecoveryMode.FixedPoint)
-            {
-                MotionDirector director = MotionDirector.Instance;
-                if (director != null && director.FallRespawnPoint != null)
-                {
-                    point = director.FallRespawnPoint.position;
-                    return true;
-                }
-            }
+            cooldownTimer = cooldown;
+            controller.SetFrozen(false);
+            if (overlay != null)
+                overlay.Hide(fadeDuration);
+        }
 
-            point = lastSafePoint;
-            return hasSafePoint;
+        private void OnMatchEnded(MatchResult result)
+        {
+            if (overlay != null)
+                overlay.Hide(0f);
+        }
+
+        private RoadCrashOverlay GetOverlay()
+        {
+            if (overlay == null)
+                overlay = RoadCrashOverlay.Create();
+            return overlay;
         }
 
         // Detection is owner-side (matching this project's owner-authoritative movement), so the
         // penalty values are supplied by the client. Clamp to a sane range so a bad value can't
         // do anything the volume itself couldn't.
         [Command]
-        private void CmdApplyFallPenalty(bool instantKill, int damage)
+        private void CmdCrash(bool instantKill, int damage)
         {
             if (health == null)
                 return;
 
-            if (instantKill)
-                health.ServerKillInstant();
-            else
-                health.TakeDamage(Mathf.Clamp(damage, 0, health.MaxHealth));
+            health.ServerCrash(Mathf.Clamp(damage, 0, health.MaxHealth), instantKill);
         }
     }
 }

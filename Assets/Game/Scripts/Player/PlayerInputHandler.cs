@@ -129,6 +129,7 @@ namespace FPSGame.Player
                 playerHealth.OnDeath += OnPlayerDied;
                 playerHealth.OnDowned += OnPlayerDowned;
                 playerHealth.OnRevived += OnPlayerRevived;
+                playerHealth.OnCrashed += OnPlayerCrashed;
                 playerHealth.OnRespawn += OnPlayerRespawned;
             }
 
@@ -149,6 +150,7 @@ namespace FPSGame.Player
                 playerHealth.OnDeath -= OnPlayerDied;
                 playerHealth.OnDowned -= OnPlayerDowned;
                 playerHealth.OnRevived -= OnPlayerRevived;
+                playerHealth.OnCrashed -= OnPlayerCrashed;
                 playerHealth.OnRespawn -= OnPlayerRespawned;
             }
 
@@ -181,6 +183,14 @@ namespace FPSGame.Player
             playerController?.SetMoveInput(Vector2.zero);
 
             playerCamera?.UnlockCursor();
+        }
+
+        // Crashed onto the road: out until the respawn, like death (PlayerFallHazard froze the body and
+        // shows the crash screen). Given back by OnPlayerRespawned.
+        private void OnPlayerCrashed()
+        {
+            playerCarry?.ForceDrop();
+            OnPlayerDied();
         }
 
         // Dead until the respawn (PlayerHealth.deadRespawnDelay): everything is taken away here and
@@ -245,12 +255,15 @@ namespace FPSGame.Player
             playerController?.SetDownedMode(false);
         }
 
-        // Dead -> Alive: a respawn after an instant kill.
+        // Dead / Crashed -> Alive: a respawn after an instant kill or a fall onto the road.
         private void OnPlayerRespawned()
         {
             ClearDeathLock();
             loadout?.SetDowned(false);
             playerController?.SetDownedMode(false);
+            // Normally the move RPC (TargetRespawnAt / InSeat) has unfrozen the body already; on a host
+            // this hook runs first, and a respawn with nowhere to go has no RPC at all.
+            playerController?.SetFrozen(false);
         }
 
         private void ClearDeathLock()
@@ -308,7 +321,9 @@ namespace FPSGame.Player
         private void TargetRespawnAt(Vector3 position, float yaw)
         {
             LeaveAnyVehicleLocally();
+            // Teleport while still frozen (CharacterController off), then let go at the new spot.
             playerController?.TeleportTo(position);
+            playerController?.SetFrozen(false);
             playerCamera?.SetLook(yaw, 0f);
         }
 
@@ -323,6 +338,8 @@ namespace FPSGame.Player
             LeaveAnyVehicleLocally();
             playerCamera?.SetLook(seat.transform.eulerAngles.y, 0f);
             TakePassengerSeatLocally(seat);
+            // After the seat's vehicle mode, so the CharacterController stays off.
+            playerController?.SetFrozen(false);
         }
 
         // Normally empty by now (going down or dying already got the player out); covers a lost exit.

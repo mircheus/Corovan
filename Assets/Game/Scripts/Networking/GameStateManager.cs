@@ -128,6 +128,7 @@ namespace FPSGame.Networking
             // PlayerHealth's explicit isServerOnly path on a dedicated server.
             player.OnDowned += ServerReevaluateDefeat;
             player.OnDeath += ServerReevaluateDefeat;
+            player.OnCrashed += ServerReevaluateDefeat;
         }
 
         [Server]
@@ -151,6 +152,7 @@ namespace FPSGame.Networking
 
             player.OnDowned -= ServerReevaluateDefeat;
             player.OnDeath -= ServerReevaluateDefeat;
+            player.OnCrashed -= ServerReevaluateDefeat;
         }
 
         // ----- Defeat --------------------------------------------------------

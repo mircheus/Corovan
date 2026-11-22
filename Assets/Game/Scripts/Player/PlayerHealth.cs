@@ -11,11 +11,14 @@ namespace FPSGame.Player
     // a teammate can revive them (PlayerRevive) until the bleedout timer runs out, then they
     // respawn (PlayerInputHandler.ServerRelocateAfterRespawn picks the spot). Dead is reached
     // only by an instant kill (or a bleedout after the match ended) and lasts deadRespawnDelay.
+    // Crashed = fell off onto the road (FallHazardVolume): out of the game for deadRespawnDelay, then
+    // back with the health the fall left them — not a death, but incapacitated like one.
     public enum LifeState : byte
     {
         Alive = 0,
         Downed = 1,
-        Dead = 2
+        Dead = 2,
+        Crashed = 3
     }
 
     public class PlayerHealth : NetworkBehaviour, IDamageReceiver
@@ -45,12 +48,13 @@ namespace FPSGame.Player
         [Header("Respawn")]
         [Tooltip("On: a bleedout that runs out respawns the player (full health) instead of killing them.")]
         [SerializeField] private bool respawnOnBleedout = true;
-        [Tooltip("Seconds a player killed outright (fall, exploding car) stays dead before respawning. " +
-                 "Below zero = never (dead until the match restarts).")]
+        [Tooltip("Seconds a player killed outright (fall, exploding car) stays dead before respawning, " +
+                 "and a player who crashed onto the road stays out. Below zero = the dead never respawn " +
+                 "(a crash still comes back, at once).")]
         [SerializeField] private float deadRespawnDelay = 15f;
 
-        // NetworkTime.time at which a dead player respawns; 0 = no respawn scheduled. A deadline,
-        // like the bleedout, so clients derive the countdown themselves.
+        // NetworkTime.time at which a dead or crashed player respawns; 0 = no respawn scheduled. A
+        // deadline, like the bleedout, so clients derive the countdown themselves.
         [SyncVar]
         private double respawnTime;
 
@@ -86,6 +90,7 @@ namespace FPSGame.Player
         public LifeState State => lifeState;
         public bool IsDead => lifeState == LifeState.Dead;
         public bool IsDowned => lifeState == LifeState.Downed;
+        public bool IsCrashed => lifeState == LifeState.Crashed;
 
         /// <summary>Down or dead — out of the fight either way. Use for "can this player act / hold a console" checks.</summary>
         public bool IsIncapacitated => lifeState != LifeState.Alive;
@@ -124,16 +129,19 @@ namespace FPSGame.Player
             }
         }
 
-        /// <summary>True while a dead player is waiting for a scheduled respawn.</summary>
-        public bool RespawnPending => lifeState == LifeState.Dead && respawnTime > 0;
+        /// <summary>True while a dead or crashed player is waiting for a scheduled respawn.</summary>
+        public bool RespawnPending => (lifeState == LifeState.Dead || lifeState == LifeState.Crashed) && respawnTime > 0;
 
-        /// <summary>Seconds left before a dead player respawns. Zero when none is scheduled.</summary>
+        /// <summary>Seconds left before a dead or crashed player respawns. Zero when none is scheduled.</summary>
         public float RespawnRemaining => RespawnPending ? Mathf.Max(0f, (float)(respawnTime - NetworkTime.time)) : 0f;
 
         public event Action<int, int> OnHealthChanged;
         public event Action OnDowned;
         public event Action OnRevived;
         public event Action OnDeath;
+        /// <summary>Fell off onto the road. Ends in <see cref="OnRespawn"/>.</summary>
+        public event Action OnCrashed;
+        /// <summary>Back in the game from Dead or Crashed (from Downed it is <see cref="OnRevived"/>).</summary>
         public event Action OnRespawn;
 
         public override void OnStartServer()
@@ -164,7 +172,7 @@ namespace FPSGame.Player
                 return;
             }
 
-            if (lifeState == LifeState.Dead)
+            if (lifeState == LifeState.Dead || lifeState == LifeState.Crashed)
             {
                 TickRespawn();
                 return;
@@ -253,6 +261,9 @@ namespace FPSGame.Player
                     break;
                 case LifeState.Dead:
                     OnDeath?.Invoke();
+                    break;
+                case LifeState.Crashed:
+                    OnCrashed?.Invoke();
                     break;
                 case LifeState.Alive:
                     if (oldState == LifeState.Downed)
@@ -357,6 +368,34 @@ namespace FPSGame.Player
             Die();
         }
 
+        /// <summary>
+        /// Fell off onto the road (<see cref="PlayerFallHazard"/>): the fall costs <paramref name="damage"/>
+        /// and the player is out (Crashed) for <c>deadRespawnDelay</c>, then <see cref="ServerRespawn"/>
+        /// brings them back with the health they had left. A fall that would empty their health, an
+        /// instant-kill volume, or a fall while downed is a death instead (full health on the respawn).
+        /// </summary>
+        [Server]
+        public void ServerCrash(int damage, bool instantKill)
+        {
+            if (lifeState == LifeState.Dead || lifeState == LifeState.Crashed)
+                return;
+
+            damage = Mathf.Max(0, damage);
+            if (instantKill || lifeState == LifeState.Downed || currentHealth - damage <= 0)
+            {
+                Die();
+                return;
+            }
+
+            currentHealth -= damage;
+            lastDamageTime = Time.time;
+            regenBuffer = 0f;
+            respawnTime = IsMatchOver ? 0 : NetworkTime.time + Mathf.Max(0f, deadRespawnDelay);
+            SetLifeState(LifeState.Crashed);
+
+            Debug.Log($"{gameObject.name} crashed onto the road.");
+        }
+
         [Server]
         private void Die()
         {
@@ -409,13 +448,14 @@ namespace FPSGame.Player
         }
 
         /// <summary>
-        /// Back on their feet with full health, from Downed (bleedout ran out) or Dead (respawn delay
-        /// passed), then moved: a free passenger seat in a car another player drives, else the nearest
+        /// Back on their feet, from Downed (bleedout ran out) or Dead (respawn delay passed) with full
+        /// health, or from Crashed with what the fall left them. Then moved: a free passenger seat in a
+        /// car another player drives, else the nearest
         /// <see cref="PlayerRespawnPoint"/>, else a spawn point. The state flips first — a passenger
         /// seat frees itself from an incapacitated occupant.
         /// <para>
-        /// From Downed, clients see Downed -> Alive and raise <see cref="OnRevived"/>; from Dead they
-        /// raise <see cref="OnRespawn"/>. The move itself is the owner's TargetRpc either way.
+        /// From Downed, clients see Downed -> Alive and raise <see cref="OnRevived"/>; from Dead or
+        /// Crashed they raise <see cref="OnRespawn"/>. The move itself is the owner's TargetRpc either way.
         /// </para>
         /// </summary>
         [Server]
@@ -424,7 +464,8 @@ namespace FPSGame.Player
             if (lifeState == LifeState.Alive)
                 return;
 
-            currentHealth = maxHealth;
+            if (lifeState != LifeState.Crashed)
+                currentHealth = maxHealth;
             bleedoutPaused = false;
             bleedoutRemaining = 0f;
             respawnTime = 0;

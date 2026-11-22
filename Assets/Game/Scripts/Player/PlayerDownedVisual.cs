@@ -42,6 +42,7 @@ namespace FPSGame.Player
             health.OnDowned += ApplyState;
             health.OnRevived += ApplyState;
             health.OnDeath += ApplyState;
+            health.OnCrashed += ApplyState;
             health.OnRespawn += ApplyState;
 
             // Late join: reflect whatever state this player is already in.
@@ -55,16 +56,21 @@ namespace FPSGame.Player
             health.OnDowned -= ApplyState;
             health.OnRevived -= ApplyState;
             health.OnDeath -= ApplyState;
+            health.OnCrashed -= ApplyState;
             health.OnRespawn -= ApplyState;
         }
 
         private void ApplyState()
         {
-            // A player who bled out stays on the ground rather than snapping upright to die.
-            bool onTheGround = health.IsIncapacitated;
+            // A player who crashed onto the road is gone until the respawn — the body waits, frozen,
+            // inside the fall volume, where nobody should see it.
+            bool crashed = health.IsCrashed;
+
+            // A dead player stays on the ground rather than snapping upright.
+            bool onTheGround = health.IsIncapacitated && !crashed;
 
             if (aliveVisual != null)
-                aliveVisual.SetActive(!onTheGround);
+                aliveVisual.SetActive(!onTheGround && !crashed);
 
             if (downedVisual != null)
                 downedVisual.SetActive(onTheGround);

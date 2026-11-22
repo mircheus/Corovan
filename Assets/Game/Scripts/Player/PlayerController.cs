@@ -69,6 +69,7 @@ namespace FPSGame.Player
         private float activeTacticalSprintSpeed;
         private bool jumpRequested;
         private bool isDowned;
+        private bool isFrozen;
         private float targetHeight;
         private Vector3 groundNormal = Vector3.up;
         private float airTime;
@@ -131,7 +132,7 @@ namespace FPSGame.Player
 
         private void Update()
         {
-            if (!isOwned || InVehicle || IsGrappling)
+            if (!isOwned || InVehicle || IsGrappling || isFrozen)
                 return;
 
             ReadFPSFInput();
@@ -511,10 +512,26 @@ namespace FPSGame.Player
                 fpsfInput.crouchInput = isCrouching;
         }
 
+        /// <summary>
+        /// Owner: the body is held where it is: CharacterController off, no movement, gravity or
+        /// platform ride. A player who crashed onto the road (PlayerFallHazard) waits out the pause like this.
+        /// </summary>
+        public void SetFrozen(bool frozen)
+        {
+            if (!isOwned || isFrozen == frozen)
+                return;
+
+            isFrozen = frozen;
+            velocity = Vector3.zero;
+            externalVelocity = Vector3.zero;
+            launchVelocity = Vector3.zero;
+            characterController.enabled = !InVehicle && !isFrozen;
+        }
+
         public void SetVehicleMode(bool inVehicle)
         {
             InVehicle = inVehicle;
-            characterController.enabled = !inVehicle;
+            characterController.enabled = !inVehicle && !isFrozen;
             if (inVehicle)
             {
                 moveInput = Vector2.zero;
