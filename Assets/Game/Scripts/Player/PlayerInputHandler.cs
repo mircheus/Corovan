@@ -27,6 +27,7 @@ namespace FPSGame.Player
 
         private PlayerController playerController;
         private PlayerCamera playerCamera;
+        private DriverFovController driverFov;
         private PlayerLoadout loadout;
         private PlayerCarry playerCarry;
         private PlayerKeycardHand playerKeycardHand;
@@ -98,6 +99,7 @@ namespace FPSGame.Player
         {
             playerController = GetComponent<PlayerController>();
             playerCamera = GetComponentInChildren<PlayerCamera>();
+            driverFov = GetComponent<DriverFovController>();
             loadout = GetComponent<PlayerLoadout>();
             playerCarry = GetComponent<PlayerCarry>();
             playerKeycardHand = GetComponent<PlayerKeycardHand>();
@@ -473,7 +475,9 @@ namespace FPSGame.Player
                     && (Mathf.Abs(fpsfInput.moveInput.x) > 0.5f || Mathf.Abs(fpsfInput.moveInput.y) > 0.5f)
                     && currentVehicle.TryDash(fpsfInput.moveInput))
                 {
-                    playerCamera?.PunchFOV(currentVehicle.DashFovPunch, currentVehicle.DashFovPunchDuration);
+                    // The driver FOV controller (car feel C5) plays its own dash kick; the old punch is the fallback.
+                    if (driverFov == null || !driverFov.HandlesDash)
+                        playerCamera?.PunchFOV(currentVehicle.DashFovPunch, currentVehicle.DashFovPunchDuration);
                 }
 
                 // LMB: the car's gun, one shot per click — only with empty hands. A pistol in hand

@@ -30,8 +30,20 @@ namespace FPSGame.Vehicle
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 15f;
         [SerializeField] private float strafeSpeed = 10f;
+        [Tooltip("Old model (Inertia off): units/sec² toward a faster target.")]
         [SerializeField] private float acceleration = 8f;
+        [Tooltip("Old model (Inertia off): units/sec² toward a slower target.")]
         [SerializeField] private float deceleration = 12f;
+
+        [Header("Inertia (car feel C1)")]
+        [Tooltip("On: per-axis inertia model below (time-based accel / brake / release). Off: the old acceleration/deceleration rates.")]
+        [SerializeField] private bool useInertiaModel = true;
+        [Tooltip("Seconds from standstill to full speed on an axis (forward: moveSpeed, sideways: strafeSpeed) while the input pushes along it.")]
+        [SerializeField, Min(0.01f)] private float accelTime = 0.6f;
+        [Tooltip("Seconds from full speed to zero while the input on that axis points against the current speed (S while going forward).")]
+        [SerializeField, Min(0.01f)] private float brakeTime = 0.25f;
+        [Tooltip("Seconds from full speed to zero with no input on that axis: the car settles back level with the convoy (relative speed 0), it never rolls back.")]
+        [SerializeField, Min(0.01f)] private float releaseTime = 0.35f;
 
         [Header("Dash")]
         [Tooltip("Sideways speed (units/sec, along the car's local X) added instantly on a side dash (Shift + A/D).")]
@@ -164,6 +176,11 @@ namespace FPSGame.Vehicle
         // don't eat the dash; it decays on its own at dashDecay.
         private Vector3 dashVelocity;
         private float lastDashTime = float.NegativeInfinity;
+        // Owner, while driving: the car's total move velocity (drive + dash + push) in its local frame,
+        // and its change over the last physics step. CarBodyVisual / the driver's camera feel read them.
+        private Vector3 ownerLocalVelocity;
+        private Vector3 ownerLocalAcceleration;
+        private Vector3 lastDashLocalDirection;
         // Set by an obstacle every physics step it overlaps the car; added to the move step on top of the driver's input.
         private Vector3 pushVelocity;
         private float pushUntil = float.NegativeInfinity;
@@ -449,6 +466,9 @@ namespace FPSGame.Vehicle
             if (isExploded)
                 return;
 
+            if (!HasDriver)
+                ownerLocalVelocity = ownerLocalAcceleration = Vector3.zero;
+
             // Movement is all MovePosition; the body is dynamic only to collide. Drop any velocity
             // physics hands it (shell casings ejected into the cabin, FPSF bullet impact force) —
             // with no drag it would keep the car creeping forever. Vertical speed stays for gravity.
@@ -460,16 +480,30 @@ namespace FPSGame.Vehicle
 
             if (HasDriver)
             {
-                if (!isOwned) return;
+                if (!isOwned)
+                {
+                    ownerLocalVelocity = ownerLocalAcceleration = Vector3.zero;
+                    return;
+                }
 
-                Vector3 targetVelocity = transform.forward * (moveInput.y * moveSpeed)
-                                       + transform.right * (moveInput.x * strafeSpeed);
+                // A keyboard diagonal may come in as (1, 1): never let it be faster than a straight line.
+                Vector2 input = Vector2.ClampMagnitude(moveInput, 1f);
 
-                float rate = targetVelocity.sqrMagnitude > currentVelocity.sqrMagnitude
-                    ? acceleration
-                    : deceleration;
+                if (useInertiaModel)
+                {
+                    currentVelocity = StepInertia(currentVelocity, input, Time.fixedDeltaTime);
+                }
+                else
+                {
+                    Vector3 targetVelocity = transform.forward * (input.y * moveSpeed)
+                                           + transform.right * (input.x * strafeSpeed);
 
-                currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
+                    float rate = targetVelocity.sqrMagnitude > currentVelocity.sqrMagnitude
+                        ? acceleration
+                        : deceleration;
+
+                    currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.fixedDeltaTime);
+                }
                 dashVelocity = Vector3.MoveTowards(dashVelocity, Vector3.zero, dashDecay * Time.fixedDeltaTime);
 
                 Vector3 push = PushActive ? pushVelocity : Vector3.zero;
@@ -489,6 +523,12 @@ namespace FPSGame.Vehicle
                 lastStepSpeed = (currentVelocity + dashVelocity).magnitude;
                 if (frameVelocity.sqrMagnitude > 0.001f)
                     rb.MovePosition(rb.position + SweepBlockedStep(frameVelocity * Time.fixedDeltaTime));
+
+                // After the wall sweep, so a crash shows up as the hard stop it is (nose dips).
+                Vector3 local = transform.InverseTransformDirection(currentVelocity + dashVelocity + push);
+                local.y = 0f;
+                ownerLocalAcceleration = (local - ownerLocalVelocity) / Time.fixedDeltaTime;
+                ownerLocalVelocity = local;
             }
             else if (isServer && vehicleIsAlive && PushActive)
             {
@@ -518,6 +558,35 @@ namespace FPSGame.Vehicle
                 // "only while moving" restriction is off.
                 rb.MovePosition(rb.position + GetChaosOffset(false) * Time.fixedDeltaTime);
             }
+        }
+
+        /// <summary>
+        /// Inertia model (C1): the input sets a target speed per local axis (sideways: strafeSpeed, forward:
+        /// moveSpeed) and each axis moves toward it at a rate picked from what the driver does on that axis —
+        /// pushing along (accelTime), pushing against the current speed (brakeTime) or nothing (releaseTime,
+        /// back to 0 = level with the convoy). Per axis, each in its own time, so a diagonal reaches its target
+        /// along a straight line and is never faster than the faster axis alone.
+        /// </summary>
+        private Vector3 StepInertia(Vector3 velocity, Vector2 input, float dt)
+        {
+            Vector3 right = transform.right;
+            Vector3 forward = transform.forward;
+            float x = StepAxis(Vector3.Dot(velocity, right), input.x, strafeSpeed, dt);
+            float z = StepAxis(Vector3.Dot(velocity, forward), input.y, moveSpeed, dt);
+            return right * x + forward * z;
+        }
+
+        private float StepAxis(float speed, float axisInput, float maxSpeed, float dt)
+        {
+            float target = axisInput * maxSpeed;
+            float time;
+            if (Mathf.Abs(axisInput) < 0.01f)
+                time = releaseTime;
+            else if (speed * target < 0f)
+                time = brakeTime;
+            else
+                time = accelTime;
+            return Mathf.MoveTowards(speed, target, maxSpeed / time * dt);
         }
 
         /// <summary>
@@ -766,6 +835,7 @@ namespace FPSGame.Vehicle
 
             lastDashTime = Time.time;
             dashVelocity = dash;
+            lastDashLocalDirection = transform.InverseTransformDirection(dash).normalized;
             CmdReportDash();
             OnDashStarted?.Invoke();
             return true;
@@ -773,6 +843,32 @@ namespace FPSGame.Vehicle
 
         /// <summary>Owner: a dash has just started (DashVelocity holds its full speed). CarDashRam resets its hits on it.</summary>
         public event System.Action OnDashStarted;
+
+        /// <summary>Owner: unit direction of the last dash in the car's local frame (+X right, +Z forward).</summary>
+        public Vector3 LastDashLocalDirection => lastDashLocalDirection;
+
+        /// <summary>True on the client that drives this car — the only peer where the velocity model runs.</summary>
+        public bool IsDrivenLocally => isOwned && HasDriver;
+
+        /// <summary>Owner while driving: total move velocity (drive + dash + obstacle push) in the car's local XZ
+        /// frame — the speed relative to the convoy. Zero elsewhere (see IsDrivenLocally).</summary>
+        public Vector3 OwnerLocalVelocity => ownerLocalVelocity;
+
+        /// <summary>Owner while driving: change of OwnerLocalVelocity over the last physics step (m/s²), unsmoothed.</summary>
+        public Vector3 OwnerLocalAcceleration => ownerLocalAcceleration;
+
+        public float MaxForwardSpeed => moveSpeed;
+        public float MaxStrafeSpeed => strafeSpeed;
+        /// <summary>Inertia model's time to full speed; with MaxForward/StrafeSpeed it gives the reference
+        /// acceleration (aRef) the visual feel is scaled by — also when the model itself is off.</summary>
+        public float AccelTime => accelTime;
+
+        /// <summary>A/B switch for the inertia model (C1). Off = the old acceleration/deceleration rates.</summary>
+        public bool InertiaEnabled
+        {
+            get => useInertiaModel;
+            set => useInertiaModel = value;
+        }
 
         /// <summary>Owner: the dash speed still on the car (decays at dashDecay; a wall cancels the part going into it).
         /// Zero on every other peer — the dash runs on the driver's client only.</summary>

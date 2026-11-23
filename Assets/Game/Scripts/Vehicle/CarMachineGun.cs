@@ -20,8 +20,15 @@ namespace FPSGame.Vehicle
     public class CarMachineGun : NetworkBehaviour
     {
         [Header("Shot")]
-        [Tooltip("Ray start; the gun fires along its forward (blue axis).")]
+        [Tooltip("Ray start; the gun fires along its forward (blue axis). Keep it on the logical car, not under the " +
+                 "rotating visual root: shots go straight ahead of the car body whatever the visual yaw.")]
         [SerializeField] private Transform firePoint;
+        [Tooltip("Cosmetic muzzle on the gun model (under the visual root): tracers and the muzzle flash start here, " +
+                 "so they leave the barrel the player sees. Empty = the fire point.")]
+        [SerializeField] private Transform visualMuzzle;
+        [Tooltip("Experiment \"aim with the wheel\": on = shots follow the visual nose (CarBodyVisual yaw) and the gun " +
+                 "model turns with the body; off = shots go straight ahead, the gun model keeps pointing there.")]
+        [SerializeField] private bool gunFollowsBodyYaw;
         [SerializeField] private int damage = 15;
         [SerializeField] private float range = 120f;
         [Tooltip("Seconds between two shots.")]
@@ -85,10 +92,21 @@ namespace FPSGame.Vehicle
         public int DisplayAmmo => Mathf.Max(0, ammo - pendingShots);
 
         private Transform FirePoint => firePoint != null ? firePoint : transform;
+        private Transform EffectPoint => visualMuzzle != null ? visualMuzzle : FirePoint;
+
+        private CarBodyVisual bodyVisual;
+
+        /// <summary>C4 experiment switch: shots (and the gun model) follow the visual nose.</summary>
+        public bool GunFollowsBodyYaw
+        {
+            get => gunFollowsBodyYaw;
+            set => gunFollowsBodyYaw = value;
+        }
 
         private void Awake()
         {
             car = GetComponent<CarController>();
+            bodyVisual = GetComponent<CarBodyVisual>();
             if (recoilTarget != null)
                 recoilRestPosition = recoilTarget.localPosition;
         }
@@ -196,6 +214,14 @@ namespace FPSGame.Vehicle
             Vector2 cone = Random.insideUnitCircle * spreadAngle;
             Vector3 dir = fp.rotation * Quaternion.Euler(-cone.y, cone.x, 0f) * Vector3.forward;
 
+            // "Aim with the wheel": turn the shot around the car's pivot by the visual yaw.
+            if (gunFollowsBodyYaw && bodyVisual != null && bodyVisual.EffectEnabled)
+            {
+                Quaternion yaw = Quaternion.AngleAxis(bodyVisual.VisualYaw, transform.up);
+                origin = transform.position + yaw * (origin - transform.position);
+                dir = yaw * dir;
+            }
+
             bool hit = TryRaycast(origin, dir, shooter.transform, out RaycastHit info);
             Vector3 end = hit ? info.point : origin + dir * range;
 
@@ -203,7 +229,7 @@ namespace FPSGame.Vehicle
             if (hit && DamageRouter.FindReceiver(info.collider) is NetworkBehaviour receiver)
                 target = receiver;
 
-            PlayEffects(origin, end, hit ? info.normal : Vector3.zero, hit);
+            PlayEffects(EffectOrigin(offset), end, hit ? info.normal : Vector3.zero, hit);
 
             // Before the command: on the host it runs right away and its ammo hook settles this.
             pendingShots++;
@@ -216,6 +242,13 @@ namespace FPSGame.Vehicle
         {
             Transform fp = FirePoint;
             return fp.position + fp.right * offset.x + fp.up * offset.y;
+        }
+
+        // Cosmetic start of the tracer / flash: the same offset on the visual muzzle.
+        private Vector3 EffectOrigin(Vector2 offset)
+        {
+            Transform ep = EffectPoint;
+            return ep.position + ep.right * offset.x + ep.up * offset.y;
         }
 
         // Nearest hit that is neither this car nor the driver.
@@ -273,14 +306,14 @@ namespace FPSGame.Vehicle
         [ClientRpc(includeOwner = false, channel = Channels.Unreliable)]
         private void RpcShot(Vector2 offset, Vector3 end, Vector3 normal, bool hit)
         {
-            PlayEffects(Origin(offset), end, normal, hit);
+            PlayEffects(EffectOrigin(offset), end, normal, hit);
         }
 
         // ---------- effects (cosmetic, every peer) ----------
 
         private void PlayEffects(Vector3 origin, Vector3 end, Vector3 normal, bool hit)
         {
-            Transform fp = FirePoint;
+            Transform fp = EffectPoint;
             StartRecoil();
 
             if (muzzleFlashPrefab != null)

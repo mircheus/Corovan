@@ -50,6 +50,13 @@ namespace FPSGame.Player
         private float punchDuration;
         private float punchTimer;
 
+        // Additive FOV degrees from an outside source (DriverFovController), summed with the punch.
+        private float externalFovOffset;
+
+        // World-space rotation applied on top of the look (DriverCameraFollow: a share of the car body's turn).
+        // Identity = plain mouse look.
+        private Quaternion baseRotationOffset = Quaternion.identity;
+
         public Camera Camera => playerCamera;
         public bool IsPitchClamped => pitch <= minPitch + 1f || pitch >= maxPitch - 1f;
 
@@ -186,18 +193,38 @@ namespace FPSGame.Player
             punchTimer = 0f;
         }
 
+        /// <summary>Owner: extra FOV degrees on top of everything else, set every frame by its owner
+        /// (0 = none). Summed with the dash punch, never replaces it.</summary>
+        public void SetExternalFovOffset(float degrees)
+        {
+            externalFovOffset = degrees;
+        }
+
+        /// <summary>Owner: world-space rotation laid over the look, refreshed every frame by its owner
+        /// (identity = none). Mouse look keeps working underneath it.</summary>
+        public void SetBaseRotationOffset(Quaternion worldOffset)
+        {
+            baseRotationOffset = worldOffset;
+        }
+
         private void UpdateFOVPunch()
         {
-            if (cameraManager == null || punchDuration <= 0f)
+            if (cameraManager == null)
                 return;
 
-            punchTimer += Time.deltaTime;
-            float t = Mathf.Clamp01(punchTimer / punchDuration);
-            float fade = 1f - t;
-            cameraManager.fieldOfViewOffset = punchAmount * fade * fade;
+            float punch = 0f;
+            if (punchDuration > 0f)
+            {
+                punchTimer += Time.deltaTime;
+                float t = Mathf.Clamp01(punchTimer / punchDuration);
+                float fade = 1f - t;
+                punch = punchAmount * fade * fade;
 
-            if (t >= 1f)
-                punchDuration = 0f;
+                if (t >= 1f)
+                    punchDuration = 0f;
+            }
+
+            cameraManager.fieldOfViewOffset = punch + externalFovOffset;
         }
 
         private void HandleDeathDrop()
@@ -225,12 +252,16 @@ namespace FPSGame.Player
             pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
             Vector3 finalRotation = new Vector3(pitch, 0, 0) + shakeRotationOffset;
-            transform.localRotation = Quaternion.Euler(finalRotation.x, 0, finalRotation.z);
+            Quaternion look = Quaternion.Euler(finalRotation.x, 0, finalRotation.z);
 
+            Quaternion bodyRotation = Quaternion.Euler(0, yaw, 0);
             if (playerBody != null)
             {
-                playerBody.rotation = Quaternion.Euler(0, yaw, 0);
+                playerBody.rotation = bodyRotation;
             }
+
+            // The offset is in world space; the pivot hangs under the yawed body, so bring it into the body's frame.
+            transform.localRotation = Quaternion.Inverse(bodyRotation) * baseRotationOffset * bodyRotation * look;
         }
 
         // Motion shake rides on the camera's local position; head bob is CameraManager's.
