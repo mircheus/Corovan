@@ -46,7 +46,7 @@ namespace FPSGame.Player
         // so the "[E] Взять" prompt and the actual pickup agree on what's in reach.
         public void TryPickupTarget(CarryableObject target)
         {
-            if (!isOwned || carriedObject != null || target == null || target.IsCarried)
+            if (!isOwned || carriedObject != null || target == null || !target.CanBePickedUp)
                 return;
 
             carriedObject = target;
@@ -135,7 +135,7 @@ namespace FPSGame.Player
             foreach (var hit in hits)
             {
                 var carryable = hit.GetComponentInParent<CarryableObject>();
-                if (carryable == null || carryable.IsCarried)
+                if (carryable == null || !carryable.CanBePickedUp)
                     continue;
 
                 float dist = Vector3.Distance(transform.position, carryable.transform.position);
@@ -156,7 +156,7 @@ namespace FPSGame.Player
                 return;
 
             var obj = targetId.GetComponent<CarryableObject>();
-            if (obj == null || obj.IsCarried)
+            if (obj == null || !obj.CanBePickedUp)
                 return;
 
             float dist = Vector3.Distance(transform.position, obj.transform.position);

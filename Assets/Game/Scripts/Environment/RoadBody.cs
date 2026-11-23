@@ -135,7 +135,8 @@ namespace FPSGame.Environment
         public override void OnStartServer()
         {
             base.OnStartServer();
-            if (startDetached)
+            // A RoadBodyRelease holds the body in place until its holders are shot away; it launches it itself.
+            if (startDetached && GetComponent<RoadBodyRelease>() == null)
                 SetPhase(RoadPhase.InAir);   // step-2 editor drop-test: tumble without a trailer
             ApplyReplicationMode(_phase);    // seed the initial mode (SetPhase already did it if we launched)
         }

@@ -152,7 +152,7 @@ namespace Akila.FPSFramework
                     case ExplosionType.RayTracking:
                         if (Physics.Raycast(transform.position, dir, out RaycastHit hit))
                         {
-                            ApplyExplosion(hit.transform, dir);
+                            ApplyExplosion(hit.collider.transform, dir); // CORVAN: collider, not the Rigidbody root
                             CallRayTrackingCallbacks(hit);
                         }
                         break;

@@ -667,9 +667,14 @@ namespace Akila.FPSFramework
 
             // CORVAN: game targets keep their IDamageable-equivalent on a parent, not on each collider.
             // Fall back to the game's resolver unless the collider is a HealthGroup (handled below).
-            IDamageable damageable = hit.transform.GetComponent<IDamageable>();
-            if (damageable == null && ResolveDamageable != null && !hit.transform.TryGetComponent(out IDamageableGroup _))
-                damageable = ResolveDamageable(hit.transform);
+            // CORVAN: from the collider, not hit.transform — under a Rigidbody hit.transform is the body's root,
+            // which skips receivers on child colliders (RoadBodyRelease holders on a RoadBody).
+            Transform hitTarget = hit.collider != null ? hit.collider.transform : hit.transform;
+            IDamageable damageable = hitTarget.GetComponent<IDamageable>();
+            // The group block below still reads hit.transform; skip the resolver whenever it will run, or a bone hit lands twice.
+            if (damageable == null && ResolveDamageable != null && !hitTarget.TryGetComponent(out IDamageableGroup _)
+                && !hit.transform.TryGetComponent(out IDamageableGroup _))
+                damageable = ResolveDamageable(hitTarget);
 
             if (damageable != null)
             {

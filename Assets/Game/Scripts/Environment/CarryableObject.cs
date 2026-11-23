@@ -33,9 +33,13 @@ namespace FPSGame.Environment
         private BoxCollider[] colliders;
         private NetworkTransformBase netTransform;
         private RoadBody roadBody;
+        private RoadBodyRelease release;
         private Transform stowedIn;
 
         public bool IsCarried => isCarried;
+        // Strapped down by RoadBodyRelease holders: stays put until they are shot away.
+        public bool IsHeldInPlace => release != null && release.IsHeld;
+        public bool CanBePickedUp => !isCarried && !IsHeldInPlace;
         public bool IsStowed => stowedInNetId != 0;
         public uint StowedInNetId => stowedInNetId;
         public NetworkTransformBase NetTransform => netTransform;
@@ -53,6 +57,7 @@ namespace FPSGame.Environment
             colliders = GetComponentsInChildren<BoxCollider>();
             netTransform = GetComponent<NetworkTransformBase>();
             roadBody = GetComponent<RoadBody>();
+            release = GetComponent<RoadBodyRelease>();
         }
 
         public override void OnStartClient()
@@ -90,7 +95,7 @@ namespace FPSGame.Environment
             // just follows the NetworkTransform. Carried loot is kinematic everywhere — it rides
             // the carrier's hand and its world position is streamed by the owner. Stowed loot is
             // kinematic too: every peer pins it to its own view of the car (LateUpdate).
-            rb.isKinematic = carried || stowed || !isServer;
+            rb.isKinematic = carried || stowed || IsHeldInPlace || !isServer;
 
             foreach (var col in colliders)
                 col.enabled = !carried && !stowed;
