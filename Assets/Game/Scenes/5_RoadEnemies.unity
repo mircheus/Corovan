@@ -149,7 +149,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4960336900643024526, guid: a52f5efb2b74b0d4296d6a4eff207649, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -32
+      value: -24
       objectReference: {fileID: 0}
     - target: {fileID: 4960336900643024526, guid: a52f5efb2b74b0d4296d6a4eff207649, type: 3}
       propertyPath: m_LocalRotation.w
@@ -186,7 +186,7 @@ PrefabInstance:
     - target: {fileID: 5672841130056421172, guid: a52f5efb2b74b0d4296d6a4eff207649, type: 3}
       propertyPath: 'enemies.Array.data[0]'
       value: 
-      objectReference: {fileID: 1617692567}
+      objectReference: {fileID: 1092570777}
     - target: {fileID: 5672841130056421172, guid: a52f5efb2b74b0d4296d6a4eff207649, type: 3}
       propertyPath: 'enemies.Array.data[1]'
       value: 
@@ -2040,7 +2040,7 @@ PrefabInstance:
     - target: {fileID: 7200000000000000001, guid: 463326d078a84f478981540aff2c255d, type: 3}
       propertyPath: obstaclePrefab
       value: 
-      objectReference: {fileID: 1194466859310567730, guid: 86af5c9aefd4cf24baaecaf780eda050, type: 3}
+      objectReference: {fileID: 7100000000000000001, guid: 52ddda8644744e27b7520a6618984d9f, type: 3}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
@@ -2049,6 +2049,17 @@ PrefabInstance:
       addedObject: {fileID: 224339463}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 463326d078a84f478981540aff2c255d, type: 3}
+--- !u!114 &1092570777 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5115878844386934606, guid: 463326d078a84f478981540aff2c255d, type: 3}
+  m_PrefabInstance: {fileID: 1092570776}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c566b6e506680694c9a462c6175f02c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &1138076251
 PrefabInstance:
   m_ObjectHideFlags: 0
