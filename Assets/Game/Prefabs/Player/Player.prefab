@@ -20574,7 +20574,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a633364627cf3bd4b898c93475463608, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  effectEnabled: 1
+  effectEnabled: 0
   enterExitBlend: 0.3
   shakeNode: {fileID: 8862486683004523668}
   baseShakeRotation: 0.2

@@ -90,7 +90,8 @@ namespace FPSGame.Player
                 Vector3 aRef = body.ReferenceAcceleration;
                 sb.AppendLine($"rel. speed  x {v.x,6:F1}  z {v.z,6:F1} m/s");
                 sb.AppendLine($"accel/aRef  x {a.x / aRef.x,6:F2}  z {a.z / aRef.z,6:F2}");
-                sb.AppendLine($"body  yaw {body.Yaw,6:F1}  pitch {body.Pitch,5:F1}  roll {body.Roll,5:F1}");
+                sb.AppendLine($"motion  yaw {body.Yaw,6:F1}  pitch {body.Pitch,5:F1}  roll {body.Roll,5:F1}");
+                sb.AppendLine($"body    yaw {body.VisualYaw,6:F1}  pitch {body.VisualPitch,5:F1}  roll {body.VisualRoll,5:F1}");
             }
             if (cameraFollow != null)
             {
@@ -103,7 +104,7 @@ namespace FPSGame.Player
                 sb.AppendLine($"shake: {(shake.IsShaking ? "active" : "off")}");
             sb.Append($"[{toggleOverlayKey}] hide");
 
-            var rect = new Rect(10f, Screen.height * 0.35f, 360f, 260f);
+            var rect = new Rect(10f, Screen.height * 0.35f, 360f, 280f);
             GUI.color = new Color(0f, 0f, 0f, 0.55f);
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = Color.white;

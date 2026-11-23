@@ -217,7 +217,7 @@ namespace FPSGame.Vehicle
             // "Aim with the wheel": turn the shot around the car's pivot by the visual yaw.
             if (gunFollowsBodyYaw && bodyVisual != null && bodyVisual.EffectEnabled)
             {
-                Quaternion yaw = Quaternion.AngleAxis(bodyVisual.Yaw, transform.up);
+                Quaternion yaw = Quaternion.AngleAxis(bodyVisual.VisualYaw, transform.up);
                 origin = transform.position + yaw * (origin - transform.position);
                 dir = yaw * dir;
             }

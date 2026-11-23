@@ -29,6 +29,13 @@ namespace FPSGame.Vehicle
         [Header("Switch (A/B)")]
         [SerializeField] private bool effectEnabled = true;
 
+        [Header("Body pose amplitude (the driver's camera is unaffected)")]
+        [Tooltip("Share of the computed yaw the visible body actually turns. The camera follow (DriverCameraFollow) " +
+                 "reads the full computed angles, so this only calms the car model down.")]
+        [SerializeField, Range(0f, 1f)] private float bodyYawScale = 0.25f;
+        [Tooltip("Share of the computed pitch / roll the visible body actually tilts. Camera unaffected.")]
+        [SerializeField, Range(0f, 1f)] private float bodyTiltScale = 0.25f;
+
         [Header("Yaw: nose toward the travel direction over the road")]
         [SerializeField] private float yawExaggeration = 2.5f;
         [SerializeField] private float maxVisualYaw = 15f;
@@ -87,10 +94,16 @@ namespace FPSGame.Vehicle
             }
         }
 
-        /// <summary>Visual angles in degrees (0 while the effect is off). Pitch: nose up = positive; roll: positive = left side down.</summary>
+        /// <summary>Computed motion angles in degrees, before the body amplitude scale (0 while the effect is off).
+        /// The driver's camera follows these. Pitch: nose up = positive; roll: positive = left side down.</summary>
         public float Yaw => yaw;
         public float Pitch => pitch;
         public float Roll => roll;
+
+        /// <summary>Angles the visible body is actually posed at (after bodyYawScale / bodyTiltScale).</summary>
+        public float VisualYaw => yaw * bodyYawScale;
+        public float VisualPitch => pitch * bodyTiltScale;
+        public float VisualRoll => roll * bodyTiltScale;
 
         /// <summary>Speed relative to the convoy in the car's local XZ frame: the model on the driver's client,
         /// the smoothed estimate elsewhere. Computed even while the visual effect is off.</summary>
@@ -184,12 +197,12 @@ namespace FPSGame.Vehicle
             x += velocity * h;
         }
 
-        private Quaternion TiltRotation => Quaternion.AngleAxis(-pitch, Vector3.right) * Quaternion.AngleAxis(roll, Vector3.forward);
+        private Quaternion TiltRotation => Quaternion.AngleAxis(-VisualPitch, Vector3.right) * Quaternion.AngleAxis(VisualRoll, Vector3.forward);
 
         private void ApplyPose()
         {
             Quaternion tilt = TiltRotation;
-            Quaternion rot = Quaternion.AngleAxis(yaw, Vector3.up) * tilt;
+            Quaternion rot = Quaternion.AngleAxis(VisualYaw, Vector3.up) * tilt;
             visualRoot.localRotation = rot * visualRootBaseRotation;
             visualRoot.localPosition = visualRootBasePosition + pivot - rot * pivot;
 
