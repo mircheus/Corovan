@@ -12275,7 +12275,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3155472105227155606}
-  m_Father: {fileID: 7361190921834333196}
+  m_Father: {fileID: 8862486683004523668}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &8246715207591915000
 Camera:
@@ -17543,6 +17543,39 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &2355979632732487556
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8862486683004523668}
+  m_Layer: 0
+  m_Name: DriverShakeOffset
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8862486683004523668
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2355979632732487556}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8031254911518507930}
+  - {fileID: 5338239976239624467}
+  m_Father: {fileID: 7361190921834333196}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2520692329565057531
 GameObject:
   m_ObjectHideFlags: 0
@@ -18832,7 +18865,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 7361190921834333196}
+  m_Father: {fileID: 8862486683004523668}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &1806314024017699678
 Camera:
@@ -19756,6 +19789,10 @@ GameObject:
   - component: {fileID: 8536403973742836469}
   - component: {fileID: 8439570500952112446}
   - component: {fileID: 7035728351820612827}
+  - component: {fileID: 8547766952424161057}
+  - component: {fileID: 3757879606147880326}
+  - component: {fileID: 8183163323071217419}
+  - component: {fileID: 2544888769898475027}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -19921,6 +19958,8 @@ MonoBehaviour:
   maxHealth: 100
   bleedoutDuration: 15
   reviveHealthPercent: 0.5
+  respawnOnBleedout: 1
+  deadRespawnDelay: 15
   enableRegeneration: 0
   regenerationRate: 5
   regenerationDelay: 5
@@ -19946,6 +19985,7 @@ MonoBehaviour:
   promptScanInterval: 0.1
   lookAngleThreshold: 40
   showExitVehiclePrompt: 0
+  keypadRayLength: 4
 --- !u!114 &8119119459039292421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20186,10 +20226,10 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  recoveryMode: 1
-  respawnHeightOffset: 0.5
-  sampleDistance: 0.5
   cooldown: 1
+  fadeDuration: 0.6
+  countdownFormat: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0435\u043D\u0438\u0435
+    \u0447\u0435\u0440\u0435\u0437 {0}"
 --- !u!114 &4323429178011855023
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20481,6 +20521,87 @@ MonoBehaviour:
   minAlpha: 0.35
   fullAlphaFraction: 0.4
   cameraShake: 0.3
+  vehicleFullAlphaFraction: 0.25
+  vehicleCameraShake: 0.4
+--- !u!114 &8547766952424161057
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f13447a0080dde47bb342fcebf2e6b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  effectEnabled: 1
+  enterExitBlend: 0.3
+  cameraYawFollow: 0.5
+  cameraTiltFollow: 0.3
+--- !u!114 &3757879606147880326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f622d83a376457046a8a68ff382b02fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  effectEnabled: 1
+  enterExitBlend: 0.3
+  fovForwardMax: 6
+  fovBackMax: 3
+  fovAccelKick: 3
+  accelSmoothing: 0.15
+  dashFovKick: 10
+  dashFovAttack: 0.08
+  dashFovRelease: 0.4
+  fovOffsetMax: 15
+  fovSharpness: 20
+--- !u!114 &8183163323071217419
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a633364627cf3bd4b898c93475463608, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  effectEnabled: 1
+  enterExitBlend: 0.3
+  shakeNode: {fileID: 8862486683004523668}
+  baseShakeRotation: 0.2
+  baseShakePosition: 0.005
+  baseShakeFrequency: 18
+  dashShakeAmplitude: 1
+  dashShakeDuration: 0.3
+--- !u!114 &2544888769898475027
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4863821715201914006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dcbdbf4057229794d8b397dc476ec716, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hotkeysEnabled: 1
+  toggleInertiaKey: 94
+  toggleBodyVisualKey: 95
+  toggleCameraFollowKey: 96
+  toggleFovKey: 97
+  toggleShakeKey: 103
+  toggleOverlayKey: 105
+  showOverlay: 0
 --- !u!1 &4928421534997451326
 GameObject:
   m_ObjectHideFlags: 0
@@ -21168,8 +21289,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8031254911518507930}
-  - {fileID: 5338239976239624467}
+  - {fileID: 8862486683004523668}
   m_Father: {fileID: 376751515332896107}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3882504776334703371
