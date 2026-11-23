@@ -38,6 +38,12 @@ namespace FPSGame.Environment
         [Tooltip("Unparent the body on release (every peer), so it no longer follows the wagon it was attached to.")]
         [SerializeField] private bool detachFromParent = true;
 
+        [Header("Gizmo")]
+        [Tooltip("Draw the launch preview even when the object isn't selected.")]
+        [SerializeField] private bool gizmoAlways = false;
+        [Tooltip("Seconds of flight the preview arc covers (gravity only; airstream and collisions ignored). 0 = arrow only.")]
+        [SerializeField, Min(0f)] private float gizmoArcTime = 0.6f;
+
         [Header("Events")]
         [Tooltip("Fired once on every client when the body is released (sound, effects). Not replayed for late joiners.")]
         [SerializeField] private UnityEvent onReleased;
@@ -179,15 +185,74 @@ namespace FPSGame.Environment
                 transform.SetParent(null, true);
         }
 
+        // ---------- EDITOR ----------
+
+        private void OnDrawGizmos()
+        {
+            if (gizmoAlways)
+                DrawLaunchGizmo();
+        }
+
         private void OnDrawGizmosSelected()
         {
-            if (launchVelocity == Vector3.zero)
+            if (!gizmoAlways)
+                DrawLaunchGizmo();
+        }
+
+        /// <summary>
+        /// Launch preview: arrow = launchVelocity direction, arc = flight under gravity for gizmoArcTime s,
+        /// box at the arc's end = where launchVelocityRandom can move that point. Gravity only — in play the
+        /// airstream also drags the body backward and anything it hits stops the arc.
+        /// </summary>
+        private void DrawLaunchGizmo()
+        {
+            Quaternion frame = launchSpace == Space.Self ? transform.rotation : Quaternion.identity;
+            Vector3 origin = transform.position;
+            Vector3 v = frame * launchVelocity;
+            Vector3 g = Physics.gravity;
+
+            // Arrow: the launch direction, length = 0.25 s of travel (at least 0.3 m so it stays visible).
+            if (v.sqrMagnitude > 1e-6f)
+            {
+                Vector3 dir = v.normalized;
+                Vector3 tip = origin + dir * Mathf.Max(v.magnitude * 0.25f, 0.3f);
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawLine(origin, tip);
+
+                float head = Mathf.Min(0.15f, Vector3.Distance(origin, tip) * 0.4f);
+                Vector3 side = Vector3.Cross(dir, Mathf.Abs(Vector3.Dot(dir, Vector3.up)) > 0.99f ? Vector3.right : Vector3.up).normalized;
+                Vector3 side2 = Vector3.Cross(dir, side);
+                Gizmos.DrawLine(tip, tip - dir * head + side * head * 0.5f);
+                Gizmos.DrawLine(tip, tip - dir * head - side * head * 0.5f);
+                Gizmos.DrawLine(tip, tip - dir * head + side2 * head * 0.5f);
+                Gizmos.DrawLine(tip, tip - dir * head - side2 * head * 0.5f);
+            }
+
+            if (gizmoArcTime <= 0f)
                 return;
 
-            Vector3 v = launchSpace == Space.Self ? transform.TransformDirection(launchVelocity) : launchVelocity;
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawLine(transform.position, transform.position + v * 0.5f);
-            Gizmos.DrawWireSphere(transform.position + v * 0.5f, 0.05f);
+            // Arc: p(t) = origin + v t + ½ g t².
+            const int segments = 24;
+            Gizmos.color = new Color(1f, 0.85f, 0.2f, 0.8f);
+            Vector3 prev = origin;
+            for (int i = 1; i <= segments; i++)
+            {
+                float t = gizmoArcTime * i / segments;
+                Vector3 p = origin + v * t + 0.5f * t * t * g;
+                Gizmos.DrawLine(prev, p);
+                prev = p;
+            }
+            Gizmos.DrawWireSphere(prev, 0.06f);
+
+            // Spread: ±random on the velocity moves the end point by ±random × T, a box in the launch frame.
+            if (launchVelocityRandom != Vector3.zero)
+            {
+                Matrix4x4 old = Gizmos.matrix;
+                Gizmos.matrix = Matrix4x4.TRS(prev, frame, Vector3.one);
+                Gizmos.color = new Color(1f, 0.5f, 0.1f, 0.6f);
+                Gizmos.DrawWireCube(Vector3.zero, launchVelocityRandom * (2f * gizmoArcTime));
+                Gizmos.matrix = old;
+            }
         }
     }
 }

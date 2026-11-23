@@ -608,6 +608,12 @@ namespace Akila.FPSFramework
         /// </summary>
         public static System.Func<Firearm, Collider, bool> IgnoreHit;
 
+        /// <summary>
+        /// CORVAN: true = a hit doesn't push this Rigidbody (impactForce impulse). RoadBody uses it: the push only
+        /// ever acted on the host (clients' copies are kinematic), and it spun light props wildly.
+        /// </summary>
+        public static System.Func<Rigidbody, bool> NoImpactForce;
+
         // CORVAN: Physics.Raycast, but the nearest hit IgnoreHit doesn't pass through.
         private bool HitscanRaycast(Ray ray, out RaycastHit nearest)
         {
@@ -757,7 +763,7 @@ namespace Akila.FPSFramework
             }
 
 
-            if (hit.rigidbody)
+            if (hit.rigidbody && (NoImpactForce == null || !NoImpactForce(hit.rigidbody))) // CORVAN
             {
                 float force = firearm.preset.shotDelay <= 0 ? firearm.preset.impactForce / firearm.preset.shotCount : firearm.preset.impactForce;
                 hit.rigidbody.AddForceAtPosition(-hit.normal * force, hit.point, ForceMode.Impulse);

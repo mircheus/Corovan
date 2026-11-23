@@ -95,6 +95,14 @@ namespace FPSGame.Environment
 
         public RoadPhase Phase => _phase;
 
+        // Bullets don't shove road props: FPSF's impact impulse only ever ran on the host (client copies are
+        // kinematic) and sent light props spinning. Grenade blasts still push them.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void RegisterNoImpactForce()
+        {
+            Akila.FPSFramework.Firearm.NoImpactForce = body => body.TryGetComponent(out RoadBody _);
+        }
+
         private void Awake()
         {
             _rb = GetComponent<Rigidbody>();
