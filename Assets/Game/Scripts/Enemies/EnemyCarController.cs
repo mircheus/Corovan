@@ -17,12 +17,18 @@ namespace FPSGame.Environment
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(NavMeshAgent))]
-    public class EnemyCarController : NetworkBehaviour, IDamageReceiver, IAttackerListener, IKnockbackReceiver
+    public class EnemyCarController : NetworkBehaviour, IDamageReceiver, IAttackerListener, IKnockbackReceiver, IEnemyCarCrusher
     {
         int IDamageReceiver.CurrentHealth => currentHealth;
         int IDamageReceiver.MaxHealth => maxHealth;
         bool IDamageReceiver.IsDead => isDead;
         void IDamageReceiver.TakeDamage(int damage) => TakeDamage(damage);
+
+        // The flying wreck crushes other enemy cars (chain reaction).
+        bool IEnemyCarCrusher.CrushArmed => isDead && wreckCrushesEnemyCars && roadBody != null && roadBody.Phase != RoadPhase.OnTruck;
+        float IEnemyCarCrusher.MinImpactSpeed => wreckCrushMinSpeed;
+        float IEnemyCarCrusher.WreckPush => wreckCrushPush;
+        Vector3 IEnemyCarCrusher.PreImpactVelocity => wreckVelocity;
 
         [Header("Health")]
         [Tooltip("Total weapon damage needed to destroy the car.")]
@@ -62,6 +68,14 @@ namespace FPSGame.Environment
         [Tooltip("Seconds after death before the wreck is removed from the map (server, on every peer through Mirror). " +
                  "0 = never by timer, only RoadBody's own despawn (which doesn't fire on a road that isn't scrolling).")]
         [SerializeField, Min(0f)] private float wreckLifetime = 20f;
+
+        [Header("Crush (road props, wrecks)")]
+        [Tooltip("This car's flying wreck destroys other enemy cars it hits, like a prop with EnemyCarCrusher (chain reaction).")]
+        [SerializeField] private bool wreckCrushesEnemyCars = true;
+        [Tooltip("Minimum speed (m/s) of the wreck relative to the other car for the hit to destroy it.")]
+        [SerializeField, Min(0f)] private float wreckCrushMinSpeed = 5f;
+        [Tooltip("Share of the impact velocity the other car's wreck flies off with.")]
+        [SerializeField, Min(0f)] private float wreckCrushPush = 0.5f;
 
         [Header("Targeting")]
         [Tooltip("After the player leaves their car, who to keep targeting — the player on foot, or the abandoned car.")]
@@ -116,6 +130,8 @@ namespace FPSGame.Environment
         private Vector3 knockVelocity;
         private float knockEndTime;
         private bool knocked;
+        // Server: the wreck's velocity before the current physics step (its approach speed when it hits a car).
+        private Vector3 wreckVelocity;
 
         [SyncVar(hook = nameof(OnDeadChanged))]
         private bool isDead;
@@ -383,8 +399,50 @@ namespace FPSGame.Environment
             }
         }
 
+        // ---------- Crush ----------
+
+        // FixedUpdate runs before the physics step and collision callbacks after it, so this is the approach speed.
+        [ServerCallback]
+        private void FixedUpdate()
+        {
+            if (isDead)
+                wreckVelocity = rb.isKinematic ? Vector3.zero : rb.linearVelocity;
+        }
+
+        // The car's Rigidbody is kinematic while alive, so a dynamic road prop (or a flying wreck) hitting it still
+        // reports here on the server.
+        [ServerCallback]
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (isDead || collision.rigidbody == null || collision.rigidbody == rb)
+                return;
+            if (!collision.rigidbody.TryGetComponent(out IEnemyCarCrusher crusher) || !crusher.CrushArmed)
+                return;
+
+            // The car is moved by its agent (transform writes), so PhysX sees it standing still: compute the relative speed here.
+            Vector3 carVelocity = agent.enabled ? agent.velocity : Vector3.zero;
+            Vector3 relative = crusher.PreImpactVelocity - carVelocity;
+            if (relative.magnitude < crusher.MinImpactSpeed)
+                return;
+
+            ServerCrush(relative * crusher.WreckPush);
+        }
+
+        /// <summary>
+        /// Server: destroy the car at once, whatever its health (a road prop or a wreck slammed into it). The wreck
+        /// flies off with <paramref name="launchVelocity"/> (plus the usual random lift, side speed and spin).
+        /// </summary>
         [Server]
-        private void ServerDie()
+        public void ServerCrush(Vector3 launchVelocity)
+        {
+            if (isDead)
+                return;
+            currentHealth = 0;
+            ServerDie(launchVelocity);
+        }
+
+        [Server]
+        private void ServerDie(Vector3? launchOverride = null)
         {
             huntedPlayer = null;
             huntedCar = null;
@@ -399,6 +457,9 @@ namespace FPSGame.Environment
                 knocked = false;
                 knockVelocity = Vector3.zero;
             }
+            // Crushed: the wreck flies off along the impact.
+            if (launchOverride.HasValue)
+                velocity = launchOverride.Value;
             if (agent.isOnNavMesh)
                 agent.ResetPath();
             agent.enabled = false;
