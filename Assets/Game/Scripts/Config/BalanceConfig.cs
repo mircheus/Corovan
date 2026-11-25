@@ -62,5 +62,7 @@ namespace FPSGame.Config
         [Min(1)] public int maxHealth = 300;
         [Min(0)] public int projectileDamage = 10;
         [Min(0.1f)] public float projectileSpeed = 20f;
+        [Tooltip("Shots per second (gunner car).")]
+        [Min(0.01f)] public float fireRate = 0.5f;
     }
 }

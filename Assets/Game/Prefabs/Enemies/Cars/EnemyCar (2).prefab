@@ -92,7 +92,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1735258007964980220, guid: 0ee57eef76f46a040b7d7977757f0478, type: 3}
       propertyPath: m_Name
-      value: EnemyCar (2) Variant
+      value: EnemyCar (2)
       objectReference: {fileID: 0}
     - target: {fileID: 2296485547408066999, guid: 0ee57eef76f46a040b7d7977757f0478, type: 3}
       propertyPath: m_IsActive
@@ -153,6 +153,18 @@ PrefabInstance:
     - target: {fileID: 5775847366699899799, guid: 0ee57eef76f46a040b7d7977757f0478, type: 3}
       propertyPath: m_IsActive
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7200000000000000001, guid: 0ee57eef76f46a040b7d7977757f0478, type: 3}
+      propertyPath: fireRate
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7200000000000000001, guid: 0ee57eef76f46a040b7d7977757f0478, type: 3}
+      propertyPath: moveSpeed
+      value: 18
+      objectReference: {fileID: 0}
+    - target: {fileID: 7200000000000000001, guid: 0ee57eef76f46a040b7d7977757f0478, type: 3}
+      propertyPath: projectileDamage
+      value: 15
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

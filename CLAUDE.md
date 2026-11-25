@@ -201,7 +201,7 @@ FPSF is single-player code; we use its camera feel, weapons, grenades, ragdoll a
   - `playerCar.maxHealth` → `CarController.maxVehicleHealth` (server, SyncVar — the HUD reads it on clients). All `CarController`s share it.
   - `playerCar.dashRamDamage` → `CarDashRam.damage` (server, `OnStartServer`).
   - `shooterDroid.maxHealth/projectileDamage/projectileSpeed` → `ShooterDroid.ApplyBalance` (server) → `RagdollEnemy.ServerSetMaxHealth` (`maxHealth` is a SyncVar). The plain `RagdollBot` dummy is not configured.
-  - `enemyCar.maxHealth/projectileDamage/projectileSpeed` → `EnemyCarController.ApplyBalance` (server).
+  - `enemyCar.maxHealth/projectileDamage/projectileSpeed/fireRate` → `EnemyCarController.ApplyBalance` (server). `fireRate` = shots per second, gunner car only.
   - `zombie.maxHealth/attackDamage` → `MeleeZombie.ApplyBalance` (server) → `RagdollEnemy.ServerSetMaxHealth`.
 
 ### Networking Pattern

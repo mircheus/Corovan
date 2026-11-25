@@ -144,6 +144,7 @@ namespace FPSGame.Environment
         {
             projectileDamage = balance.projectileDamage;
             projectileSpeed = balance.projectileSpeed;
+            fireRate = balance.fireRate;
         }
 
         public override void ServerOnTargetChanged()

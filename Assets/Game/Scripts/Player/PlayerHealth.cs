@@ -494,5 +494,20 @@ namespace FPSGame.Player
         {
             TakeDamage(damage);
         }
+
+        /// <summary>
+        /// Self-destruct (K, for a player stuck somewhere): the owner's own health drops to zero
+        /// through the normal damage path — downed, revivable, respawned when the bleedout runs out.
+        /// Owner-only (Command needs authority), so it can never hit another player.
+        /// </summary>
+        [Command]
+        public void CmdSelfDestruct()
+        {
+            if (lifeState != LifeState.Alive || IsMatchOver)
+                return;
+
+            Debug.Log($"{gameObject.name} self-destructed.");
+            TakeDamage(currentHealth);
+        }
     }
 }

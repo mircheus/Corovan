@@ -1029,7 +1029,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  profile: {fileID: 11400000, guid: 47d1e817b3dd9e54493452b3946d70f9, type: 2}
+  profile: {fileID: 11400000, guid: af25dbc2bbd21aa4fbbb65a8420a939c, type: 2}
   startDetached: 0
   netSync: {fileID: 8130041062091910497}
   landingEffectPrefab: {fileID: 0}

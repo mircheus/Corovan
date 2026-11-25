@@ -408,6 +408,16 @@ namespace FPSGame.Player
             if (IsDowned)
                 return;
 
+            // K: self-destruct for a player stuck somewhere — health to zero, as if killed.
+            // The server re-checks Alive and that the match is still running.
+            if (!fpsfInputPaused && !fpsfInputLockedForGood && !deathLocked && playerHealth != null
+                && playerHealth.State == LifeState.Alive)
+            {
+                var selfDestructKb = Keyboard.current;
+                if (selfDestructKb != null && selfDestructKb[Key.K].wasPressedThisFrame)
+                    playerHealth.CmdSelfDestruct();
+            }
+
             if (currentVehicle != null && currentVehicle.DriverSeat != null)
                 transform.position = currentVehicle.DriverSeat.position;
 
