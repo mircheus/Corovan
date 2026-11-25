@@ -341,7 +341,8 @@ namespace Akila.FPSFramework
         /// <returns></returns>
         public bool IsAvoidingObstacle()
         {
-            if (Use_ObstacleAvoidnace && Physics.Raycast(obstacleAvoidnaceTransform.position, characterManager.cameraManager.mainCamera.transform.forward, out obstacleAvoidnaceHit, obstacleAvoidnaceRange, obstacleAvoidnaceLayermask) && !obstacleAvoidnaceHit.transform.GetComponent<IgnoreObstacleAvoidnace>())
+            // CORVAN: trigger volumes are not obstacles (QueryTriggerInteraction.Ignore).
+            if (Use_ObstacleAvoidnace && Physics.Raycast(obstacleAvoidnaceTransform.position, characterManager.cameraManager.mainCamera.transform.forward, out obstacleAvoidnaceHit, obstacleAvoidnaceRange, obstacleAvoidnaceLayermask, QueryTriggerInteraction.Ignore) &&!obstacleAvoidnaceHit.transform.GetComponent<IgnoreObstacleAvoidnace>())
             {
                 return true;
             }

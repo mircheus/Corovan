@@ -111,7 +111,8 @@ namespace Akila.FPSFramework
             damage = (!source.preset.alwaysApplyFire ? source.preset.damage / source.preset.shotCount : source.preset.damage) * damageRangeFactor;
 
             Ray ray = new Ray(previousPosition, -(previousPosition - transform.position));
-            RaycastHit[] hits = Physics.RaycastAll(ray, Vector3.Distance(transform.position, previousPosition));
+            // CORVAN: trigger volumes are skipped (no decal, no penetration loss).
+            RaycastHit[] hits = Physics.RaycastAll(ray, Vector3.Distance(transform.position, previousPosition), Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             if (penetrationStrenght <= 0) Destroy(gameObject);
 
             for (int i = 0; i < hits.Length; i++)

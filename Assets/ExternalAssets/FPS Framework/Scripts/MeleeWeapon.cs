@@ -35,7 +35,7 @@ namespace Akila.FPSFramework
         /// </summary>
         public void Attack()
         {
-            if (Physics.Raycast(transform.position, transform.forward, out hit, range))
+            if (Physics.Raycast(transform.position, transform.forward, out hit, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) // CORVAN: skip triggers
             {
                 Transform transform = hit.transform;
 

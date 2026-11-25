@@ -107,7 +107,7 @@ namespace Akila.FPSFramework
             if (craterDecal)
             {
                 RaycastHit ray;
-                if (Physics.Raycast(transform.position, Vector3.down, out ray, radius * scale))
+                if (Physics.Raycast(transform.position, Vector3.down, out ray, radius * scale, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) // CORVAN: skip triggers
                 {
                     GameObject newDecal = Instantiate(craterDecal, ray.point + Vector3.up * 0.01f, Quaternion.FromToRotation(Vector3.up, ray.normal));
                     newDecal.transform.localScale *= craterSize;
@@ -140,8 +140,9 @@ namespace Akila.FPSFramework
             damagedThisExplosion.Clear();
 
 
-            Collider[] nearColliders = Physics.OverlapSphere(transform.position, radius * scale, layerMask);
-            Collider[] farColliders = Physics.OverlapSphere(transform.position, effectRadius * scale, layerMask);
+            // CORVAN: trigger volumes are neither hit nor block the blast (QueryTriggerInteraction.Ignore).
+            Collider[] nearColliders = Physics.OverlapSphere(transform.position, radius * scale, layerMask, QueryTriggerInteraction.Ignore);
+            Collider[] farColliders = Physics.OverlapSphere(transform.position, effectRadius * scale, layerMask, QueryTriggerInteraction.Ignore);
 
             foreach (Collider collider in nearColliders)
             {
@@ -150,7 +151,7 @@ namespace Akila.FPSFramework
                 switch (type)
                 {
                     case ExplosionType.RayTracking:
-                        if (Physics.Raycast(transform.position, dir, out RaycastHit hit))
+                        if (Physics.Raycast(transform.position, dir, out RaycastHit hit, Mathf.Infinity, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
                         {
                             ApplyExplosion(hit.collider.transform, dir); // CORVAN: collider, not the Rigidbody root
                             CallRayTrackingCallbacks(hit);

@@ -310,7 +310,7 @@ namespace Akila.FPSFramework
                     HUD.Crosshair.UpdateSize(currentSpray);
                     if (HUD.Crosshair.floatingRect && _muzzle)
                     {
-                        if (Physics.Raycast(_muzzle.position, _muzzle.forward, out RaycastHit hit))
+                        if (Physics.Raycast(_muzzle.position, _muzzle.forward, out RaycastHit hit, Mathf.Infinity, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) // CORVAN: skip triggers
                             HUD.Crosshair.floatingRect.position = hit.point;
                         else if (HUD.Crosshair.floatingRect && farFireLocation)
                             HUD.Crosshair.floatingRect.position = farFireLocation.position;
@@ -614,15 +614,16 @@ namespace Akila.FPSFramework
         /// </summary>
         public static System.Func<Rigidbody, bool> NoImpactForce;
 
-        // CORVAN: Physics.Raycast, but the nearest hit IgnoreHit doesn't pass through.
+        // CORVAN: Physics.Raycast, but the nearest hit IgnoreHit doesn't pass through. Trigger volumes are skipped
+        // (no decal, and they don't stop the shot).
         private bool HitscanRaycast(Ray ray, out RaycastHit nearest)
         {
             if (IgnoreHit == null)
-                return Physics.Raycast(ray, out nearest, preset.range, preset.hittableLayers);
+                return Physics.Raycast(ray, out nearest, preset.range, preset.hittableLayers, QueryTriggerInteraction.Ignore);
 
             nearest = default;
             bool found = false;
-            foreach (RaycastHit h in Physics.RaycastAll(ray, preset.range, preset.hittableLayers))
+            foreach (RaycastHit h in Physics.RaycastAll(ray, preset.range, preset.hittableLayers, QueryTriggerInteraction.Ignore))
             {
                 if ((!found || h.distance < nearest.distance) && !IgnoreHit(this, h.collider))
                 {

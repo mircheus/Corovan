@@ -36,7 +36,8 @@ namespace Akila.FPSFramework
         {
             if (line) line.SetPosition(0, transform.position);
 
-            if (Physics.Raycast(transform.position, transform.forward, out hit, hitableLayers))
+            // CORVAN: skip triggers. The original passed hitableLayers as maxDistance (no mask applied).
+            if (Physics.Raycast(transform.position, transform.forward, out hit, Mathf.Infinity, hitableLayers, QueryTriggerInteraction.Ignore))
             {
                 if (!hit.transform.TryGetComponent(out IgnoreLaserDetection ignore))
                 {
