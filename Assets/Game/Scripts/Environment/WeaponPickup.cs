@@ -21,10 +21,17 @@ namespace FPSGame.Environment
         [SerializeField] private bool respawns = false;
         [SerializeField] private float respawnDelay = 15f;
 
+        [Header("Spin")]
+        [Tooltip("Weapon model to spin (cosmetic, every peer). Empty = no spin.")]
+        [SerializeField] private Transform spinModel;
+        [Tooltip("Degrees per second around the pickup's up axis. Negative = the other way.")]
+        [SerializeField] private float spinSpeed = 90f;
+
         [SyncVar(hook = nameof(OnAvailableChanged))]
         private bool available = true;
 
         private Collider triggerCollider;
+        private Quaternion spinBaseRotation;
 
         public string ItemId => itemId;
         public bool Available => available;
@@ -34,6 +41,24 @@ namespace FPSGame.Environment
         {
             triggerCollider = GetComponent<Collider>();
             triggerCollider.isTrigger = true;
+
+            if (spinModel != null)
+                spinBaseRotation = spinModel.localRotation;
+        }
+
+        private void Update()
+        {
+            if (spinModel == null || !spinModel.gameObject.activeInHierarchy)
+                return;
+
+            // Angle from NetworkTime: every peer shows the same pose, no drift.
+            // Axis = the pickup root's up, expressed in the model parent's space,
+            // so the spin stays upright whatever the model's own orientation.
+            float angle = (float)(NetworkTime.time * spinSpeed % 360.0);
+            Vector3 axis = spinModel.parent != null
+                ? spinModel.parent.InverseTransformDirection(transform.up)
+                : transform.up;
+            spinModel.localRotation = Quaternion.AngleAxis(angle, axis) * spinBaseRotation;
         }
 
         private void OnTriggerEnter(Collider other)

@@ -267,6 +267,8 @@ MonoBehaviour:
   pickupRange: 2.5
   respawns: 0
   respawnDelay: 15
+  spinModel: {fileID: 7030246875508299814}
+  spinSpeed: 90
 --- !u!1 &3654316445673007527
 GameObject:
   m_ObjectHideFlags: 0
