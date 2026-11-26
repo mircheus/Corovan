@@ -3821,79 +3821,6 @@ MonoBehaviour:
   m_SelectedFaces: 
   m_SelectedEdges: []
   m_SelectedVertices: 
---- !u!1001 &202797920
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 109992594910690849, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: 709558b4585550d45877ef2ecf7f54d4, type: 2}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -14.277164
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.5000038
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -49.416786
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3119638317199567168, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6197889040742987065, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_Name
-      value: Car_Muscle (1)
-      objectReference: {fileID: 0}
-    - target: {fileID: 6197889040742987065, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7272696822904252207, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: sceneId
-      value: 4169704109
-      objectReference: {fileID: 0}
-    - target: {fileID: 7468595536835257174, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
-      propertyPath: m_CarveOnlyStationary
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 088baacfb0d89da4ba520bee2d066b6e, type: 3}
 --- !u!1 &207860482
 GameObject:
   m_ObjectHideFlags: 0
@@ -8033,6 +7960,10 @@ PrefabInstance:
     - target: {fileID: 5445853045296433715, guid: d73b565ea6c928a45976b014e3381afc, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183267246693606996, guid: d73b565ea6c928a45976b014e3381afc, type: 3}
+      propertyPath: holdDuration
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 6290567210552022469, guid: d73b565ea6c928a45976b014e3381afc, type: 3}
       propertyPath: m_Name
@@ -40781,6 +40712,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5758317875076082086, guid: f5c0bac309e06294e9913465d68457bd, type: 3}
+      propertyPath: holdDuration
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 5781413616856829797, guid: f5c0bac309e06294e9913465d68457bd, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -58074,7 +58009,6 @@ SceneRoots:
   - {fileID: 539103588}
   - {fileID: 664506998}
   - {fileID: 594924746}
-  - {fileID: 202797920}
   - {fileID: 155307766}
   - {fileID: 910440536}
   - {fileID: 1205098989}
